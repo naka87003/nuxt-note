@@ -16,11 +16,12 @@ const { open, resolve } = $unsavedChanges;
         variant="ghost"
         class="min-h-11"
         @click="resolve(false)"
-        >Keep editing</UButton
       >
-      <UButton color="error" class="min-h-11" @click="resolve(true)"
-        >Discard changes</UButton
-      >
+        Keep editing
+      </UButton>
+      <UButton color="error" class="min-h-11" @click="resolve(true)">
+        Discard changes
+      </UButton>
     </template>
   </UModal>
 </template>

@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import type { TabsItem } from "@nuxt/ui";
+import type { DropdownMenuItem, TabsItem } from "@nuxt/ui";
 import type { CategoriesResponse } from "#shared/types/workspace";
+
 const props = defineProps<{
   data: CategoriesResponse | null | undefined;
   loading: boolean;
   failed: boolean;
   drawer?: boolean;
 }>();
+
 const emit = defineEmits<{
   select: [filter: string];
   switch: [mode: string];
@@ -15,11 +17,14 @@ const emit = defineEmits<{
   delete: [id: string, name: string];
   retry: [];
 }>();
+
 const { mode, filter } = useWorkspace();
+
 const tabs: TabsItem[] = [
   { label: "Notes", value: "notes", icon: "i-lucide-file-text" },
   { label: "Chat", value: "chats", icon: "i-lucide-message-circle" },
 ];
+
 const navigation = computed(() => [
   {
     id: "all",
@@ -34,6 +39,23 @@ const navigation = computed(() => [
     icon: "i-lucide-folder",
   },
 ]);
+
+function categoryMenuItems(
+  category: CategoriesResponse["items"][number],
+): DropdownMenuItem[] {
+  return [
+    {
+      label: "Rename",
+      icon: "i-lucide-pencil",
+      onSelect: () => emit("rename", category.id, category.name),
+    },
+    {
+      label: "Delete category",
+      icon: "i-lucide-trash-2",
+      onSelect: () => emit("delete", category.id, category.name),
+    },
+  ];
+}
 </script>
 
 <template>
@@ -45,11 +67,11 @@ const navigation = computed(() => [
         color="error"
         class="mb-3"
       >
-        <template #description
-          ><UButton variant="link" color="neutral" @click="emit('retry')"
-            >Try again</UButton
-          ></template
-        >
+        <template #description>
+          <UButton variant="link" color="neutral" @click="emit('retry')">
+            Try again
+          </UButton>
+        </template>
       </UAlert>
       <button
         v-for="item in navigation"
@@ -61,8 +83,10 @@ const navigation = computed(() => [
       >
         <UIcon :name="item.icon" class="size-5 shrink-0" /><span
           class="flex-1 text-left"
-          >{{ item.name }}</span
-        ><span class="category-count">{{ loading ? "…" : item.count }}</span>
+        >
+          {{ item.name }}
+        </span>
+        <span class="category-count">{{ loading ? "…" : item.count }}</span>
       </button>
       <h2 class="mt-5 mb-2 text-sm font-semibold">Categories</h2>
       <div
@@ -76,25 +100,11 @@ const navigation = computed(() => [
           :aria-current="filter === category.id ? 'page' : undefined"
           @click="emit('select', category.id)"
         >
-          <UIcon name="i-lucide-folder" class="size-5 shrink-0" /><span
-            class="flex-1 truncate text-left"
-            >{{ category.name }}</span
-          ><span class="category-count">{{ category._count[mode] }}</span>
+          <UIcon name="i-lucide-folder" class="size-5 shrink-0" />
+          <span class="flex-1 truncate text-left">{{ category.name }}</span>
+          <span class="category-count">{{ category._count[mode] }}</span>
         </button>
-        <UDropdownMenu
-          :items="[
-            {
-              label: 'Rename',
-              icon: 'i-lucide-pencil',
-              onSelect: () => emit('rename', category.id, category.name),
-            },
-            {
-              label: 'Delete category',
-              icon: 'i-lucide-trash-2',
-              onSelect: () => emit('delete', category.id, category.name),
-            },
-          ]"
-        >
+        <UDropdownMenu :items="categoryMenuItems(category)">
           <UButton
             icon="i-lucide-ellipsis"
             color="neutral"
@@ -111,8 +121,9 @@ const navigation = computed(() => [
         block
         class="mt-3 font-bold"
         @click="emit('create')"
-        >New category</UButton
       >
+        New category
+      </UButton>
     </nav>
     <footer class="category-footer">
       <p class="mb-3 text-xs text-dimmed">

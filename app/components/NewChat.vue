@@ -1,8 +1,10 @@
 <script setup lang="ts">
 const { categoryId, location } = useWorkspace();
+
 const draft = ref("");
 const busy = ref(false);
 const failure = ref("");
+
 let pending:
   | {
       chatId: string;
@@ -11,6 +13,7 @@ let pending:
       categoryId: string | null;
     }
   | undefined;
+
 async function create() {
   if (busy.value || !draft.value.trim()) return;
   if (

@@ -10,8 +10,12 @@
         aria-label="Back to home"
       />
     </div>
-    <NuxtLink to="/" aria-label="Nuxt Note home"><AppBrand /></NuxtLink>
-    <div class="header-side header-right"><ProfileMenu /></div>
+    <NuxtLink to="/" aria-label="Nuxt Note home">
+      <AppBrand />
+    </NuxtLink>
+    <div class="header-side header-right">
+      <ProfileMenu />
+    </div>
   </header>
 </template>
 

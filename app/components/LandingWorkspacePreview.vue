@@ -1,19 +1,24 @@
 <script setup lang="ts">
 const props = defineProps<{ mode: "notes" | "chat" }>();
+
 const isChat = computed(() => props.mode === "chat");
+
 const groups = ["Today", "Last 7 Days", "Last Month", "Older"];
+
 const noteTitles = [
   "Nuxt data fetching",
   "Server routes and API",
   "Runtime config",
   "Nuxt UI components",
 ];
+
 const chatTitles = [
   "Understanding useFetch",
   "Auth callback",
   "Custom composables",
   "SSR caching",
 ];
+
 const summaries = computed(() =>
   isChat.value
     ? [
@@ -53,10 +58,10 @@ const summaries = computed(() =>
             name="i-lucide-panel-left-close"
             class="desktop-preview-menu"
           />
-          <UIcon name="i-lucide-menu" class="mobile-preview-menu" /><span
-            class="sample-primary"
-            >+ New {{ isChat ? "chat" : "note" }}</span
-          >
+          <UIcon name="i-lucide-menu" class="mobile-preview-menu" />
+          <span class="sample-primary">
+            + New {{ isChat ? "chat" : "note" }}
+          </span>
         </div>
         <AppBrand class="sample-brand" />
         <img
@@ -70,13 +75,14 @@ const summaries = computed(() =>
       <div class="sample-body">
         <div class="sample-sidebar">
           <div class="category-link">
-            <UIcon name="i-lucide-files" />All {{ isChat ? "chats" : "notes"
-            }}<small>{{ isChat ? 12 : 24 }}</small>
+            <UIcon name="i-lucide-files" />
+            All {{ isChat ? "chats" : "notes" }}
+            <small>{{ isChat ? 12 : 24 }}</small>
           </div>
           <div class="category-link">
-            <UIcon name="i-lucide-folder" />Uncategorized<small>{{
-              isChat ? 2 : 3
-            }}</small>
+            <UIcon name="i-lucide-folder" />
+            Uncategorized
+            <small> {{ isChat ? 2 : 3 }} </small>
           </div>
           <p class="category-heading">Categories</p>
           <div
@@ -85,32 +91,36 @@ const summaries = computed(() =>
             class="category-link"
             :class="{ selected: i === 1 }"
           >
-            <UIcon name="i-lucide-folder" />{{ category
-            }}<small>{{ (isChat ? [3, 4, 3] : [8, 7, 6])[i] }}</small>
+            <UIcon name="i-lucide-folder" />
+            {{ category }}
+            <small>{{ (isChat ? [3, 4, 3] : [8, 7, 6])[i] }}</small>
           </div>
           <div class="new-category">+ New category</div>
           <div class="sample-tabs">
-            <span :class="{ current: !isChat }"
-              ><UIcon name="i-lucide-file-text" />Notes</span
-            ><span :class="{ current: isChat }"
-              ><UIcon name="i-lucide-message-circle" />Chat</span
-            >
+            <span :class="{ current: !isChat }">
+              <UIcon name="i-lucide-file-text" />
+              Notes
+            </span>
+            <span :class="{ current: isChat }">
+              <UIcon name="i-lucide-message-circle" />
+              Chat
+            </span>
           </div>
         </div>
         <div class="sample-list">
           <div class="list-top">
-            <strong
-              >Nuxt
-              <small
-                >{{ isChat ? 4 : 7 }} {{ isChat ? "chats" : "notes" }}</small
-              ></strong
-            >
+            <strong>
+              Nuxt
+              <small>
+                {{ isChat ? 4 : 7 }} {{ isChat ? "chats" : "notes" }}
+              </small>
+            </strong>
             <div class="sample-search">
               Search {{ isChat ? "chats" : "notes" }}…
             </div>
             <div class="search-scope">
-              <span>All {{ isChat ? "chats" : "notes" }}</span
-              ><span>In Nuxt</span>
+              <span>All {{ isChat ? "chats" : "notes" }}</span>
+              <span>In Nuxt</span>
             </div>
             <small>Grouped by last updated</small>
           </div>
@@ -123,24 +133,22 @@ const summaries = computed(() =>
             <div class="sample-list-card" :class="{ selected: index === 0 }">
               <strong>{{ (isChat ? chatTitles : noteTitles)[index] }}</strong>
               <p>{{ summaries[index] }}</p>
-              <small
-                >Nuxt ·
-                {{
-                  ["Nov 3, 10:24", "Nov 2", "Oct 18", "Sep 14"][index]
-                }}</small
-              >
+              <small>
+                Nuxt ·
+                {{ ["Nov 3, 10:24", "Nov 2", "Oct 18", "Sep 14"][index] }}
+              </small>
             </div>
           </div>
         </div>
         <div class="sample-content">
           <div class="sample-toolbar">
-            <span class="back-label">← Back</span
-            ><span v-if="!isChat" class="preview-label">Preview</span>
+            <span class="back-label">← Back</span>
+            <span v-if="!isChat" class="preview-label">Preview</span>
             <div>
-              <span :class="isChat ? 'sample-soft' : 'sample-primary'">{{
-                isChat ? "Category: Nuxt" : "Edit"
-              }}</span
-              ><span class="sample-soft">Delete</span>
+              <span :class="isChat ? 'sample-soft' : 'sample-primary'">
+                {{ isChat ? "Category: Nuxt" : "Edit" }}
+              </span>
+              <span class="sample-soft">Delete</span>
             </div>
           </div>
           <div v-if="!isChat" class="sample-note">
@@ -181,9 +189,10 @@ const summaries = computed(() =>
             <pre><code><span class="syntax-keyword">const</span> { data } =
   <span class="syntax-keyword">await</span> <span class="syntax-function">useFetch</span>(<span class="syntax-string">'/api/notes'</span>)</code></pre>
             <div class="sample-composer">
-              <span /><span class="sample-send"
-                ><img src="/icons/chat-send.svg" width="20" height="20" alt=""
-              /></span>
+              <span />
+              <span class="sample-send">
+                <img src="/icons/chat-send.svg" width="20" height="20" alt="" />
+              </span>
             </div>
           </div>
         </div>

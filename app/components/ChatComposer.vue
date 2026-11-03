@@ -1,19 +1,26 @@
 <script setup lang="ts">
 const value = defineModel<string>({ default: "" });
+
 const props = defineProps<{
   busy?: boolean;
   disabled?: boolean;
   canStop?: boolean;
 }>();
+
 const textarea = ref<HTMLTextAreaElement>();
+
 function resize() {
   if (!textarea.value) return;
   textarea.value.style.height = "auto";
   textarea.value.style.height = `${Math.min(textarea.value.scrollHeight, 160)}px`;
 }
+
 onMounted(resize);
+
 watch(value, resize, { flush: "post" });
+
 const emit = defineEmits<{ send: []; stop: [] }>();
+
 function keydown(event: KeyboardEvent) {
   if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
     event.preventDefault();
