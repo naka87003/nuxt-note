@@ -80,6 +80,7 @@ Syntax highlighting validation: 160 unit tests, lint, typecheck, formatting and 
 - [Specification](docs/specification.md)
 - [Shared foundation and Chat integration plan](docs/integration.md)
 - [Development and environment setup](docs/development.md)
+- [Notebook data migration](docs/notebook-migration.md)
 - [Deployment preparation and read-only environment audit](docs/deployment.md)
 - [Figma and implementation workflow](docs/design.md)
 - [Current desktop workspace designs](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=39-776)
