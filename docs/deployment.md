@@ -40,7 +40,7 @@ Use Vercel's Nuxt integration with Node functions for the server APIs, sessions,
 | Repository / root  | `naka87003/nuxt-note`, repository root                                                                                                             |
 | Production branch  | `main`, after staging validation                                                                                                                   |
 | Framework / output | Nuxt; retain framework-managed output settings                                                                                                     |
-| Node               | 24.x, consistent with `>=24.16.0 <25`; verify actual build/runtime versions                                                                        |
+| Node               | 26.x, consistent with `>=26.11.1 <27`; verify actual build/runtime versions                                                                        |
 | Package manager    | Enable `ENABLE_EXPERIMENTAL_COREPACK=1` and use committed `packageManager: pnpm@12.16.1`; verify install logs                                      |
 | Install            | Frozen lockfile installation with pnpm 12.16.1; keep postinstall for Nuxt preparation and Prisma generation                                        |
 | Build              | `pnpm build`: Prisma generation + Nuxt build; no migrations                                                                                        |
@@ -99,7 +99,7 @@ Preview URLs vary. Use a stable staging hostname with its own OAuth App/DB for a
 
 1. Confirm Vercel team/project/plan, canonical hostname, production DB designation and OAuth ownership. Restore GitHub CLI authentication if remote history checks are needed; never put credentials in chat.
 2. Prepare staging DB, OAuth App, app secret and scoped AI credentials. Configure Preview protection. Repository import/Git auto-deploy setup can trigger a deployment; review the target before enabling them.
-3. Implement/review Vercel duration and package-manager settings. On Node 24.16.0, run lint, formatting, typecheck, unit tests, Prisma validation and build. With Docker, run disposable `test:db` and built-server `test:chat`; never target Supabase with fixtures.
+3. Implement/review Vercel duration and package-manager settings. On Node 26.11.1, run lint, formatting, typecheck, unit tests, Prisma validation and build. With Docker, run disposable `test:db` and built-server `test:chat`; never target Supabase with fixtures.
 4. Deploy staging with the Vercel preset. Check output, runtime/install versions, streaming, duration, region and environment separation. `/api/health` is liveness only, not DB/OAuth readiness.
 5. On staging, verify GitHub login/logout, avatar and protected redirects; anonymous/other-user API rejection; Note save/edit/delete and unsaved guards; shared categories; Chat send/stop/partial persistence/retry, duplicate sends and two-tab concurrency. Use designated test accounts/records.
 6. Check 1440/1024/768/390px layouts, GitHub Dark Markdown, code scrolling and LP assets. Check physical iOS/Android keyboard, IME, safe areas and drafts. Measure mobile first load with the approximately 293 kB gzip Markdown chunk.

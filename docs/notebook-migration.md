@@ -4,7 +4,7 @@ The one-time importer reads TablePlus UTF-8 `notes.csv` and `tags.csv`. It impor
 
 The confirmed source is Notebook user 12, with 753 active Note records, 29 used tags, and `APP_TIMEZONE=Asia/Tokyo`. Source creation/update timestamps are converted from Tokyo time to UTC for the application's timestamp columns. Schedule fields, public flags, tag colors, images and social data are not imported. Only category 1/status 1 records are accepted; other kinds require an explicit mapping change.
 
-Run with Node 24.16.0 from the repository root. The configured `DIRECT_URL` (or `DATABASE_URL`) must point to the intended Nuxt Note database. Never commit exported data or connection strings.
+Run with Node 26.11.1 from the repository root. The configured `DIRECT_URL` (or `DATABASE_URL`) must point to the intended Nuxt Note database. Never commit exported data or connection strings.
 
 ```bash
 node scripts/import-notebook.mjs \

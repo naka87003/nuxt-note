@@ -36,7 +36,7 @@ Chat runtime validation includes unit tests and disposable HTTP checks for strea
 
 Production: [nuxt-note-ivory.vercel.app](https://nuxt-note-ivory.vercel.app). The user completed the Vercel deployment and reported normal operation on 2026-11-03; public home/health HTTP checks also passed. See the [deployment guide](docs/deployment.md) for configuration, verification scope and remaining release checks.
 
-Use Node.js 24.16.0 and pnpm 12.16.1.
+Use Node.js 26.11.1 and pnpm 12.16.1.
 
 ```bash
 nvm use

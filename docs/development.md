@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Node.js 24.16.0 / pnpm 12.16.1
+- Node.js 26.11.1 / pnpm 12.16.1
 - PostgreSQL, using the existing Nuxt Note database or a local development database
 - A GitHub OAuth App
 
