@@ -1,8 +1,9 @@
 import { createError } from "nuxt/server";
 import { getPrisma } from "../../utils/prisma";
+import { getAuthenticatedUserId } from "../../utils/auth";
 
 export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event);
+  const userId = await getAuthenticatedUserId(event);
   const body: unknown = await readBody(event);
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     throw createError({ statusCode: 400, statusMessage: "Invalid note" });
@@ -19,7 +20,7 @@ export default defineEventHandler(async (event) => {
     });
   }
   const note = await getPrisma().note.create({
-    data: { title: title.trim() || "Untitled note", markdown, userId: user.id },
+    data: { title: title.trim() || "Untitled note", markdown, userId },
     select: { id: true },
   });
   setResponseStatus(event, 201);

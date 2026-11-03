@@ -24,15 +24,17 @@ vi.stubGlobal("getRouterParam", mocks.param);
 const { default: create } = await import("../../server/api/notes/index.post");
 const { default: list } = await import("../../server/api/notes/index.get");
 const { default: read } = await import("../../server/api/notes/[id].get");
+const ownerId = "11111111-1111-4111-8111-111111111111";
+const otherId = "22222222-2222-4222-8222-222222222222";
 const event = {} as Parameters<typeof create>[0];
 
 beforeEach(() => {
   vi.resetAllMocks();
-  mocks.session.mockResolvedValue({ user: { id: "owner" } });
+  mocks.session.mockResolvedValue({ user: { id: ownerId } });
   mocks.body.mockResolvedValue({
     title: "  ",
     markdown: "# Hello",
-    userId: "other",
+    userId: otherId,
   });
   mocks.create.mockResolvedValue({ id: "note" });
   mocks.param.mockReturnValue("note");
@@ -42,7 +44,7 @@ describe("notes API ownership and validation", () => {
   it("assigns ownership from the session and defaults a blank title", async () => {
     await expect(create(event)).resolves.toEqual({ id: "note" });
     expect(mocks.create).toHaveBeenCalledWith({
-      data: { title: "Untitled note", markdown: "# Hello", userId: "owner" },
+      data: { title: "Untitled note", markdown: "# Hello", userId: ownerId },
       select: { id: true },
     });
     expect(mocks.status).toHaveBeenCalledWith(event, 201);
@@ -73,7 +75,7 @@ describe("notes API ownership and validation", () => {
   it("lists only the current user's notes without fetching note bodies", async () => {
     await list(event);
     expect(mocks.findMany).toHaveBeenCalledWith({
-      where: { userId: "owner" },
+      where: { userId: ownerId },
       select: { id: true, title: true, updatedAt: true },
       orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
     });
@@ -82,7 +84,34 @@ describe("notes API ownership and validation", () => {
     mocks.findFirst.mockResolvedValue(null);
     await expect(read(event)).rejects.toMatchObject({ statusCode: 404 });
     expect(mocks.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "note", userId: "owner" } }),
+      expect.objectContaining({ where: { id: "note", userId: ownerId } }),
     );
+  });
+
+  it.each([create, list, read])(
+    "rejects malformed session IDs before a database query",
+    async (handler) => {
+      mocks.session.mockResolvedValue({ user: {}, databaseUserId: ownerId });
+      await expect(handler(event)).rejects.toMatchObject({ statusCode: 401 });
+      expect(mocks.create).not.toHaveBeenCalled();
+      expect(mocks.findMany).not.toHaveBeenCalled();
+      expect(mocks.findFirst).not.toHaveBeenCalled();
+      expect(mocks.body).not.toHaveBeenCalled();
+    },
+  );
+
+  it("prevents a second user from reading the first user's note", async () => {
+    const note = {
+      id: "note",
+      userId: ownerId,
+      title: "Private",
+      markdown: "secret",
+    };
+    mocks.findFirst.mockImplementation(({ where }) =>
+      where.id === note.id && where.userId === note.userId ? note : null,
+    );
+    await expect(read(event)).resolves.toMatchObject({ title: "Private" });
+    mocks.session.mockResolvedValue({ user: { id: otherId } });
+    await expect(read(event)).rejects.toMatchObject({ statusCode: 404 });
   });
 });

@@ -1,6 +1,8 @@
 # Nuxt Note
 
-A Markdown note app that ports the existing notebook project to Nuxt. Its stack, colors, and UI conventions follow nuxt-chat. The interface uses English and a dark theme.
+A single Nuxt application centered on Markdown notes, with chat functionality planned for incremental integration from nuxt-chat. The service, repository, and package name are nuxt-note; the display name is Nuxt Note. The interface uses English and a dark theme.
+
+Development continues in this repository. The original nuxt-chat repository remains a reference, and nuxt-apps remains an archive. Existing Chat users, projects, conversations, and messages will not be imported. See the [integration plan](docs/integration.md) for the shared user, authentication, and database decisions and the first implementation scope.
 
 ## Current implementation
 
@@ -11,6 +13,9 @@ A Markdown note app that ports the existing notebook project to Nuxt. Its stack,
 - Updated-date grouping with boundary tests
 - Authenticated note creation, explicit saving, grouped listing, and reading saved Markdown source
 - Unsaved-change confirmation when leaving a new note, and retryable save errors
+- Shared session authentication helper with database UUID validation
+- Shared User, Category, Note, Chat, and Message models in one unified initial migration; notes and conversations reference the same Category
+- Disposable PostgreSQL checks for initial schema creation, RLS, foreign keys, and deletion behavior
 
 Editing and deleting saved notes, rendered Markdown preview, category operations, and search are planned for the next implementation phase. The note shown on the landing page is a design preview. Actual sign-in requires an OAuth App and database configuration.
 
@@ -44,6 +49,8 @@ pnpm lint
 pnpm format:check
 pnpm typecheck
 pnpm test
+# Optional: requires a running Docker engine; uses a disposable database only.
+pnpm test:db
 pnpm db:validate
 pnpm build
 ```
@@ -51,12 +58,14 @@ pnpm build
 ## Design and documentation
 
 - [Specification](docs/specification.md)
+- [Shared foundation and Chat integration plan](docs/integration.md)
 - [Development and environment setup](docs/development.md)
 - [Figma and implementation workflow](docs/design.md)
-- [Desktop workspace designs](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=5-21)
-- [Mobile workspace designs](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=26-376)
-- [Desktop landing page](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=22-211)
-- [Mobile landing page](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=27-473)
+- [Current desktop workspace designs](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=39-776)
+- [Current mobile workspace designs](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=40-647)
+- [Responsive variants / Medium and mobile](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=106-1023)
+- [Desktop landing page](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=60-924)
+- [Mobile landing page](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=61-1093)
 
 ## Project language
 
@@ -71,4 +80,5 @@ shared/       Types and shared logic
 prisma/       Database schema and migrations
 tests/unit/   Tests for shared logic
 docs/         Specification, setup, and design workflow
+scripts/      Disposable database verification
 ```
