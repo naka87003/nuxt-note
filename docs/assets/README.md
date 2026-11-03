@@ -25,6 +25,10 @@ Transparent background. Wide landscape 3:2 with comfortable surrounding padding.
 
 ## Chat illustration
 
-`nuxt-chat-ai-conversations.png` reuses the existing decorative illustration from `public/ai-conversations.png` in the reference nuxt-chat repository. It connects the new landing page visually with the current Nuxt Chat landing page.
+`nuxt-chat-ai-conversations.png` reuses the existing decorative illustration from `public/ai-conversations.png` in the reference nuxt-chat repository. It connects the new landing page visually with the current Nuxt Chat landing page. The Figma source image and both repository copies are byte-identical.
 
 The two retained assets are placed in Figma as image fills. Product interface previews use editable Figma layers rather than flattened UI images.
+
+## Figma presentation
+
+[04 / Assets](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=92-1012) presents both illustrations in equal cards with a shared dark background, outline, padding and title treatment. Each artwork is centered in the same viewport, uses Fit and retains its aspect ratio; the illustrations themselves remain transparent source assets. Notebook and AI image node IDs are preserved, and the landing-page placements are unchanged. The former section 04 containing obsolete Note references was deleted, and the current boards are numbered 01–07.
