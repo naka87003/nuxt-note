@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { groupNotesByUpdatedAt } from "#shared/utils/note-date-groups";
-import type { WorkspaceItem } from "#shared/types/workspace";
+import type {
+  CategoriesResponse,
+  WorkspaceItem,
+} from "#shared/types/workspace";
 
 const props = defineProps<{
   items: WorkspaceItem[];
@@ -11,6 +14,9 @@ const props = defineProps<{
 const emit = defineEmits<{ retry: [] }>();
 
 const { mode, current, location, filter } = useWorkspace();
+const { data: categories } = useNuxtData<CategoriesResponse>(
+  "workspace-categories",
+);
 
 const route = useRoute();
 const list = useTemplateRef("list");
@@ -74,12 +80,25 @@ function itemTitle(item: WorkspaceItem) {
   return item.title || untitledLabel.value;
 }
 
+function itemCategory(item: WorkspaceItem) {
+  if (!item.categoryId) return "Uncategorized";
+  return (
+    categories.value?.items.find((category) => category.id === item.categoryId)
+      ?.name ?? "Category"
+  );
+}
+
 function onScroll(event: Event) {
   current.value.scroll = (event.target as HTMLElement).scrollTop;
 }
 
 function date(value: string) {
-  return new Date(value).toLocaleDateString(undefined, {
+  const updatedAt = new Date(value);
+  const oneYearAgo = new Date(now.value);
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+  return updatedAt.toLocaleDateString(undefined, {
+    year: updatedAt < oneYearAgo ? "numeric" : undefined,
     month: "short",
     day: "numeric",
   });
@@ -143,11 +162,15 @@ function date(value: string) {
                 <h3 class="line-clamp-2 text-sm font-medium">
                   {{ itemTitle(item) }}
                 </h3>
-                <p class="mt-2 text-xs text-dimmed">
-                  <ClientOnly>
-                    {{ date(item.updatedAt) }}
-                    <template #fallback>Saved</template>
-                  </ClientOnly>
+                <p class="mt-2 flex items-center gap-1 text-xs text-dimmed">
+                  <span class="min-w-0 truncate">{{ itemCategory(item) }}</span>
+                  <span aria-hidden="true">·</span>
+                  <span class="shrink-0">
+                    <ClientOnly>
+                      {{ date(item.updatedAt) }}
+                      <template #fallback>Saved</template>
+                    </ClientOnly>
+                  </span>
                 </p>
               </NuxtLink>
             </li>
