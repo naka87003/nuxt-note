@@ -33,6 +33,8 @@ Chat runtime validation includes unit tests and disposable HTTP checks for strea
 
 ## Getting started
 
+Production: [nuxt-note-ivory.vercel.app](https://nuxt-note-ivory.vercel.app). The user completed the Vercel deployment and reported normal operation on 2026-11-03; public home/health HTTP checks also passed. See the [deployment guide](docs/deployment.md) for configuration, verification scope and remaining release checks.
+
 Use Node.js 24.16.0 and pnpm 12.16.1.
 
 ```bash
@@ -78,6 +80,7 @@ Syntax highlighting validation: 160 unit tests, lint, typecheck, formatting and 
 - [Specification](docs/specification.md)
 - [Shared foundation and Chat integration plan](docs/integration.md)
 - [Development and environment setup](docs/development.md)
+- [Deployment preparation and read-only environment audit](docs/deployment.md)
 - [Figma and implementation workflow](docs/design.md)
 - [Current desktop workspace designs](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=39-776)
 - [Current mobile workspace designs](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=40-647)

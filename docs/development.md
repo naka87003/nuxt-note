@@ -47,6 +47,8 @@ node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 
 ## Database initialization
 
+For an existing configured database, first consult the [deployment audit](deployment.md#status-and-scope). The 2026-11-03 read-only inspection found the current init applied with a matching checksum on the local environment's target. The older-init guidance below applies only to targets with an older schema/history; it is not an instruction to reset this inspected database.
+
 Before running these commands, verify that `.env` points to an empty Nuxt Note database. The unified initial migration creates the complete Note and Chat foundation.
 
 ```bash
@@ -97,5 +99,7 @@ Set `NUXT_OPENAI_API_KEY` in the ignored `.env` or the deployment's secret store
 The first send saves the chat/question and then requests an answer. Missing AI configuration yields a retryable message without discarding the question. Provider/model access or quota failures also preserve the question. Shared-key requests use the same provider project limits and budget; no automatic paid retries or title-generation requests are made. Stop/failed partial answers remain saved. Application-level retention in OpenAI is disabled with `store: false`; this does not promise zero provider retention. See [OpenAI authentication](https://developers.openai.com/api/reference/overview#authentication), [streaming](https://developers.openai.com/api/docs/guides/streaming-responses), [data controls](https://developers.openai.com/api/docs/guides/your-data), and [AI SDK cancellation](https://ai-sdk.dev/docs/advanced/stopping-streams).
 
 Generation uses a 120-second server timeout and 4,096 output-token cap. The initial target remains a long-running Node server; verify the eventual host's streaming, proxy buffering and request-duration settings before deployment. There is no stream resumption or durable background worker.
+
+Vercel is now the intended deployment platform. The [deployment preparation guide](deployment.md) covers serverless pooling, function duration, environment separation and hosted-streaming checks. No hosting configuration has been applied yet.
 
 After `pnpm build`, run `pnpm test:chat` with Docker available. It never loads `.env`, uses a random session secret, starts a dedicated temporary PostgreSQL container and local built server, intercepts OpenAI requests with a test provider, and removes the container on completion. It does not exercise live OAuth or spend API credits. `pnpm test:chat --preview` keeps a loopback-only authenticated fixture at `http://127.0.0.1:3012/chats/new` until Ctrl+C for UI checks. This test proxy is never included in the application build.
