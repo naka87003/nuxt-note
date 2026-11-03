@@ -142,7 +142,11 @@ function date(value: string) {
           </UButton>
         </template>
       </UAlert>
-      <p v-else-if="loading" class="py-5 text-sm text-dimmed" role="status">
+      <p
+        v-else-if="loading && !items.length"
+        class="py-5 text-sm text-dimmed"
+        role="status"
+      >
         Loading…
       </p>
       <p v-else-if="!items.length" class="py-5 text-sm text-dimmed">
@@ -160,11 +164,15 @@ function date(value: string) {
                 :aria-current="selected === item.id ? 'page' : undefined"
               >
                 <h3 class="line-clamp-2 text-sm font-medium">
-                  {{ itemTitle(item) }}
+                  <TypewriterText
+                    v-if="mode === 'chats'"
+                    :text="itemTitle(item)"
+                  />
+                  <template v-else>{{ itemTitle(item) }}</template>
                 </h3>
                 <p
                   v-if="item.preview"
-                  class="mt-1 line-clamp-2 text-xs break-words text-dimmed"
+                  class="mt-1 line-clamp-2 text-xs wrap-break-word text-dimmed"
                 >
                   {{ item.preview }}
                 </p>

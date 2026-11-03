@@ -180,7 +180,7 @@ async function remove() {
       <div ref="messagePane" class="chat-messages" @scroll="onScroll">
         <div class="chat-inner space-y-6">
           <h1 class="text-2xl font-semibold wrap-break-word">
-            {{ chat.title || "Untitled chat" }}
+            <TypewriterText :text="chat.title || 'Untitled chat'" />
           </h1>
           <div
             v-for="message in chat.messages"

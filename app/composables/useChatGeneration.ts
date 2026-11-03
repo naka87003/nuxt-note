@@ -1,6 +1,7 @@
 import type { ChatMessage } from "#shared/types/chat";
 interface Conversation {
   id: string;
+  title: string | null;
   generationId: string | null;
   messages: ChatMessage[];
 }
@@ -32,18 +33,32 @@ export function useChatGeneration(
   let attemptId = "";
   let pending: { messageId: string; content: string } | undefined;
   let disposed = false;
+  async function summarizeTitle(chatId: string) {
+    try {
+      const result = await $fetch(`/api/chats/${chatId}/title`, {
+        method: "POST",
+      });
+      if (!disposed && chat.value?.id === chatId && result.title)
+        chat.value.title = result.title;
+      await refreshNuxtData("workspace-list");
+    } catch {
+      // Keep the existing title; this must not interrupt the conversation.
+    }
+  }
   async function generate() {
     if (busy.value || !chat.value || !lastQuestion.value) return;
     const target = chat.value;
+    const questionId = lastQuestion.value.id;
     sending.value = true;
     failure.value = "";
     attemptId = crypto.randomUUID();
     controller = new AbortController();
+    let shouldSummarizeTitle = false;
     try {
       const response = await fetch(`/api/chats/${target.id}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageId: lastQuestion.value.id, attemptId }),
+        body: JSON.stringify({ messageId: questionId, attemptId }),
         signal: controller.signal,
       });
       if (!response.ok || !response.body) {
@@ -83,7 +98,7 @@ export function useChatGeneration(
                   role: "assistant",
                   content: "",
                   status: "generating",
-                  replyToId: lastQuestion.value!.id,
+                  replyToId: questionId,
                   createdAt: new Date().toISOString(),
                 };
                 target.messages.push(reply);
@@ -94,6 +109,10 @@ export function useChatGeneration(
             else if (data.type === "done") {
               done = true;
               if (reply) reply.status = data.status;
+              shouldSummarizeTitle =
+                data.status === "completed" &&
+                reply?.replyToId ===
+                  target.messages.find((m) => m.role === "user")?.id;
             }
           }
         }
@@ -117,6 +136,7 @@ export function useChatGeneration(
         });
         await refreshNuxtData(["workspace-list", "workspace-categories"]);
       }
+      if (shouldSummarizeTitle) void summarizeTitle(target.id);
     }
   }
   async function send() {

@@ -29,9 +29,7 @@ export default defineEventHandler(async (event) => {
         id,
         userId,
         categoryId,
-        title: Array.from(message.content.replace(/\s+/g, " "))
-          .slice(0, 80)
-          .join(""),
+        title: null,
         messages: { create: { ...message, role: "user" } },
       },
     });

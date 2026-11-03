@@ -20,6 +20,7 @@ Development continues in this repository. The original nuxt-chat repository rema
 - Category and workspace switching with filter/search/scroll state preservation and unsaved-note guards
 - Owner-scoped Note and Chat search with literal wildcard handling; Chat history, saved conversation reading, category reassignment, and confirmed deletion
 - Chat creation, OpenAI streaming, stop with partial-answer persistence, manual retry, and safe assistant Markdown
+- New chats have no saved title and display “Untitled chat” until a summary is ready. After the first answer completes, a separate request summarizes that exchange in the question's language and reveals the title in the heading and list with a typewriter animation, without blocking the next message. It uses the configured OpenAI model; failures keep the existing title, and later exchanges do not regenerate it. Reduced-motion preferences disable the animation.
 - Request UUIDs, a database generation guard, and stale-attempt recovery to prevent duplicate or late writes
 - Disposable PostgreSQL checks for initial schema creation, RLS, foreign keys, and deletion behavior
 

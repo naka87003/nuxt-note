@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   body: vi.fn(),
   config: vi.fn(),
   streamText: vi.fn(),
+  generateText: vi.fn(),
   chat: { findFirst: vi.fn(), updateMany: vi.fn(), create: vi.fn() },
   category: { findFirst: vi.fn() },
   message: {
@@ -23,7 +24,10 @@ vi.mock("../../server/utils/prisma", () => ({ getPrisma: () => mocks }));
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));
-vi.mock("ai", () => ({ streamText: mocks.streamText }));
+vi.mock("ai", () => ({
+  streamText: mocks.streamText,
+  generateText: mocks.generateText,
+}));
 vi.mock("@ai-sdk/openai", () => ({ createOpenAI: () => () => "model" }));
 vi.stubGlobal("defineEventHandler", (handler: unknown) => handler);
 vi.stubGlobal("requireUserSession", mocks.session);
@@ -40,6 +44,8 @@ const { default: sendMessage } =
   await import("../../server/api/chats/[id]/messages.post");
 const { default: createChat } =
   await import("../../server/api/chats/index.post");
+const { default: summarizeTitle } =
+  await import("../../server/api/chats/[id]/title.post");
 const { saveGeneration, recoverGeneration } =
   await import("../../server/utils/chat-generation");
 const owner = "11111111-1111-4111-8111-111111111111";
@@ -94,7 +100,7 @@ beforeEach(() => {
   });
 });
 describe("Chat generation", () => {
-  it.each([generate, stop, sendMessage, createChat])(
+  it.each([generate, stop, sendMessage, createChat, summarizeTitle])(
     "requires authentication before touching chat data",
     async (handler) => {
       mocks.session.mockRejectedValue({ statusCode: 401 });
@@ -103,7 +109,7 @@ describe("Chat generation", () => {
       expect(mocks.body).not.toHaveBeenCalled();
     },
   );
-  it.each([generate, stop, sendMessage])(
+  it.each([generate, stop, sendMessage, summarizeTitle])(
     "hides foreign conversations before parsing input or calling AI",
     async (handler) => {
       mocks.chat.findFirst.mockResolvedValue(null);
@@ -331,5 +337,104 @@ describe("Chat generation", () => {
     mocks.category.findFirst.mockResolvedValue(null);
     await expect(createChat(event)).rejects.toMatchObject({ statusCode: 404 });
     expect(mocks.chat.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("Chat titles", () => {
+  beforeEach(() => {
+    mocks.chat.findFirst.mockResolvedValue({
+      id: "chat",
+      userId: owner,
+      title: null,
+    });
+    mocks.message.findFirst
+      .mockResolvedValueOnce(question)
+      .mockResolvedValueOnce({ content: "Hello", status: "completed" });
+    mocks.generateText.mockResolvedValue({
+      text: "「挨拶のやり取り」",
+      finishReason: "stop",
+    });
+  });
+
+  it("summarizes the first completed exchange and saves a normalized title", async () => {
+    expect(await summarizeTitle(event)).toEqual({ title: "挨拶のやり取り" });
+    expect(mocks.message.findFirst).toHaveBeenNthCalledWith(2, {
+      where: { chatId: "chat", replyToId: questionId, status: "completed" },
+    });
+    expect(mocks.generateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: JSON.stringify({ question: "hello", answer: "Hello" }),
+        maxRetries: 0,
+        abortSignal: expect.any(AbortSignal),
+        providerOptions: { openai: { store: false } },
+      }),
+    );
+    expect(mocks.chat.updateMany).toHaveBeenCalledWith({
+      where: { id: "chat", userId: owner, title: null },
+      data: { title: "挨拶のやり取り" },
+    });
+  });
+
+  it("creates a chat without using the question as its title", async () => {
+    mocks.body.mockResolvedValue({
+      chatId: attemptId,
+      messageId: questionId,
+      content: "hello",
+    });
+    mocks.chat.findFirst.mockResolvedValue(null);
+    await createChat(event);
+    expect(mocks.chat.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ title: null }),
+      }),
+    );
+  });
+
+  it("still summarizes a legacy question-excerpt title", async () => {
+    mocks.chat.findFirst.mockResolvedValue({ title: "hello" });
+    expect(await summarizeTitle(event)).toEqual({ title: "挨拶のやり取り" });
+    expect(mocks.chat.updateMany).toHaveBeenCalledWith({
+      where: { id: "chat", userId: owner, title: "hello" },
+      data: { title: "挨拶のやり取り" },
+    });
+  });
+
+  it("keeps an already summarized or edited title without calling AI", async () => {
+    mocks.chat.findFirst.mockResolvedValue({ title: "Existing summary" });
+    expect(await summarizeTitle(event)).toEqual({ title: "Existing summary" });
+    expect(mocks.generateText).not.toHaveBeenCalled();
+  });
+
+  it("does not summarize a failed, stopped, or missing first answer", async () => {
+    mocks.message.findFirst
+      .mockReset()
+      .mockResolvedValueOnce(question)
+      .mockResolvedValueOnce(null);
+    expect(await summarizeTitle(event)).toEqual({ title: null });
+    expect(mocks.generateText).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { text: "", finishReason: "stop" },
+    { text: "x".repeat(81), finishReason: "stop" },
+    { text: "Partial title", finishReason: "length" },
+  ])(
+    "leaves the title unset for invalid or incomplete output",
+    async (result) => {
+      mocks.generateText.mockResolvedValue(result);
+      expect(await summarizeTitle(event)).toEqual({ title: null });
+      expect(mocks.chat.updateMany).not.toHaveBeenCalled();
+    },
+  );
+
+  it("leaves the title unset when the provider fails or times out", async () => {
+    mocks.generateText.mockRejectedValue(new Error("private provider detail"));
+    expect(await summarizeTitle(event)).toEqual({ title: null });
+    expect(mocks.chat.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("does not return a stale title when another request changed it", async () => {
+    mocks.chat.updateMany.mockResolvedValue({ count: 0 });
+    expect(await summarizeTitle(event)).toEqual({ title: null });
   });
 });
