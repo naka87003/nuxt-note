@@ -9,7 +9,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: "Note not found" });
   const note = await getPrisma().note.findFirst({
     where: { id, userId },
-    select: { id: true, title: true, markdown: true, updatedAt: true },
+    select: {
+      id: true,
+      title: true,
+      markdown: true,
+      categoryId: true,
+      createdAt: true,
+      updatedAt: true,
+    },
   });
   if (!note)
     throw createError({ statusCode: 404, statusMessage: "Note not found" });

@@ -8,9 +8,11 @@ const mocks = vi.hoisted(() => ({
   body: vi.fn(),
   status: vi.fn(),
   param: vi.fn(),
+  query: vi.fn(),
+  category: vi.fn(),
 }));
 vi.mock("../../server/utils/prisma", () => ({
-  getPrisma: () => ({ note: mocks }),
+  getPrisma: () => ({ note: mocks, category: { findFirst: mocks.category } }),
 }));
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
@@ -20,6 +22,7 @@ vi.stubGlobal("requireUserSession", mocks.session);
 vi.stubGlobal("readBody", mocks.body);
 vi.stubGlobal("setResponseStatus", mocks.status);
 vi.stubGlobal("getRouterParam", mocks.param);
+vi.stubGlobal("getQuery", mocks.query);
 
 const { default: create } = await import("../../server/api/notes/index.post");
 const { default: list } = await import("../../server/api/notes/index.get");
@@ -30,6 +33,7 @@ const event = {} as Parameters<typeof create>[0];
 
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.query.mockReturnValue({});
   mocks.session.mockResolvedValue({ user: { id: ownerId } });
   mocks.body.mockResolvedValue({
     title: "  ",
@@ -44,7 +48,12 @@ describe("notes API ownership and validation", () => {
   it("assigns ownership from the session and defaults a blank title", async () => {
     await expect(create(event)).resolves.toEqual({ id: "note" });
     expect(mocks.create).toHaveBeenCalledWith({
-      data: { title: "Untitled note", markdown: "# Hello", userId: ownerId },
+      data: {
+        title: "Untitled note",
+        markdown: "# Hello",
+        userId: ownerId,
+        categoryId: null,
+      },
       select: { id: true },
     });
     expect(mocks.status).toHaveBeenCalledWith(event, 201);
@@ -76,8 +85,8 @@ describe("notes API ownership and validation", () => {
     await list(event);
     expect(mocks.findMany).toHaveBeenCalledWith({
       where: { userId: ownerId },
-      select: { id: true, title: true, updatedAt: true },
-      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+      select: { id: true, title: true, categoryId: true, updatedAt: true },
+      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
     });
   });
   it("returns 404 for another user's or missing note", async () => {
@@ -113,5 +122,56 @@ describe("notes API ownership and validation", () => {
     await expect(read(event)).resolves.toMatchObject({ title: "Private" });
     mocks.session.mockResolvedValue({ user: { id: otherId } });
     await expect(read(event)).rejects.toMatchObject({ statusCode: 404 });
+  });
+});
+
+describe("note categories and search", () => {
+  it("rejects a category owned by another user before creating a note", async () => {
+    mocks.body.mockResolvedValue({
+      title: "Private",
+      markdown: "",
+      categoryId: "foreign",
+    });
+    mocks.category.mockResolvedValue(null);
+    await expect(create(event)).rejects.toMatchObject({ statusCode: 404 });
+    expect(mocks.category).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "foreign", userId: ownerId } }),
+    );
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+  it("assigns an owned category", async () => {
+    mocks.category.mockResolvedValue({ id: "owned" });
+    mocks.body.mockResolvedValue({
+      title: "Note",
+      markdown: "",
+      categoryId: "owned",
+    });
+    await create(event);
+    expect(mocks.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          title: "Note",
+          markdown: "",
+          categoryId: "owned",
+          userId: ownerId,
+        },
+      }),
+    );
+  });
+  it("keeps literal wildcard search and the selected category within the owner", async () => {
+    mocks.query.mockReturnValue({ category: "uncategorized", q: "50%_" });
+    await list(event);
+    expect(mocks.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          userId: ownerId,
+          categoryId: null,
+          OR: [
+            { title: { contains: "50\\%\\_", mode: "insensitive" } },
+            { markdown: { contains: "50\\%\\_", mode: "insensitive" } },
+          ],
+        },
+      }),
+    );
   });
 });

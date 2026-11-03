@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { confirmEdits } = useWorkspace();
 const { user, clear } = useUserSession();
 const items = computed(() => [
   { label: user.value?.name ?? "GitHub user", type: "label" as const },
@@ -7,8 +8,11 @@ const items = computed(() => [
 ]);
 
 async function signOut() {
+  if (!(await confirmEdits())) return;
   await clear();
+  clearNuxtData();
   await navigateTo("/login");
+  clearNuxtState("workspace");
 }
 </script>
 

@@ -1,5 +1,7 @@
 <script setup lang="ts">
-definePageMeta({ middleware: "auth" });
+definePageMeta({ middleware: "auth", layout: "workspace" });
+const { loggedIn } = useUserSession();
+const { state, categoryId, location, confirmEdits } = useWorkspace();
 const title = ref("");
 const markdown = ref("");
 const saving = ref(false);
@@ -7,9 +9,20 @@ const saved = ref(false);
 const error = ref("");
 const dirty = computed(() => !saved.value && !!(title.value || markdown.value));
 
-onBeforeRouteLeave(() => {
+async function canLeave() {
+  if (!loggedIn.value) return true;
   if (saving.value) return false;
-  if (dirty.value) return window.confirm("Discard your unsaved changes?");
+  return await confirmEdits();
+}
+onBeforeRouteLeave(canLeave);
+onBeforeRouteUpdate((to, from) => {
+  if (to.fullPath !== from.fullPath) return canLeave();
+});
+watchEffect(() => {
+  state.value.editor = { dirty: dirty.value, busy: saving.value };
+});
+onBeforeUnmount(() => {
+  state.value.editor = { dirty: false, busy: false };
 });
 function beforeUnload(event: BeforeUnloadEvent) {
   if (dirty.value) {
@@ -27,11 +40,16 @@ async function save() {
   try {
     const note = await $fetch("/api/notes", {
       method: "POST",
-      body: { title: title.value, markdown: markdown.value },
+      body: {
+        title: title.value,
+        markdown: markdown.value,
+        categoryId: categoryId.value,
+      },
     });
     saved.value = true;
     saving.value = false;
-    await navigateTo(`/notes/${note.id}`);
+    await refreshNuxtData();
+    await navigateTo(location(`/notes/${note.id}`));
   } catch {
     error.value =
       "Could not save your note. Your changes are still here. Please try again.";
@@ -42,13 +60,13 @@ async function save() {
 </script>
 
 <template>
-  <UContainer class="max-w-4xl py-8 sm:py-12">
+  <div class="note-editor">
     <form class="space-y-6" @submit.prevent="save">
       <div class="flex items-center justify-between gap-4">
         <h1 class="text-3xl font-bold">New note</h1>
         <div class="flex gap-2">
           <UButton
-            to="/notes"
+            :to="location('/notes')"
             variant="ghost"
             color="neutral"
             :disabled="saving"
@@ -97,5 +115,5 @@ async function save() {
         />
       </UFormField>
     </form>
-  </UContainer>
+  </div>
 </template>

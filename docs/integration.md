@@ -23,7 +23,7 @@ The [specification](specification.md#categories) defines the contract:
 - Counts are scoped to the active workspace. Chat history is date-grouped within the selected filter. New content inherits the selected category; All and Uncategorized create uncategorized content.
 - Both workspaces use category/list/content columns at 1280px and above. At 768–1279px categories move to a drawer while list/content remain visible; below 768px list and content are separate screens. Lists can be hidden at widths of at least 768px. History belongs in the Chat list, not the category sidebar. The workspace switch stays pinned inside the category sidebar/drawer.
 
-Figma reflects these rules in current desktop/mobile Notes and Chat, New Chat, and LP previews. The example Nuxt category contains seven notes and four conversations. Actual navigation and category operations still require implementation.
+Figma reflects these rules in current desktop/mobile Notes and Chat, New Chat, and LP previews. The example Nuxt category contains seven notes and four conversations. Shared navigation and category operations are now implemented in the workspace foundation.
 
 ## Database foundation
 
@@ -35,14 +35,14 @@ At the user's request, the early-development migration is consolidated into 2026
 
 ## Implementation and validation
 
-The local foundation includes the shared authentication helper used by existing Note APIs, the shared-category Prisma schema, and the consolidated init. GitHub login, persisted users, note creation, grouped listing, raw Markdown reading, and sign-out remain the baseline. Category CRUD, shared-category navigation, saved-note editing/deletion, search, Chat endpoints, and AI streaming remain pending.
+The local foundation includes the shared authentication helper used by existing Note APIs, the shared-category Prisma schema, and the consolidated init. GitHub login, persisted users, note creation, grouped listing, raw Markdown reading, and sign-out remain the baseline. Category CRUD, shared-category navigation, owner-scoped search, and saved Chat list/read/reassignment/deletion are implemented. Saved-note editing/deletion, safe Markdown rendering, Chat creation and AI streaming remain pending. New Chat is a visual foundation with sending disabled; no conversation or message is created by opening it.
 
 pnpm test checks Note/authentication behavior using mocked database/session calls. pnpm test:db applies the init to isolated PostgreSQL 17 and verifies shared category identity and rename, per-owner name uniqueness, RLS, foreign keys, category deletion preserving both content types, chat/message deletion, and user deletion preserving another owner's content. The script never loads .env or contacts Supabase; it exercises direct SQL rather than Prisma migration history or live OAuth. Its readiness check uses TCP to avoid connecting to PostgreSQL's temporary initialization server.
 
 ## Subsequent implementation sequence
 
-1. Implement category APIs and owner-isolation tests, then shared category navigation and editor unsaved-state handling.
-2. Port Chat APIs, replacing projectId with categoryId and validating both chat and category ownership. Test assignment, reassignment, and deletion across owners.
+1. Done: category APIs and owner-isolation tests, shared navigation, responsive shell, and new-note unsaved-state handling.
+2. Partially done: saved Chat list/read/category reassignment/deletion APIs validate chat and category ownership. Chat/message creation is deferred to the generation phase; existing Chat data is not imported.
 3. Port Chat UI and AI generation/streaming. Verify cancellation, failure/retry, persistence, and authorization.
 4. Complete Note editing, deletion, search, and safe MDC rendering. Highlighting follows the reference GitHub Dark theme.
 5. Configure hosting, domain, production secrets, and deployment validation for this single app.
