@@ -3,6 +3,26 @@ definePageMeta({ layout: false });
 const route = useRoute();
 const { loggedIn } = useUserSession();
 if (loggedIn.value) await navigateTo("/notes");
+
+const signingIn = ref(false);
+
+async function signIn() {
+  if (signingIn.value) return;
+  signingIn.value = true;
+  try {
+    await navigateTo("/auth/github", { external: true });
+  } catch (error) {
+    signingIn.value = false;
+    throw error;
+  }
+}
+
+// Restore the button when returning from GitHub via the browser's back button.
+function resetSignIn() {
+  signingIn.value = false;
+}
+onMounted(() => window.addEventListener("pageshow", resetSignIn));
+onBeforeUnmount(() => window.removeEventListener("pageshow", resetSignIn));
 </script>
 
 <template>
@@ -22,14 +42,16 @@ if (loggedIn.value) await navigateTo("/notes");
           description="Please try again. If this continues, check the OAuth and database configuration."
         />
         <UButton
-          to="/auth/github"
-          external
+          type="button"
+          :loading="signingIn"
           icon="i-lucide-github"
           size="xl"
           block
           class="min-h-12"
-          >Continue with GitHub</UButton
+          @click="signIn"
         >
+          Continue with GitHub
+        </UButton>
         <p class="text-dimmed text-sm">
           Your notes are private to your account.
         </p>

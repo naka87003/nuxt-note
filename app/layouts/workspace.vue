@@ -26,27 +26,26 @@ onMounted(() => {
   onBeforeUnmount(() => desktop.removeEventListener("change", closeDrawer));
 });
 
-const {
-  data: categories,
-  error: categoriesError,
-  status: categoriesStatus,
-  refresh: refreshCategories,
-} = await useFetch("/api/categories", { key: "workspace-categories" });
-
 const listQuery = computed(() => ({
   category: filter.value,
   q: current.value.search,
 }));
 
-const {
-  data: items,
-  error: listError,
-  status: listStatus,
-  refresh: refreshList,
-} = await useFetch<WorkspaceItem[]>(() => `/api/${mode.value}`, {
-  query: listQuery,
-  key: "workspace-list",
-});
+const [
+  {
+    data: categories,
+    error: categoriesError,
+    status: categoriesStatus,
+    refresh: refreshCategories,
+  },
+  { data: items, error: listError, status: listStatus, refresh: refreshList },
+] = await Promise.all([
+  useFetch("/api/categories", { key: "workspace-categories" }),
+  useFetch<WorkspaceItem[]>(() => `/api/${mode.value}`, {
+    query: listQuery,
+    key: "workspace-list",
+  }),
+]);
 
 const heading = computed(() =>
   filter.value === "all"

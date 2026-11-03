@@ -2,6 +2,31 @@
 definePageMeta({ layout: false });
 const { loggedIn } = useUserSession();
 const startTo = computed(() => (loggedIn.value ? "/notes" : "/login"));
+const opening = ref<"header" | "hero" | "closing" | null>(null);
+
+async function openNotebook(event: MouseEvent, source: typeof opening.value) {
+  if (!loggedIn.value) return;
+  if (
+    event.button !== 0 ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey
+  )
+    return;
+  event.preventDefault();
+  if (opening.value) return;
+  opening.value = source;
+  try {
+    const failure = await navigateTo(startTo.value);
+    // Successful routing can finish before the destination's async setup.
+    // Keep loading until this page is unmounted; reset only on failure.
+    if (failure !== undefined) opening.value = null;
+  } catch (error) {
+    opening.value = null;
+    throw error;
+  }
+}
 const features = [
   {
     label: "Markdown",
@@ -57,11 +82,15 @@ useSeoMeta({
         </div>
         <UButton
           :to="startTo"
+          :loading="opening === 'header'"
+          :disabled="opening !== null"
           color="neutral"
           variant="outline"
           class="sign-in"
-          >{{ loggedIn ? "Open notebook" : "Sign in" }}</UButton
+          @click="openNotebook($event, 'header')"
         >
+          {{ loggedIn ? "Open notebook" : "Sign in" }}
+        </UButton>
       </nav>
     </header>
     <main id="main-content" class="landing-sections">
@@ -78,10 +107,18 @@ useSeoMeta({
             One place to capture what you learn and explore what comes next.
           </p>
           <div class="hero-actions">
-            <UButton :to="startTo" size="xl">Start your notebook</UButton>
-            <UButton to="#notes" color="neutral" variant="outline" size="xl"
-              >Explore the workspace</UButton
+            <UButton
+              :to="startTo"
+              :loading="opening === 'hero'"
+              :disabled="opening !== null"
+              size="xl"
+              @click="openNotebook($event, 'hero')"
             >
+              Start your notebook
+            </UButton>
+            <UButton to="#notes" color="neutral" variant="outline" size="xl">
+              Explore the workspace
+            </UButton>
           </div>
           <p class="small-copy">Sign in with GitHub · Your own workspace</p>
         </div>
@@ -175,7 +212,15 @@ useSeoMeta({
       <section class="closing-cta" aria-labelledby="cta-title">
         <h2 id="cta-title">Make space for your next idea.</h2>
         <p class="description">Start with a note. Follow your curiosity.</p>
-        <UButton :to="startTo" size="xl">Start your notebook</UButton>
+        <UButton
+          :to="startTo"
+          :loading="opening === 'closing'"
+          :disabled="opening !== null"
+          size="xl"
+          @click="openNotebook($event, 'closing')"
+        >
+          Start your notebook
+        </UButton>
       </section>
     </main>
     <footer class="public-footer">
