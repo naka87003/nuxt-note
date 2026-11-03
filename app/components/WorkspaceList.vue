@@ -162,6 +162,12 @@ function date(value: string) {
                 <h3 class="line-clamp-2 text-sm font-medium">
                   {{ itemTitle(item) }}
                 </h3>
+                <p
+                  v-if="item.preview"
+                  class="mt-1 line-clamp-2 text-xs break-words text-dimmed"
+                >
+                  {{ item.preview }}
+                </p>
                 <p class="mt-2 flex items-center gap-1 text-xs text-dimmed">
                   <span class="min-w-0 truncate">{{ itemCategory(item) }}</span>
                   <span aria-hidden="true">·</span>

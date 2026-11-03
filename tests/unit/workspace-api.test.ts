@@ -53,6 +53,7 @@ beforeEach(() => {
   mocks.session.mockResolvedValue({ user: { id: owner } });
   mocks.body.mockResolvedValue({ name: "  Ｎｕｘｔ  ", userId: other });
   mocks.query.mockReturnValue({});
+  mocks.chat.findMany.mockResolvedValue([]);
   mocks.param.mockReturnValue("item");
   mocks.category.create.mockResolvedValue({ id: "category", name: "Ｎｕｘｔ" });
   mocks.category.updateMany.mockResolvedValue({ count: 1 });
@@ -169,6 +170,32 @@ describe("shared categories", () => {
   });
 });
 describe("chat ownership and category assignment", () => {
+  it("returns a preview from the first user message without exposing messages", async () => {
+    mocks.chat.findMany.mockResolvedValue([
+      {
+        id: "chat",
+        title: "Question",
+        messages: [{ content: "How does **Nuxt** work?" }],
+      },
+      { id: "empty", title: null, messages: [] },
+    ]);
+    await expect(chats(event)).resolves.toEqual([
+      { id: "chat", title: "Question", preview: "How does Nuxt work?" },
+      { id: "empty", title: null, preview: "" },
+    ]);
+    expect(mocks.chat.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          messages: {
+            where: { role: "user" },
+            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+            take: 1,
+            select: { content: true },
+          },
+        }),
+      }),
+    );
+  });
   it("does not return another owner's chat or messages", async () => {
     mocks.chat.findFirst.mockImplementation(({ where }) =>
       where.userId === other

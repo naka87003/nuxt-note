@@ -38,6 +38,7 @@ const event = {} as Parameters<typeof create>[0];
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.query.mockReturnValue({});
+  mocks.findMany.mockResolvedValue([]);
   mocks.session.mockResolvedValue({ user: { id: ownerId } });
   mocks.body.mockResolvedValue({
     title: "  ",
@@ -85,13 +86,29 @@ describe("notes API ownership and validation", () => {
       expect(mocks.findFirst).not.toHaveBeenCalled();
     },
   );
-  it("lists only the current user's notes without fetching note bodies", async () => {
+  it("lists only the current user's notes with content for previews", async () => {
     await list(event);
     expect(mocks.findMany).toHaveBeenCalledWith({
       where: { userId: ownerId },
-      select: { id: true, title: true, categoryId: true, updatedAt: true },
+      select: {
+        id: true,
+        title: true,
+        categoryId: true,
+        updatedAt: true,
+        markdown: true,
+      },
       orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
     });
+  });
+  it("returns a plain text preview without exposing the full note body", async () => {
+    mocks.findMany.mockResolvedValue([
+      { id: "note", title: "Note", markdown: "# Hello\n\nA **useful** note." },
+      { id: "empty", title: "Empty", markdown: "" },
+    ]);
+    await expect(list(event)).resolves.toEqual([
+      { id: "note", title: "Note", preview: "Hello A useful note." },
+      { id: "empty", title: "Empty", preview: "" },
+    ]);
   });
   it("returns 404 for another user's or missing note", async () => {
     mocks.findFirst.mockResolvedValue(null);

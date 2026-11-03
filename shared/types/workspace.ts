@@ -10,6 +10,7 @@ export interface CategoriesResponse {
 export interface WorkspaceItem {
   id: string;
   title: string | null;
+  preview: string;
   categoryId: string | null;
   updatedAt: string;
 }
