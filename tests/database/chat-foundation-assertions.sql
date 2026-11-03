@@ -73,6 +73,38 @@ DO $$ BEGIN
   END;
 END $$;
 
+-- Generation defaults, one answer per question, and terminal-state protection.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM "Message" WHERE id = 'message' AND status = 'completed') THEN
+    RAISE EXCEPTION 'Existing messages must default to completed';
+  END IF;
+  BEGIN
+    UPDATE "Message" SET status = 'unknown' WHERE id = 'reply';
+    RAISE EXCEPTION 'Invalid generation state was accepted';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
+END $$;
+UPDATE "Message" SET "replyToId" = 'message', status = 'generating' WHERE id = 'reply';
+DO $$ BEGIN
+  BEGIN
+    INSERT INTO "Message" (id, content, role, "chatId", "replyToId", "updatedAt") VALUES
+      ('duplicate-answer', '', 'assistant', 'chat', 'message', now());
+    RAISE EXCEPTION 'Duplicate answer slot accepted';
+  EXCEPTION WHEN unique_violation THEN NULL;
+  END;
+END $$;
+UPDATE "Chat" SET "generationId" = 'attempt-1', "generationStartedAt" = now() WHERE id = 'chat';
+DO $$ DECLARE affected INTEGER; BEGIN
+  UPDATE "Chat" SET "generationId" = 'attempt-2' WHERE id = 'chat' AND "generationId" IS NULL;
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected <> 0 THEN RAISE EXCEPTION 'An active generation was replaced'; END IF;
+  UPDATE "Chat" SET "generationId" = NULL WHERE id = 'chat' AND "generationId" = 'old-attempt';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected <> 0 THEN RAISE EXCEPTION 'An old worker released another attempt'; END IF;
+END $$;
+UPDATE "Message" SET status = 'stopped', content = 'Partial answer' WHERE id = 'reply';
+UPDATE "Chat" SET "generationId" = NULL, "generationStartedAt" = NULL WHERE id = 'chat';
+
 DELETE FROM "Category" WHERE id = 'category';
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM "Chat" WHERE id = 'chat' AND "categoryId" IS NULL)

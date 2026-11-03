@@ -50,6 +50,8 @@ CREATE TABLE "Chat" (
     "title" TEXT,
     "userId" TEXT NOT NULL,
     "categoryId" TEXT,
+    "generationId" TEXT,
+    "generationStartedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -60,12 +62,15 @@ CREATE TABLE "Chat" (
 CREATE TABLE "Message" (
     "id" TEXT NOT NULL,
     "content" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'completed',
+    "replyToId" TEXT,
     "role" "MessageRole" NOT NULL,
     "chatId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "Message_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "Message_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "Message_status_check" CHECK ("status" IN ('completed', 'generating', 'stopped', 'failed'))
 );
 
 -- CreateIndex
@@ -85,6 +90,9 @@ CREATE INDEX "Chat_userId_updatedAt_id_idx" ON "Chat"("userId", "updatedAt", "id
 
 -- CreateIndex
 CREATE INDEX "Chat_userId_categoryId_updatedAt_id_idx" ON "Chat"("userId", "categoryId", "updatedAt", "id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Message_replyToId_key" ON "Message"("replyToId");
 
 -- CreateIndex
 CREATE INDEX "Message_chatId_idx" ON "Message"("chatId");

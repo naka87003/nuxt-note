@@ -71,7 +71,7 @@ Run `pnpm test:db` with a running Docker engine. The script uses the official `p
 
 The check applies the unified init to an empty database and inserts representative Note fixtures. It checks shared category membership and rename, category-name uniqueness per owner, category deletion uncategorizing both notes and chats without losing messages, initially empty Chat tables, orphan rejection, RLS, and owner deletion isolation. It stops the container and removes its temporary storage when complete. These are direct SQL checks; they do not exercise Prisma's deployment history or live OAuth.
 
-`pnpm test` separately checks authentication and Note API ownership using mocked sessions and database calls. Real GitHub sign-in and authenticated Note saving must be smoke-tested separately after running the app. Chat APIs and AI requests are outside the foundation and have not been exercised.
+`pnpm test` separately checks authentication and Note API ownership using mocked sessions and database calls. Real GitHub sign-in and authenticated Note saving must be smoke-tested separately after running the app. Chat API ownership, generation lifecycle, retry and safe Markdown are covered by unit tests. `pnpm test:chat` checks the built server against a disposable database and mock AI; real OAuth remains a separate manual check.
 
 ## Running and verifying the app
 
@@ -86,3 +86,13 @@ pnpm dev
 5. After signing out, verify that opening `/notes` directly redirects to `/login`.
 
 `/api/health` reports only that the app is running; it does not confirm a database connection. Verify authentication and the actual database connection separately using the steps above after configuring credentials.
+
+## OpenAI connection
+
+Set `NUXT_OPENAI_API_KEY` in the ignored `.env` or the deployment's secret store. The user authorized sharing the existing nuxt-chat key. `NUXT_OPENAI_MODEL` defaults to `gpt-6.1-sol`; change it server-side when needed. No new OAuth or Supabase API keys are required. These settings are private runtime configuration; never place the key in `runtimeConfig.public`, browser storage, logs, or commits. Restart the server after changing local settings.
+
+The first send saves the chat/question and then requests an answer. Missing AI configuration yields a retryable message without discarding the question. Provider/model access or quota failures also preserve the question. Shared-key requests use the same provider project limits and budget; no automatic paid retries or title-generation requests are made. Stop/failed partial answers remain saved. Application-level retention in OpenAI is disabled with `store: false`; this does not promise zero provider retention. See [OpenAI authentication](https://developers.openai.com/api/reference/overview#authentication), [streaming](https://developers.openai.com/api/docs/guides/streaming-responses), [data controls](https://developers.openai.com/api/docs/guides/your-data), and [AI SDK cancellation](https://ai-sdk.dev/docs/advanced/stopping-streams).
+
+Generation uses a 120-second server timeout and 4,096 output-token cap. The initial target remains a long-running Node server; verify the eventual host's streaming, proxy buffering and request-duration settings before deployment. There is no stream resumption or durable background worker.
+
+After `pnpm build`, run `pnpm test:chat` with Docker available. It never loads `.env`, uses a random session secret, starts a dedicated temporary PostgreSQL container and local built server, intercepts OpenAI requests with a test provider, and removes the container on completion. It does not exercise live OAuth or spend API credits. `pnpm test:chat --preview` keeps a loopback-only authenticated fixture at `http://127.0.0.1:3012/chats/new` until Ctrl+C for UI checks. This test proxy is never included in the application build.

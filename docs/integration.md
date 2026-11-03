@@ -35,14 +35,24 @@ At the user's request, the early-development migration is consolidated into 2026
 
 ## Implementation and validation
 
-The local foundation includes the shared authentication helper used by existing Note APIs, the shared-category Prisma schema, and the consolidated init. GitHub login, persisted users, note creation, grouped listing, raw Markdown reading, and sign-out remain the baseline. Category CRUD, shared-category navigation, owner-scoped search, and saved Chat list/read/reassignment/deletion are implemented. Saved-note editing/deletion, safe Markdown rendering, Chat creation and AI streaming remain pending. New Chat is a visual foundation with sending disabled; no conversation or message is created by opening it.
+The local foundation includes the shared authentication helper used by existing Note APIs, the shared-category Prisma schema, and the consolidated init. GitHub login, persisted users, note creation, grouped listing, raw Markdown reading, and sign-out remain the baseline. Category CRUD, shared-category navigation, owner-scoped search, and saved Chat list/read/reassignment/deletion are implemented. Saved-note editing/deletion and safe Note Markdown remain pending. Chat creation, AI streaming, stop, failure/retry, and safe Chat Markdown are implemented. Opening New Chat still creates no records; the first send saves the chat and question. Note Markdown remains a separate follow-up.
 
 pnpm test checks Note/authentication behavior using mocked database/session calls. pnpm test:db applies the init to isolated PostgreSQL 17 and verifies shared category identity and rename, per-owner name uniqueness, RLS, foreign keys, category deletion preserving both content types, chat/message deletion, and user deletion preserving another owner's content. The script never loads .env or contacts Supabase; it exercises direct SQL rather than Prisma migration history or live OAuth. Its readiness check uses TCP to avoid connecting to PostgreSQL's temporary initialization server.
 
 ## Subsequent implementation sequence
 
 1. Done: category APIs and owner-isolation tests, shared navigation, responsive shell, and new-note unsaved-state handling.
-2. Partially done: saved Chat list/read/category reassignment/deletion APIs validate chat and category ownership. Chat/message creation is deferred to the generation phase; existing Chat data is not imported.
-3. Port Chat UI and AI generation/streaming. Verify cancellation, failure/retry, persistence, and authorization.
+2. Done: saved Chat list/read/category reassignment/deletion APIs validate chat and category ownership. Chat/message creation is now implemented with request UUIDs and ownership validation; existing Chat data is not imported.
+3. Done: Chat creation, server-only OpenAI streaming, cancellation, failure/retry, partial persistence, safe Chat Markdown, and authorization. See the runtime contract in the specification.
 4. Complete Note editing, deletion, search, and safe MDC rendering. Highlighting follows the reference GitHub Dark theme.
 5. Configure hosting, domain, production secrets, and deployment validation for this single app.
+
+## Chat generation implementation
+
+Reuse the reference application's OpenAI provider through `ai` and `@ai-sdk/openai`, with `NUXT_OPENAI_API_KEY` authorized to share nuxt-chat's key. `NUXT_OPENAI_MODEL` defaults to the reference model `gpt-6.1-sol`. Keep both in private runtime config. Titles come from the first question, avoiding a second AI call. SDK settings are 120 seconds, 4,096 output tokens, `maxRetries: 0`, and OpenAI `store: false`.
+
+The prerelease init is consolidated again at the user's request. Chat adds `generationId` and `generationStartedAt`; Message adds `status` (completed/generating/stopped/failed, checked in SQL) and a unique nullable `replyToId` for the single answer slot. Existing messages default to completed. No additional migration file is introduced, and no existing database is reset or migrated by this change. An older applied init still requires a separately authorized reset or a fresh database.
+
+A transaction claims the chat row before creating a message or answer attempt. Checkpoint/terminal writes must still match the attempt ID. Stop releases that guard and marks the answer stopped; older workers cannot overwrite a retry. Expired attempts recover on read/send/retry. Responses use structured SSE start/text/done events; EOF alone never means successful persistence. No queue, Redis, background generation, model selector, automatic retry, AI title generation, or branching is added.
+
+Validation: 96 unit tests; disposable PostgreSQL init/RLS/uniqueness/state checks; production-build HTTP smoke tests with a fake OpenAI stream and isolated PostgreSQL for auth, create/send idempotency, generation conflicts, partial stop/save, retry in the same answer slot, provider failure, and foreign-owner rejection. A separate short request verified the authorized shared key and default model against OpenAI. Browser fixture checks cover first send, follow-up send, stop, retry and 390px/desktop layouts. Production database and live OAuth were not changed or exercised. Build the app before `pnpm test:chat`; `pnpm test:chat --preview` optionally serves an authenticated fixture on loopback port 3012 with mock AI and a temporary database.

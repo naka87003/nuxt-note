@@ -1,12 +1,43 @@
 <script setup lang="ts">
-definePageMeta({ middleware: "auth", layout: "workspace" });
+definePageMeta({
+  key: (route) => String(route.params.id),
+  middleware: "auth",
+  layout: "workspace",
+});
 const route = useRoute();
 const { state, location } = useWorkspace();
 const {
   data: chat,
   error,
   refresh,
-} = await useFetch(() => `/api/chats/${route.params.id}`);
+} = await useFetch(() => `/api/chats/${route.params.id}`, { deep: true });
+const {
+  draft,
+  busy: generating,
+  stoppable,
+  failure: generationFailure,
+  canRetry,
+  lastReply,
+  send,
+  generate,
+  stop,
+} = useChatGeneration(chat, refresh);
+const messagePane = ref<HTMLElement>();
+const followBottom = ref(true);
+watch(
+  () => chat.value?.messages.map((m) => m.content).join(""),
+  async () => {
+    await nextTick();
+    if (followBottom.value && messagePane.value)
+      messagePane.value.scrollTop = messagePane.value.scrollHeight;
+  },
+);
+function onScroll() {
+  const pane = messagePane.value;
+  if (pane)
+    followBottom.value =
+      pane.scrollHeight - pane.scrollTop - pane.clientHeight < 80;
+}
 const { data: categories } = useNuxtData<{
   items: { id: string; name: string }[];
 }>("workspace-categories");
@@ -99,6 +130,7 @@ async function remove() {
           variant="soft"
           size="xs"
           class="font-bold"
+          :disabled="generating"
           @click="assign"
           >Category:
           {{
@@ -112,6 +144,7 @@ async function remove() {
           variant="soft"
           size="xs"
           class="font-bold"
+          :disabled="generating"
           @click="
             failure = '';
             deletion = true;
@@ -119,7 +152,7 @@ async function remove() {
           >Delete</UButton
         >
       </div>
-      <div class="chat-messages">
+      <div ref="messagePane" class="chat-messages" @scroll="onScroll">
         <div class="chat-inner space-y-6">
           <h1 class="text-2xl font-semibold break-words">
             {{ chat.title || "Untitled chat" }}
@@ -133,12 +166,60 @@ async function remove() {
                 : 'chat-assistant-message'
             "
           >
-            {{ message.content }}
+            <template v-if="message.role === 'user'">{{
+              message.content
+            }}</template>
+            <template v-else>
+              <ChatMarkdown :content="message.content" />
+              <p
+                v-if="message.status === 'generating'"
+                class="text-sm text-dimmed"
+                role="status"
+              >
+                Generating…
+              </p>
+              <p
+                v-else-if="message.status === 'stopped'"
+                class="text-sm text-dimmed"
+              >
+                Response stopped.
+              </p>
+              <p
+                v-else-if="message.status === 'failed'"
+                class="text-sm text-error"
+              >
+                Could not complete the response.
+              </p>
+            </template>
           </div>
         </div>
       </div>
       <div class="chat-composer-container">
-        <div class="chat-inner"><ChatComposer /></div>
+        <div class="chat-inner space-y-3">
+          <UAlert
+            v-if="generationFailure"
+            :title="generationFailure"
+            color="error"
+            role="alert"
+          />
+          <UButton
+            v-if="canRetry"
+            color="neutral"
+            variant="soft"
+            @click="generate"
+            >{{
+              lastReply?.status === "stopped" ? "Generate again" : "Try again"
+            }}</UButton
+          >
+          <ChatComposer
+            v-model="draft"
+            :busy="generating"
+            :can-stop="stoppable"
+            :disabled="canRetry && !lastReply"
+            @send="send"
+            @stop="stop"
+          />
+        </div>
       </div>
     </div>
     <UModal

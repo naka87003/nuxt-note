@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => {
     count: vi.fn(),
   });
   return {
+    $transaction: vi.fn(),
+    message: model(),
     category: model(),
     note: model(),
     chat: model(),
@@ -47,6 +49,7 @@ const other = "22222222-2222-4222-8222-222222222222";
 const event = {} as Parameters<typeof create>[0];
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.$transaction.mockImplementation((fn) => fn(mocks));
   mocks.session.mockResolvedValue({ user: { id: owner } });
   mocks.body.mockResolvedValue({ name: "  Ｎｕｘｔ  ", userId: other });
   mocks.query.mockReturnValue({});

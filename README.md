@@ -19,14 +19,17 @@ Development continues in this repository. The original nuxt-chat repository rema
 - Figma-aligned Notes / Chat shell: desktop three columns, medium two columns, mobile list/reader navigation, accessible category drawer, and pinned Nuxt UI workspace Tabs
 - Category and workspace switching with filter/search/scroll state preservation and unsaved-note guards
 - Owner-scoped Note and Chat search with literal wildcard handling; Chat history, saved conversation reading, category reassignment, and confirmed deletion
-- New Chat visual foundation with an intentionally disabled composer while AI generation is pending
+- Chat creation, OpenAI streaming, stop with partial-answer persistence, manual retry, and safe assistant Markdown
+- Request UUIDs, a database generation guard, and stale-attempt recovery to prevent duplicate or late writes
 - Disposable PostgreSQL checks for initial schema creation, RLS, foreign keys, and deletion behavior
 
-Editing and deleting saved notes, safe rendered Markdown for notes and messages, and Chat creation / AI streaming remain pending. New Chat does not create or send messages yet. The note shown on the landing page is a design preview. Actual sign-in requires an OAuth App and database configuration.
+Editing and deleting saved notes, safe rendered Markdown for notes, and Chat code syntax highlighting remain pending. New Chat creates records only on the first send. The note shown on the landing page is a design preview. Actual sign-in requires an OAuth App and database configuration.
 
-The shared workspace foundation follows the agreed Figma structure. Notes and saved Chat messages currently show source text. The original Note reader remains functionally limited until the editor/Markdown phase. The landing page is unchanged.
+The shared workspace foundation follows the agreed Figma structure. Notes currently show source text; Chat assistant messages render safe Markdown. The original Note reader remains functionally limited until the editor/Markdown phase. The landing page is unchanged.
 
 Workspace API coverage includes category name validation/conflicts, per-owner lists/counts/mutations, foreign-category rejection on note creation and Chat reassignment, and parent-owned message reads. Validation uses mocked sessions/database calls and a temporary fixture app for browser checks; no live database or OAuth account is modified. Browser checks covered 1440px, 1024px, 768px and 390px layouts, workspace filter/count changes, list collapse/restore, drawer dismissal, shared category creation, and unsaved-edit cancellation/confirmation. The database must already use the shared-category init described in the integration plan.
+
+Chat runtime validation adds 96 passing unit tests and disposable HTTP checks for streaming, stop/partial save, failure/retry, duplicate sends, concurrent generation and owner isolation. The shared OpenAI key/default model was checked with one short successful request. Schema changes are consolidated into the prerelease init at the user’s request; no existing database was reset or migrated. See the development guide before adopting the rewritten init.
 
 ## Getting started
 
@@ -60,6 +63,8 @@ pnpm test
 pnpm test:db
 pnpm db:validate
 pnpm build
+# Requires the build and Docker; isolated DB + mock AI, no live API calls.
+pnpm test:chat
 ```
 
 ## Design and documentation

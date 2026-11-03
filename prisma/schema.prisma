@@ -55,15 +55,17 @@ enum MessageRole {
 }
 
 model Chat {
-  id         String    @id @default(uuid())
-  title      String?
-  userId     String
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  categoryId String?
-  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  messages   Message[]
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id                  String    @id @default(uuid())
+  title               String?
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId          String?
+  category            Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  generationId        String?
+  generationStartedAt DateTime?
+  messages            Message[]
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   @@index([userId, updatedAt, id])
   @@index([userId, categoryId, updatedAt, id])
@@ -72,6 +74,8 @@ model Chat {
 model Message {
   id        String      @id @default(uuid())
   content   String
+  status    String      @default("completed")
+  replyToId String?     @unique
   role      MessageRole
   chatId    String
   chat      Chat        @relation(fields: [chatId], references: [id], onDelete: Cascade)

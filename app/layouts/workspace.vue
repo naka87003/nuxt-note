@@ -2,9 +2,18 @@
 import type { WorkspaceItem } from "#shared/types/workspace";
 const route = useRoute();
 const { state, mode, current, filter, location } = useWorkspace();
+const workspaceRoot = ref<HTMLElement>();
 const drawer = ref(false);
 const sidebar = ref(true);
 onMounted(() => {
+  const viewport = window.visualViewport;
+  const fitKeyboard = () => {
+    if (workspaceRoot.value)
+      workspaceRoot.value.style.height = `${viewport?.height ?? window.innerHeight}px`;
+  };
+  fitKeyboard();
+  viewport?.addEventListener("resize", fitKeyboard);
+  onBeforeUnmount(() => viewport?.removeEventListener("resize", fitKeyboard));
   const desktop = window.matchMedia("(min-width: 1280px)");
   const closeDrawer = () => {
     if (desktop.matches) drawer.value = false;
@@ -133,7 +142,7 @@ async function saveCategory() {
 </script>
 
 <template>
-  <div class="workspace-root">
+  <div ref="workspaceRoot" class="workspace-root">
     <header class="workspace-header">
       <div class="workspace-header-side gap-2 sm:gap-4">
         <UButton
