@@ -35,7 +35,7 @@ At the user's request, the early-development migration is consolidated into 2026
 
 ## Implementation and validation
 
-The application includes the shared authentication helper, shared-category Prisma schema and consolidated init. GitHub login, persisted users, Note creation/editing/deletion, grouped listing, owner-scoped search, and safe Markdown reading/preview are implemented. Category CRUD and navigation are shared with Chat. Chat supports saved history, category reassignment, deletion, first-send creation, AI streaming, stop, failure and manual retry. Opening New Chat creates no records; its first send saves the chat and question. Syntax highlighting remains a follow-up for both workspaces.
+The application includes the shared authentication helper, shared-category Prisma schema and consolidated init. GitHub login, persisted users, Note creation/editing/deletion, grouped listing, owner-scoped search, and safe Markdown reading/preview are implemented. Category CRUD and navigation are shared with Chat. Chat supports saved history, category reassignment, deletion, first-send creation, AI streaming, stop, failure and manual retry. Opening New Chat creates no records; its first send saves the chat and question. Both workspaces now share local GitHub Dark syntax highlighting through MarkdownIt, retaining escaped code and the existing HTML/link/image restrictions.
 
 pnpm test checks Note/authentication behavior using mocked database/session calls. pnpm test:db applies the init to isolated PostgreSQL 17 and verifies shared category identity and rename, per-owner name uniqueness, RLS, foreign keys, category deletion preserving both content types, chat/message deletion, and user deletion preserving another owner's content. The script never loads .env or contacts Supabase; it exercises direct SQL rather than Prisma migration history or live OAuth. Its readiness check uses TCP to avoid connecting to PostgreSQL's temporary initialization server.
 
@@ -44,7 +44,7 @@ pnpm test checks Note/authentication behavior using mocked database/session call
 1. Done: category APIs and owner-isolation tests, shared navigation, responsive shell, and new-note unsaved-state handling.
 2. Done: saved Chat list/read/category reassignment/deletion APIs validate chat and category ownership. Chat/message creation is now implemented with request UUIDs and ownership validation; existing Chat data is not imported.
 3. Done: Chat creation, server-only OpenAI streaming, cancellation, failure/retry, partial persistence, safe Chat Markdown, and authorization. See the runtime contract in the specification.
-4. Done: Note editing, deletion, search and safe Markdown rendering. Reuse the Chat MarkdownIt renderer for readers/previews rather than add MDC; raw HTML, executable components and remote images remain disabled. GitHub Dark highlighting is a separate follow-up for both workspaces.
+4. Done: Note editing, deletion, search and safe Markdown rendering. Reuse the Chat MarkdownIt renderer for readers/previews rather than add MDC; raw HTML, executable components and remote images remain disabled. Done: shared GitHub Dark fenced-code highlighting for both workspaces, with safe plain-text fallback.
 5. Configure hosting, domain, production secrets, and deployment validation for this single app.
 
 ## Chat generation implementation

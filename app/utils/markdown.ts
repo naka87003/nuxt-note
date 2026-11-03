@@ -1,7 +1,14 @@
 import MarkdownIt from "markdown-it";
+import { highlightCode } from "./code-highlight";
 
 // No HTML or images. Keep a single renderer for Note previews/readers and Chat.
-const markdown = new MarkdownIt({ html: false, linkify: false, breaks: true });
+const markdown = new MarkdownIt({
+  html: false,
+  linkify: false,
+  breaks: true,
+  highlight: (code, language): string =>
+    highlightCode(code, language, markdown.utils.escapeHtml),
+});
 markdown.disable("image");
 markdown.validateLink = (url) => {
   const normalized = Array.from(url.trim())

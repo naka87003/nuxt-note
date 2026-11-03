@@ -46,7 +46,7 @@ it("renders code as escaped text, including HTML and component-like tags", () =>
   const html = renderChatMarkdown(
     "```html\n<script>alert(1)</script>\n<NoteEditor />\n```",
   );
-  expect(html).toContain("&lt;script&gt;");
+  expect(html.replace(/<\/?span[^>]*>/g, "")).toContain("&lt;script&gt;");
   expect(html).not.toContain("<script>");
   expect(html).not.toContain("<NoteEditor");
 });

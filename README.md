@@ -23,9 +23,9 @@ Development continues in this repository. The original nuxt-chat repository rema
 - Request UUIDs, a database generation guard, and stale-attempt recovery to prevent duplicate or late writes
 - Disposable PostgreSQL checks for initial schema creation, RLS, foreign keys, and deletion behavior
 
-Code syntax highlighting for Notes and Chat remains pending. New Chat creates records only on the first send. The Notes and Chat workspaces shown on the landing page are static design previews, rendered with Vue and CSS without account data or API calls. Actual sign-in requires an OAuth App and database configuration.
+Notes readers, live previews and Chat assistant messages share GitHub Dark code syntax highlighting. New Chat creates records only on the first send. The Notes and Chat workspaces shown on the landing page are static design previews, rendered with Vue and CSS without account data or API calls. Actual sign-in requires an OAuth App and database configuration.
 
-The shared workspace foundation follows the agreed Figma structure. Note readers, live previews and Chat assistant messages share the HTML-disabled MarkdownIt renderer, with safe URL protocols and no remote images. The redesigned landing page follows the approved 1440px, 1024px, 768px and 390px Figma compositions.
+The shared workspace foundation follows the agreed Figma structure. Note readers, live previews and Chat assistant messages share the HTML-disabled MarkdownIt renderer, with safe URL protocols, no remote images and escaped syntax tokens. The redesigned landing page follows the approved 1440px, 1024px, 768px and 390px Figma compositions.
 
 Workspace API coverage includes category name validation/conflicts, per-owner lists/counts/mutations, foreign-category rejection on note creation and Chat reassignment, and parent-owned message reads. Validation uses mocked sessions/database calls and a temporary fixture app for browser checks; no live database or OAuth account is modified. Browser checks covered 1440px, 1024px, 768px and 390px layouts, workspace filter/count changes, list collapse/restore, drawer dismissal, shared category creation, and unsaved-edit cancellation/confirmation. The database must already use the shared-category init described in the integration plan.
 
@@ -70,6 +70,8 @@ pnpm test:chat
 Notes editor validation: 122 passing unit tests, lint, typecheck, formatting and production build; disposable HTTP tests cover Notes mutations and Chat regression. Browser fixture checks cover new-note save/preview, saved-note editing, unsaved Cancel/Back, draft preservation, category reassignment, desktop split, 1024px/768px/390px layouts, and save-failure draft retention. No production data or database schema is changed. Figma's [Notes editing board](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=135-1583) and the specification document the final interaction contract.
 
 Landing page validation: lint, typecheck, formatting, 122 unit tests and production build pass. Browser checks cover 1440px/1024px/768px/390px compositions, three-column/two-column/mobile previews, local artwork, horizontal overflow, section anchors and signed-in/signed-out CTA destinations. The previews are illustrative and do not edit notes or send AI requests.
+
+Syntax highlighting validation: 160 unit tests, lint, typecheck, formatting and production build pass. New tests cover the shared Notes/Chat output, Figma GitHub Dark colors, supported languages/aliases, malicious code and fence labels, whitespace, incomplete streaming fences, and plain-text fallback for unsupported/large code and highlighter failure. A temporary component fixture verified both Markdown components at 1440px and 390px, live updates, code-only horizontal scrolling, and no rendered scripts/images/unsafe links; no production content was used. The fixture was removed before the production build. Shiki's selected local grammars/theme add bundle weight (the shared Markdown client chunk is approximately 293 kB gzip); there is no highlighting API or runtime language download. Physical-device checks remain pending.
 
 ## Design and documentation
 
