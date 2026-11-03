@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import type { WorkspaceItem } from "#shared/types/workspace";
+
 const route = useRoute();
 const { state, mode, current, filter, location } = useWorkspace();
-const workspaceRoot = ref<HTMLElement>();
+
+const workspaceRoot = useTemplateRef("workspaceRoot");
+
 const drawer = ref(false);
 const sidebar = ref(true);
+
 onMounted(() => {
   const viewport = window.visualViewport;
   const fitKeyboard = () => {
@@ -21,19 +25,19 @@ onMounted(() => {
   desktop.addEventListener("change", closeDrawer);
   onBeforeUnmount(() => desktop.removeEventListener("change", closeDrawer));
 });
+
 const {
   data: categories,
   error: categoriesError,
   status: categoriesStatus,
   refresh: refreshCategories,
 } = await useFetch("/api/categories", { key: "workspace-categories" });
+
 const listQuery = computed(() => ({
-  category:
-    current.value.search && current.value.scope === "all"
-      ? "all"
-      : filter.value,
+  category: filter.value,
   q: current.value.search,
 }));
+
 const {
   data: items,
   error: listError,
@@ -43,6 +47,7 @@ const {
   query: listQuery,
   key: "workspace-list",
 });
+
 const heading = computed(() =>
   filter.value === "all"
     ? mode.value === "notes"
@@ -53,19 +58,29 @@ const heading = computed(() =>
       : (categories.value?.items.find((item) => item.id === filter.value)
           ?.name ?? "Category"),
 );
+
 const isContent = computed(
   () => Boolean(route.params.id) || route.path.endsWith("/new"),
 );
+
 const isEditor = computed(
   () => route.path === "/notes/new" || state.value.editor.active,
 );
+
 const listHidden = computed(() => current.value.hidden || isEditor.value);
+
 const categoryDialog = ref(false);
+
 const operation = ref<"create" | "rename" | "delete">("create");
+
 const categoryTarget = ref("");
+
 const categoryLabel = ref("");
+
 const busy = ref(false);
+
 const failure = ref("");
+
 const dialogTitle = computed(() =>
   operation.value === "create"
     ? "New category"
@@ -73,6 +88,7 @@ const dialogTitle = computed(() =>
       ? "Rename category"
       : "Delete category",
 );
+
 watch(
   () => route.fullPath,
   () => {
@@ -83,11 +99,13 @@ watch(
   },
   { immediate: true },
 );
+
 async function go(path: string, category = filter.value) {
   await navigateTo(location(path, category));
   // A cancelled navigation leaves the drawer and controlled Tabs unchanged.
   if (route.path === path && filter.value === category) drawer.value = false;
 }
+
 async function editCategory(
   action: "create" | "rename" | "delete",
   id = "",
@@ -275,14 +293,15 @@ async function saveCategory() {
             category will become Uncategorized. No notes, conversations, or
             messages will be deleted.
           </p>
-          <UFormField v-else label="Name" name="name" required
-            ><UInput
+          <UFormField v-else label="Name" name="name" required>
+            <UInput
               v-model="categoryLabel"
               autofocus
               :maxlength="100"
               :disabled="busy"
               class="w-full"
-          /></UFormField>
+            />
+          </UFormField>
         </form>
       </template>
       <template #footer>
@@ -291,16 +310,18 @@ async function saveCategory() {
           variant="ghost"
           :disabled="busy"
           @click="categoryDialog = false"
-          >Cancel</UButton
         >
+          Cancel
+        </UButton>
         <UButton
           type="submit"
           form="category-form"
           :color="operation === 'delete' ? 'error' : 'primary'"
           :loading="busy"
           :disabled="operation !== 'delete' && !categoryLabel.trim()"
-          >{{ operation === "delete" ? "Delete category" : "Save" }}</UButton
         >
+          {{ operation === "delete" ? "Delete category" : "Save" }}
+        </UButton>
       </template>
     </UModal>
   </div>

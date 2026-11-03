@@ -17,11 +17,12 @@ const list = useTemplateRef("list");
 const now = useState("workspace-list-now", () => new Date().toISOString());
 
 const itemCountLabel = computed(() => `${props.items.length} ${mode.value}`);
-const allItemsLabel = computed(() => `All ${mode.value}`);
 const searchLabel = computed(() => `Search ${mode.value}`);
-const searchPlaceholder = computed(() => `${searchLabel.value}…`);
-const searchScopeLabel = computed(() =>
-  current.value.scope === "all" ? "all categories" : props.heading,
+const searchScopeLabel = computed(() => props.heading);
+const searchPlaceholder = computed(() =>
+  filter.value === "all"
+    ? `${searchLabel.value}…`
+    : `Search in ${props.heading}…`,
 );
 const searchAriaLabel = computed(
   () => `${searchLabel.value}: ${searchScopeLabel.value}`,
@@ -60,14 +61,6 @@ watch(mode, async () => {
   await nextTick();
   if (list.value) list.value.scrollTop = current.value.scroll;
 });
-
-function scopeButtonProps(scope: "all" | "category") {
-  const active = current.value.scope === scope;
-  return {
-    variant: active ? ("solid" as const) : ("ghost" as const),
-    color: active ? ("primary" as const) : ("neutral" as const),
-  };
-}
 
 function itemLocation(item: WorkspaceItem) {
   const category =
@@ -118,31 +111,6 @@ function date(value: string) {
         :aria-label="searchAriaLabel"
         class="w-full"
       />
-      <div
-        v-if="filter !== 'all'"
-        class="mt-2 flex gap-2"
-        role="group"
-        aria-label="Search scope"
-      >
-        <UButton
-          v-bind="scopeButtonProps('all')"
-          block
-          size="xs"
-          class="flex-1 justify-center font-bold"
-          @click="current.scope = 'all'"
-        >
-          {{ allItemsLabel }}
-        </UButton>
-        <UButton
-          v-bind="scopeButtonProps('category')"
-          block
-          size="xs"
-          class="min-w-0 flex-1 justify-center font-bold"
-          @click="current.scope = 'category'"
-        >
-          In {{ heading }}
-        </UButton>
-      </div>
       <p class="mt-3 text-xs text-dimmed" aria-live="polite">
         {{ listDescription }}
       </p>

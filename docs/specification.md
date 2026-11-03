@@ -59,6 +59,7 @@ Note remains the main workspace. Chat integration can proceed before all note fe
 
 - Match substrings in titles and raw Markdown bodies, ignoring case.
 - Treat SQL pattern characters such as `%` and `_` as literal characters.
+- Notes and Chat always search within the selected category (including Uncategorized); selecting All notes / All chats in the sidebar searches across all categories. There are no separate search-scope buttons. Changing the category preserves the search text. The search placeholder identifies the selected category when searching within it.
 - Clearly show whether the search covers all notes or the current category. Do not display date groups in search results.
 - Sort by updatedAt descending. Break timestamp ties by id to keep ordering deterministic.
 - Group lists outside search as follows, omitting empty groups.

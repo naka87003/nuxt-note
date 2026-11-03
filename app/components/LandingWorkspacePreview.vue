@@ -115,13 +115,7 @@ const summaries = computed(() =>
                 {{ isChat ? 4 : 7 }} {{ isChat ? "chats" : "notes" }}
               </small>
             </strong>
-            <div class="sample-search">
-              Search {{ isChat ? "chats" : "notes" }}…
-            </div>
-            <div class="search-scope">
-              <span>All {{ isChat ? "chats" : "notes" }}</span>
-              <span>In Nuxt</span>
-            </div>
+            <div class="sample-search">Search in Nuxt…</div>
             <small>Grouped by last updated</small>
           </div>
           <div
@@ -380,23 +374,6 @@ small {
   padding: 4px 8px;
   color: var(--ui-text-dimmed);
 }
-.search-scope {
-  display: flex;
-  margin-block: 6px;
-  background: var(--ui-bg-elevated);
-  border-radius: 4px;
-  font-size: 10px;
-}
-.search-scope span {
-  flex: 1;
-  text-align: center;
-  padding: 2px;
-}
-.search-scope span:last-child {
-  background: var(--ui-primary);
-  color: var(--ui-bg);
-  border-radius: 4px;
-}
 .sample-group > p {
   margin-block: 12px 6px;
   font-weight: 500;
@@ -600,10 +577,6 @@ blockquote {
 .is-chat .sample-search {
   padding: 2px 4px;
 }
-.is-chat .search-scope {
-  font-size: 5px;
-  margin-block: 3px;
-}
 .is-chat .sample-group > p {
   margin-block: 6px 3px;
 }
@@ -697,10 +670,6 @@ blockquote {
   }
   .is-chat .sample-search {
     padding: 5px 9px;
-  }
-  .is-chat .search-scope {
-    font-size: 12px;
-    margin-block: 7px;
   }
   .is-chat .sample-group > p {
     margin-block: 14px 7px;
