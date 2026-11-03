@@ -36,21 +36,44 @@ function messageClass(role: string) {
 
 const messagePane = ref<HTMLElement>();
 const followBottom = ref(true);
+const hasNewMessages = ref(false);
+
+function scrollToBottom() {
+  const pane = messagePane.value;
+  if (!pane) return;
+  followBottom.value = true;
+  hasNewMessages.value = false;
+  pane.scrollTop = pane.scrollHeight;
+}
+
+let paneObserver: ResizeObserver | undefined;
+onMounted(() => {
+  scrollToBottom();
+  if (!messagePane.value) return;
+  paneObserver = new ResizeObserver(() => {
+    if (followBottom.value) scrollToBottom();
+    else onScroll();
+  });
+  paneObserver.observe(messagePane.value);
+});
+onBeforeUnmount(() => paneObserver?.disconnect());
 
 watch(
   () => chat.value?.messages.map((m) => m.content).join(""),
   async () => {
+    if (!followBottom.value) hasNewMessages.value = true;
     await nextTick();
-    if (followBottom.value && messagePane.value)
-      messagePane.value.scrollTop = messagePane.value.scrollHeight;
+    if (followBottom.value) scrollToBottom();
   },
 );
 
 function onScroll() {
   const pane = messagePane.value;
-  if (pane)
+  if (pane) {
     followBottom.value =
       pane.scrollHeight - pane.scrollTop - pane.clientHeight < 80;
+    if (followBottom.value) hasNewMessages.value = false;
+  }
 }
 
 const { data: categories } = useNuxtData<{
@@ -216,6 +239,19 @@ async function remove() {
         </div>
       </div>
       <div class="chat-composer-container">
+        <UButton
+          v-if="!followBottom"
+          type="button"
+          color="neutral"
+          variant="outline"
+          icon="i-lucide-arrow-down"
+          class="chat-scroll-bottom"
+          aria-label="Scroll to latest message"
+          title="Scroll to latest message"
+          @click="scrollToBottom"
+        >
+          <span v-if="hasNewMessages">New messages</span>
+        </UButton>
         <div class="chat-inner space-y-3">
           <UAlert
             v-if="generationFailure"
