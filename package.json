@@ -25,9 +25,9 @@
     "test:chat": "node scripts/test-chat.mjs"
   },
   "dependencies": {
-    "@ai-sdk/openai": "4.0.108",
+    "@ai-sdk/openai": "^4.0.108",
     "@fontsource-variable/inter": "^5.2.0",
-    "@nuxt/ui": "4.12.0",
+    "@nuxt/ui": "^4.12.0",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "ai": "^7.0.162",
@@ -46,7 +46,7 @@
     "@types/markdown-it": "^14.2.0",
     "@types/node": "^26.6.6",
     "@types/pg": "^8.23.1",
-    "eslint": "10.14.0",
+    "eslint": "^10.14.0",
     "prettier": "^3.9.10",
     "prisma": "^7.10.1",
     "typescript": "^6.0.3",
