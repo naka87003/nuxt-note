@@ -23,7 +23,11 @@ Note remains the main workspace. Chat integration can proceed before all note fe
 - Save changes explicitly with Save. Prevent duplicate submissions while saving and preserve edits if saving fails.
 - Ask for confirmation before navigation, category changes, or leaving the editor when there are unsaved changes.
 - Replace an empty title with Untitled note when saving. Titles are limited to 200 characters.
-- Permanently delete a note after confirmation. Deleted notes cannot be restored.
+- Permanently delete a note after confirmation from its reader. Deleted notes cannot be restored. A failed deletion keeps the note visible and offers retry.
+- New and saved notes share the same editor. Edit opens a local snapshot; the reader remains the default on reload. Title, Markdown and optional category are saved together. The category selector changes only the draft and does not change the navigation filter until Save succeeds.
+- Desktop/tablet editing hides the list without changing its saved visibility preference, selection, search or scroll. Edit / Split view / Preview switch the same draft; mobile offers Edit / Preview. Resizing preserves all fields. Cancel returns a saved note to its reader, or a new note to the list.
+- Dirty means title, Markdown or category differs from the editor's initial snapshot; reverting all fields removes the warning. Preview changes never save or discard content. Untouched new notes can be cancelled without confirmation.
+- For dirty notes, Cancel, Back, another note, category/filter navigation, workspace switching, home and sign-out use the shared Keep editing / Discard changes confirmation. Keeping edits cancels the requested action; discarding completes it. Reload/close uses the browser's native confirmation. Saving disables fields, duplicate submission, Cancel and app navigation; a save failure retains the full draft for retry.
 
 ## Categories
 
@@ -70,7 +74,7 @@ These elapsed-time rules match nuxt-chat. Today does not mean since local midnig
 
 ## Markdown
 
-Initially support headings, paragraphs, emphasis, lists, links, blockquotes, code blocks, and tables. Disable raw HTML and allow only safe URL protocols in links. Image uploads are outside scope. Renderer selection, sanitization, and syntax highlighting will be validated when implementing the editor.
+Initially support headings, paragraphs, emphasis, lists, links, blockquotes, code blocks, and tables. Disable raw HTML and allow only safe URL protocols in links. Image uploads are outside scope. Note readers, live previews and assistant messages share the existing MarkdownIt renderer with HTML disabled; no MDC/Vue components execute from user content. Only HTTP, HTTPS, mailto, relative and anchor links are accepted. Remote Markdown images are not rendered or fetched. Code blocks and tables scroll horizontally inside their pane. Fenced code remains escaped plain text; GitHub Dark syntax highlighting is deferred for both workspaces to avoid adding a second rendering pipeline in this phase.
 
 ## Responsive interface
 

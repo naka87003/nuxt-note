@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   create: vi.fn(),
+  updateMany: vi.fn(),
+  deleteMany: vi.fn(),
   findMany: vi.fn(),
   findFirst: vi.fn(),
   session: vi.fn(),
@@ -27,6 +29,8 @@ vi.stubGlobal("getQuery", mocks.query);
 const { default: create } = await import("../../server/api/notes/index.post");
 const { default: list } = await import("../../server/api/notes/index.get");
 const { default: read } = await import("../../server/api/notes/[id].get");
+const { default: update } = await import("../../server/api/notes/[id].patch");
+const { default: remove } = await import("../../server/api/notes/[id].delete");
 const ownerId = "11111111-1111-4111-8111-111111111111";
 const otherId = "22222222-2222-4222-8222-222222222222";
 const event = {} as Parameters<typeof create>[0];
@@ -69,7 +73,7 @@ describe("notes API ownership and validation", () => {
     await expect(create(event)).rejects.toMatchObject({ statusCode: 400 });
     expect(mocks.create).not.toHaveBeenCalled();
   });
-  it.each([create, list, read])(
+  it.each([create, list, read, update, remove])(
     "requires authentication before touching data",
     async (handler) => {
       mocks.session.mockRejectedValue(
@@ -97,7 +101,7 @@ describe("notes API ownership and validation", () => {
     );
   });
 
-  it.each([create, list, read])(
+  it.each([create, list, read, update, remove])(
     "rejects malformed session IDs before a database query",
     async (handler) => {
       mocks.session.mockResolvedValue({ user: {}, databaseUserId: ownerId });
@@ -173,5 +177,90 @@ describe("note categories and search", () => {
         },
       }),
     );
+  });
+});
+
+describe("saved-note mutations", () => {
+  beforeEach(() => {
+    mocks.findFirst.mockResolvedValue({ id: "note" });
+    mocks.updateMany.mockResolvedValue({ count: 1 });
+    mocks.deleteMany.mockResolvedValue({ count: 1 });
+    mocks.body.mockResolvedValue({
+      title: "  ",
+      markdown: "# Changed",
+      categoryId: null,
+      userId: otherId,
+    });
+  });
+  it("updates the session owner's note with a normalized title and explicit category", async () => {
+    await expect(update(event)).resolves.toMatchObject({
+      id: "note",
+      title: "Untitled note",
+    });
+    expect(mocks.updateMany).toHaveBeenCalledWith({
+      where: { id: "note", userId: ownerId },
+      data: { title: "Untitled note", markdown: "# Changed", categoryId: null },
+    });
+  });
+  it("validates reassignment ownership", async () => {
+    mocks.body.mockResolvedValue({
+      title: "Note",
+      markdown: "",
+      categoryId: "owned",
+    });
+    mocks.category.mockResolvedValue({ id: "owned" });
+    await update(event);
+    expect(mocks.category).toHaveBeenCalledWith({
+      where: { id: "owned", userId: ownerId },
+      select: { id: true },
+    });
+    expect(mocks.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { title: "Note", markdown: "", categoryId: "owned" },
+      }),
+    );
+  });
+  it("rejects a foreign category without changing the note", async () => {
+    mocks.body.mockResolvedValue({
+      title: "Note",
+      markdown: "",
+      categoryId: "foreign",
+    });
+    mocks.category.mockResolvedValue(null);
+    await expect(update(event)).rejects.toMatchObject({ statusCode: 404 });
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+  });
+  it.each([
+    null,
+    [],
+    {},
+    { title: "x".repeat(201), markdown: "", categoryId: null },
+    { title: "x", markdown: 42, categoryId: null },
+    { title: "x", markdown: "" },
+  ])("rejects invalid updates %j", async (body) => {
+    mocks.body.mockResolvedValue(body);
+    await expect(update(event)).rejects.toMatchObject({ statusCode: 400 });
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+  });
+  it("hides foreign or missing notes before reading an update body", async () => {
+    mocks.findFirst.mockResolvedValue(null);
+    await expect(update(event)).rejects.toMatchObject({ statusCode: 404 });
+    expect(mocks.body).not.toHaveBeenCalled();
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+  });
+  it("handles deletion racing an update", async () => {
+    mocks.updateMany.mockResolvedValue({ count: 0 });
+    await expect(update(event)).rejects.toMatchObject({ statusCode: 404 });
+  });
+  it("deletes only a session-owned note", async () => {
+    await remove(event);
+    expect(mocks.deleteMany).toHaveBeenCalledWith({
+      where: { id: "note", userId: ownerId },
+    });
+    expect(mocks.status).toHaveBeenCalledWith(event, 204);
+  });
+  it("returns 404 when deletion matches no owned note", async () => {
+    mocks.deleteMany.mockResolvedValue({ count: 0 });
+    await expect(remove(event)).rejects.toMatchObject({ statusCode: 404 });
   });
 });

@@ -16,7 +16,7 @@ export function useWorkspace() {
       scroll: 0,
       hidden: false,
     },
-    editor: { dirty: false, busy: false },
+    editor: { active: false, dirty: false, busy: false },
   }));
   const mode = computed(() =>
     route.path.startsWith("/chats") ? ("chats" as const) : ("notes" as const),

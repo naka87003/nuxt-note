@@ -11,8 +11,8 @@ Development continues in this repository. The original nuxt-chat repository rema
 - GitHub OAuth, user registration, profile display, and sign-out foundation
 - Prisma 7 / PostgreSQL models for User, Category, and Note
 - Updated-date grouping with boundary tests
-- Authenticated note creation, explicit saving, grouped listing, and reading saved Markdown source
-- Unsaved-change confirmation when leaving a new note, and retryable save errors
+- Authenticated note creation/editing, explicit title/body/category saving, confirmed deletion, grouped listing and safe Markdown reading
+- Shared new/saved-note editor with desktop split and mobile Edit/Preview, unsaved-change confirmation, and retryable save errors
 - Shared session authentication helper with database UUID validation
 - Shared User, Category, Note, Chat, and Message models in one unified initial migration; notes and conversations reference the same Category
 - Shared category CRUD with normalized names, workspace-specific counts, owner checks, and content-preserving deletion
@@ -23,9 +23,9 @@ Development continues in this repository. The original nuxt-chat repository rema
 - Request UUIDs, a database generation guard, and stale-attempt recovery to prevent duplicate or late writes
 - Disposable PostgreSQL checks for initial schema creation, RLS, foreign keys, and deletion behavior
 
-Editing and deleting saved notes, safe rendered Markdown for notes, and Chat code syntax highlighting remain pending. New Chat creates records only on the first send. The note shown on the landing page is a design preview. Actual sign-in requires an OAuth App and database configuration.
+Code syntax highlighting for Notes and Chat remains pending. New Chat creates records only on the first send. The note shown on the landing page is a design preview. Actual sign-in requires an OAuth App and database configuration.
 
-The shared workspace foundation follows the agreed Figma structure. Notes currently show source text; Chat assistant messages render safe Markdown. The original Note reader remains functionally limited until the editor/Markdown phase. The landing page is unchanged.
+The shared workspace foundation follows the agreed Figma structure. Note readers, live previews and Chat assistant messages share the HTML-disabled MarkdownIt renderer, with safe URL protocols and no remote images. The landing page is unchanged.
 
 Workspace API coverage includes category name validation/conflicts, per-owner lists/counts/mutations, foreign-category rejection on note creation and Chat reassignment, and parent-owned message reads. Validation uses mocked sessions/database calls and a temporary fixture app for browser checks; no live database or OAuth account is modified. Browser checks covered 1440px, 1024px, 768px and 390px layouts, workspace filter/count changes, list collapse/restore, drawer dismissal, shared category creation, and unsaved-edit cancellation/confirmation. The database must already use the shared-category init described in the integration plan.
 
@@ -94,3 +94,5 @@ tests/unit/   Tests for shared logic
 docs/         Specification, setup, and design workflow
 scripts/      Disposable database verification
 ```
+
+Notes editor validation: 122 passing unit tests, lint, typecheck, formatting and production build; disposable HTTP tests cover Notes mutations and Chat regression. Browser fixture checks cover new-note save/preview, saved-note editing, unsaved Cancel/Back, draft preservation, category reassignment, desktop split, 1024px/768px/390px layouts, and save-failure draft retention. No production data or database schema is changed. Figma's [Notes editing board](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=135-1583) and the specification document the final interaction contract.

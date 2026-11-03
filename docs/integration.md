@@ -35,7 +35,7 @@ At the user's request, the early-development migration is consolidated into 2026
 
 ## Implementation and validation
 
-The local foundation includes the shared authentication helper used by existing Note APIs, the shared-category Prisma schema, and the consolidated init. GitHub login, persisted users, note creation, grouped listing, raw Markdown reading, and sign-out remain the baseline. Category CRUD, shared-category navigation, owner-scoped search, and saved Chat list/read/reassignment/deletion are implemented. Saved-note editing/deletion and safe Note Markdown remain pending. Chat creation, AI streaming, stop, failure/retry, and safe Chat Markdown are implemented. Opening New Chat still creates no records; the first send saves the chat and question. Note Markdown remains a separate follow-up.
+The local foundation includes the shared authentication helper used by existing Note APIs, the shared-category Prisma schema, and the consolidated init. GitHub login, persisted users, note creation, grouped listing, raw Markdown reading, and sign-out remain the baseline. Category CRUD, shared-category navigation, owner-scoped search, and saved Chat list/read/reassignment/deletion are implemented. Saved-note editing/deletion and safe Note Markdown are implemented. Chat creation, AI streaming, stop, failure/retry, and safe Chat Markdown are implemented. Opening New Chat still creates no records; the first send saves the chat and question. Note Markdown remains a separate follow-up.
 
 pnpm test checks Note/authentication behavior using mocked database/session calls. pnpm test:db applies the init to isolated PostgreSQL 17 and verifies shared category identity and rename, per-owner name uniqueness, RLS, foreign keys, category deletion preserving both content types, chat/message deletion, and user deletion preserving another owner's content. The script never loads .env or contacts Supabase; it exercises direct SQL rather than Prisma migration history or live OAuth. Its readiness check uses TCP to avoid connecting to PostgreSQL's temporary initialization server.
 
@@ -44,7 +44,7 @@ pnpm test checks Note/authentication behavior using mocked database/session call
 1. Done: category APIs and owner-isolation tests, shared navigation, responsive shell, and new-note unsaved-state handling.
 2. Done: saved Chat list/read/category reassignment/deletion APIs validate chat and category ownership. Chat/message creation is now implemented with request UUIDs and ownership validation; existing Chat data is not imported.
 3. Done: Chat creation, server-only OpenAI streaming, cancellation, failure/retry, partial persistence, safe Chat Markdown, and authorization. See the runtime contract in the specification.
-4. Complete Note editing, deletion, search, and safe MDC rendering. Highlighting follows the reference GitHub Dark theme.
+4. Done: Note editing, deletion, search and safe Markdown rendering. Reuse the Chat MarkdownIt renderer for readers/previews rather than add MDC; raw HTML, executable components and remote images remain disabled. GitHub Dark highlighting is a separate follow-up for both workspaces.
 5. Configure hosting, domain, production secrets, and deployment validation for this single app.
 
 ## Chat generation implementation
@@ -56,3 +56,9 @@ The prerelease init is consolidated again at the user's request. Chat adds `gene
 A transaction claims the chat row before creating a message or answer attempt. Checkpoint/terminal writes must still match the attempt ID. Stop releases that guard and marks the answer stopped; older workers cannot overwrite a retry. Expired attempts recover on read/send/retry. Responses use structured SSE start/text/done events; EOF alone never means successful persistence. No queue, Redis, background generation, model selector, automatic retry, AI title generation, or branching is added.
 
 Validation: 96 unit tests; disposable PostgreSQL init/RLS/uniqueness/state checks; production-build HTTP smoke tests with a fake OpenAI stream and isolated PostgreSQL for auth, create/send idempotency, generation conflicts, partial stop/save, retry in the same answer slot, provider failure, and foreign-owner rejection. A separate short request verified the authorized shared key and default model against OpenAI. Browser fixture checks cover first send, follow-up send, stop, retry and 390px/desktop layouts. Production database and live OAuth were not changed or exercised. Build the app before `pnpm test:chat`; `pnpm test:chat --preview` optionally serves an authenticated fixture on loopback port 3012 with mock AI and a temporary database.
+
+## Notes editor implementation
+
+One shared editor handles new/saved notes, explicit title/body/category saves, desktop split and mobile tabs. Existing route guards, unsaved-change modal, sign-out protection, shell and category APIs are reused. PATCH and DELETE always scope to the authenticated owner; category assignment validates category ownership. Update rechecks its owner-scoped write result so a concurrent deletion cannot recreate a note. No schema changes or migrations are needed.
+
+Validation adds note mutation/ownership and Markdown protocol/HTML tests, plus disposable HTTP coverage for create/update/category/default title/delete and foreign-owner rejection. The existing Chat smoke harness exercises both workspaces. UI fixture checks cover local drafts, navigation confirmation, save/reassignment, and desktop/mobile views. See README for final check results.

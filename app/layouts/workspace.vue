@@ -56,7 +56,9 @@ const heading = computed(() =>
 const isContent = computed(
   () => Boolean(route.params.id) || route.path.endsWith("/new"),
 );
-const isEditor = computed(() => route.path === "/notes/new");
+const isEditor = computed(
+  () => route.path === "/notes/new" || state.value.editor.active,
+);
 const listHidden = computed(() => current.value.hidden || isEditor.value);
 const categoryDialog = ref(false);
 const operation = ref<"create" | "rename" | "delete">("create");

@@ -238,6 +238,63 @@ try {
     ).status,
     404,
   );
+  // Notes share this isolated app, session and database; never touch live data.
+  const noteBody = { title: "Original", markdown: "# Hello", categoryId: null };
+  const newNote = await (await api("/api/notes", noteBody)).json();
+  const notePath = `/api/notes/${newNote.id}`;
+  assert.equal(
+    (
+      await fetch(base + notePath, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(noteBody),
+      })
+    ).status,
+    401,
+  );
+  assert.equal(
+    (
+      await api(notePath, noteBody, {
+        method: "PATCH",
+        headers: { Cookie: foreign, "Content-Type": "application/json" },
+      })
+    ).status,
+    404,
+  );
+  const category = await (
+    await api("/api/categories", { name: "Notes fixture" })
+  ).json();
+  const changed = {
+    title: "  ",
+    markdown: "## Updated\n\n| A | B |\n| - | - |\n| 1 | 2 |",
+    categoryId: category.id,
+  };
+  assert.equal((await api(notePath, changed, { method: "PATCH" })).status, 200);
+  const updatedNote = await (await api(notePath)).json();
+  assert.equal(updatedNote.title, "Untitled note");
+  assert.equal(updatedNote.markdown, changed.markdown);
+  assert.equal(updatedNote.categoryId, category.id);
+  assert(
+    Date.parse(updatedNote.updatedAt) >= Date.parse(updatedNote.createdAt),
+  );
+  assert.equal(
+    (
+      await api(notePath, undefined, {
+        method: "DELETE",
+        headers: { Cookie: foreign },
+      })
+    ).status,
+    404,
+  );
+  assert.equal(
+    (await api(notePath, undefined, { method: "DELETE" })).status,
+    204,
+  );
+  assert.equal((await api(notePath)).status, 404);
+  assert.equal((await api(notePath, changed, { method: "PATCH" })).status, 404);
+  console.log(
+    "Notes HTTP smoke passed: create/update/category/default title/delete, auth and owner isolation.",
+  );
   console.log(
     "Chat HTTP smoke passed: auth, create/send idempotency, streaming, concurrency, stop/partial save, retry, disconnect, provider failure, owner isolation.",
   );
