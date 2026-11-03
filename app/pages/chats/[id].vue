@@ -4,13 +4,16 @@ definePageMeta({
   middleware: "auth",
   layout: "workspace",
 });
+
 const route = useRoute();
 const { state, location } = useWorkspace();
+
 const {
   data: chat,
   error,
   refresh,
 } = await useFetch(() => `/api/chats/${route.params.id}`, { deep: true });
+
 const {
   draft,
   busy: generating,
@@ -22,8 +25,18 @@ const {
   generate,
   stop,
 } = useChatGeneration(chat, refresh);
+
+const retryLabel = computed(() =>
+  lastReply.value?.status === "stopped" ? "Generate again" : "Try again",
+);
+
+function messageClass(role: string) {
+  return role === "user" ? "chat-user-message" : "chat-assistant-message";
+}
+
 const messagePane = ref<HTMLElement>();
 const followBottom = ref(true);
+
 watch(
   () => chat.value?.messages.map((m) => m.content).join(""),
   async () => {
@@ -32,15 +45,18 @@ watch(
       messagePane.value.scrollTop = messagePane.value.scrollHeight;
   },
 );
+
 function onScroll() {
   const pane = messagePane.value;
   if (pane)
     followBottom.value =
       pane.scrollHeight - pane.scrollTop - pane.clientHeight < 80;
 }
+
 const { data: categories } = useNuxtData<{
   items: { id: string; name: string }[];
 }>("workspace-categories");
+
 const categoryOptions = computed(() => [
   { label: "Uncategorized", value: "uncategorized" },
   ...(categories.value?.items.map((item) => ({
@@ -48,11 +64,20 @@ const categoryOptions = computed(() => [
     value: item.id,
   })) ?? []),
 ]);
+
+const categoryName = computed(
+  () =>
+    categoryOptions.value.find(
+      (item) => item.value === (chat.value?.categoryId ?? "uncategorized"),
+    )?.label ?? "Uncategorized",
+);
+
 const assignment = ref(false);
 const deletion = ref(false);
 const target = ref("uncategorized");
 const busy = ref(false);
 const failure = ref("");
+
 watch(
   () => chat.value?.id,
   async () => {
@@ -64,11 +89,13 @@ watch(
   },
   { immediate: true },
 );
+
 function assign() {
   target.value = chat.value?.categoryId ?? "uncategorized";
   failure.value = "";
   assignment.value = true;
 }
+
 async function saveCategory() {
   if (busy.value || !chat.value) return;
   busy.value = true;
@@ -91,6 +118,7 @@ async function saveCategory() {
     busy.value = false;
   }
 }
+
 async function remove() {
   if (busy.value || !chat.value) return;
   busy.value = true;
@@ -117,11 +145,11 @@ async function remove() {
       color="error"
       class="m-4"
     >
-      <template #description
-        ><UButton color="neutral" variant="link" @click="refresh()"
-          >Try again</UButton
-        ></template
-      >
+      <template #description>
+        <UButton color="neutral" variant="link" @click="refresh()">
+          Try again
+        </UButton>
+      </template>
     </UAlert>
     <div v-else-if="chat" class="chat-session">
       <div class="chat-actions">
@@ -132,13 +160,9 @@ async function remove() {
           class="font-bold"
           :disabled="generating"
           @click="assign"
-          >Category:
-          {{
-            categoryOptions.find(
-              (item) => item.value === (chat?.categoryId ?? "uncategorized"),
-            )?.label ?? "Uncategorized"
-          }}</UButton
         >
+          Category: {{ categoryName }}
+        </UButton>
         <UButton
           color="neutral"
           variant="soft"
@@ -149,26 +173,23 @@ async function remove() {
             failure = '';
             deletion = true;
           "
-          >Delete</UButton
         >
+          Delete
+        </UButton>
       </div>
       <div ref="messagePane" class="chat-messages" @scroll="onScroll">
         <div class="chat-inner space-y-6">
-          <h1 class="text-2xl font-semibold break-words">
+          <h1 class="text-2xl font-semibold wrap-break-word">
             {{ chat.title || "Untitled chat" }}
           </h1>
           <div
             v-for="message in chat.messages"
             :key="message.id"
-            :class="
-              message.role === 'user'
-                ? 'chat-user-message'
-                : 'chat-assistant-message'
-            "
+            :class="messageClass(message.role)"
           >
-            <template v-if="message.role === 'user'">{{
-              message.content
-            }}</template>
+            <template v-if="message.role === 'user'">
+              {{ message.content }}
+            </template>
             <template v-else>
               <ChatMarkdown :content="message.content" />
               <p
@@ -207,10 +228,9 @@ async function remove() {
             color="neutral"
             variant="soft"
             @click="generate"
-            >{{
-              lastReply?.status === "stopped" ? "Generate again" : "Try again"
-            }}</UButton
           >
+            {{ retryLabel }}
+          </UButton>
           <ChatComposer
             v-model="draft"
             :busy="generating"
@@ -228,27 +248,28 @@ async function remove() {
       :dismissible="!busy"
       :close="!busy"
     >
-      <template #body
-        ><UAlert
-          v-if="failure"
-          :title="failure"
-          color="error"
-          class="mb-4" /><UFormField label="Category"
-          ><USelect
+      <template #body>
+        <UAlert v-if="failure" :title="failure" color="error" class="mb-4" />
+        <UFormField label="Category">
+          <USelect
             v-model="target"
             :items="categoryOptions"
             :disabled="busy"
-            class="w-full" /></UFormField
-      ></template>
-      <template #footer
-        ><UButton
+            class="w-full"
+          />
+        </UFormField>
+      </template>
+      <template #footer>
+        <UButton
           color="neutral"
           variant="ghost"
           :disabled="busy"
           @click="assignment = false"
-          >Cancel</UButton
-        ><UButton :loading="busy" @click="saveCategory">Save</UButton></template
-      >
+        >
+          Cancel
+        </UButton>
+        <UButton :loading="busy" @click="saveCategory">Save</UButton>
+      </template>
     </UModal>
     <UModal
       v-model:open="deletion"
@@ -256,24 +277,26 @@ async function remove() {
       :dismissible="!busy"
       :close="!busy"
     >
-      <template #body
-        ><UAlert v-if="failure" :title="failure" color="error" class="mb-4" />
+      <template #body>
+        <UAlert v-if="failure" :title="failure" color="error" class="mb-4" />
         <p>
           Permanently delete this conversation and all its messages? This cannot
           be undone.
-        </p></template
-      >
-      <template #footer
-        ><UButton
+        </p>
+      </template>
+      <template #footer>
+        <UButton
           color="neutral"
           variant="ghost"
           :disabled="busy"
           @click="deletion = false"
-          >Cancel</UButton
-        ><UButton color="error" :loading="busy" @click="remove"
-          >Delete chat</UButton
-        ></template
-      >
+        >
+          Cancel
+        </UButton>
+        <UButton color="error" :loading="busy" @click="remove">
+          Delete chat
+        </UButton>
+      </template>
     </UModal>
   </div>
 </template>

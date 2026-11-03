@@ -1,29 +1,36 @@
 <script setup lang="ts">
 import type { SavedNote } from "#shared/types/note";
+
 definePageMeta({
   key: (route) => String(route.params.id),
   middleware: "auth",
   layout: "workspace",
 });
+
 const route = useRoute();
 const { state, location } = useWorkspace();
+
 const {
   data: note,
   error,
   refresh,
 } = await useFetch(() => `/api/notes/${route.params.id}`);
+
 const editing = ref(false);
 const deletion = ref(false);
 const busy = ref(false);
 const failure = ref("");
+
 const { data: categories } = useNuxtData<{
   items: { id: string; name: string }[];
 }>("workspace-categories");
+
 const categoryName = computed(
   () =>
     categories.value?.items.find((item) => item.id === note.value?.categoryId)
       ?.name ?? "Uncategorized",
 );
+
 async function saved(result: SavedNote) {
   const previousCategory = note.value?.categoryId;
   if (note.value) note.value = { ...note.value, ...result };
@@ -41,6 +48,7 @@ async function saved(result: SavedNote) {
     refreshNuxtData("workspace-categories"),
   ]);
 }
+
 async function remove() {
   if (busy.value || !note.value) return;
   busy.value = true;
@@ -77,19 +85,19 @@ async function remove() {
         description="The note may be unavailable. Return to the list or try again."
         color="error"
       >
-        <template #actions
-          ><UButton color="neutral" variant="soft" @click="refresh()"
-            >Try again</UButton
-          ></template
-        >
+        <template #actions>
+          <UButton color="neutral" variant="soft" @click="refresh()">
+            Try again
+          </UButton>
+        </template>
       </UAlert>
       <article v-else-if="note" class="space-y-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <p class="text-sm text-dimmed">{{ categoryName }}</p>
           <div class="flex gap-2 note-reader-actions">
-            <UButton color="neutral" variant="soft" @click="editing = true"
-              >Edit</UButton
-            >
+            <UButton color="neutral" variant="soft" @click="editing = true">
+              Edit
+            </UButton>
             <UButton
               color="neutral"
               variant="soft"
@@ -97,11 +105,12 @@ async function remove() {
                 failure = '';
                 deletion = true;
               "
-              >Delete</UButton
             >
+              Delete
+            </UButton>
           </div>
         </div>
-        <h1 class="break-words text-2xl font-semibold">{{ note.title }}</h1>
+        <h1 class="wrap-break-word text-2xl font-semibold">{{ note.title }}</h1>
         <MarkdownContent v-if="note.markdown" :content="note.markdown" />
         <p v-else class="text-dimmed">This note is empty.</p>
       </article>
@@ -129,11 +138,12 @@ async function remove() {
           class="min-h-11"
           :disabled="busy"
           @click="deletion = false"
-          >Cancel</UButton
         >
-        <UButton color="error" class="min-h-11" :loading="busy" @click="remove"
-          >Delete note</UButton
-        >
+          Cancel
+        </UButton>
+        <UButton color="error" class="min-h-11" :loading="busy" @click="remove">
+          Delete note
+        </UButton>
       </template>
     </UModal>
   </div>

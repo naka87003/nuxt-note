@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import type { NoteDraft, SavedNote } from "#shared/types/note";
+
 const props = defineProps<{ note?: SavedNote }>();
 const emit = defineEmits<{ saved: [note: SavedNote]; cancel: [] }>();
+
 const { loggedIn } = useUserSession();
 const { state, categoryId, confirmEdits } = useWorkspace();
+
 // Snapshot once: background refreshes must never replace a local draft.
 const initial: NoteDraft = {
   title: props.note?.title ?? "",
@@ -16,6 +19,7 @@ const category = ref(initial.categoryId ?? "uncategorized");
 const saving = ref(false);
 const saved = ref(false);
 const failure = ref("");
+
 const dirty = computed(
   () =>
     !saved.value &&
@@ -24,9 +28,11 @@ const dirty = computed(
       (category.value === "uncategorized" ? null : category.value) !==
         initial.categoryId),
 );
+
 const { data: categories } = useNuxtData<{
   items: { id: string; name: string }[];
 }>("workspace-categories");
+
 const categoryOptions = computed(() => [
   { label: "Uncategorized", value: "uncategorized" },
   ...(categories.value?.items.map((item) => ({
@@ -41,6 +47,7 @@ const viewItems = computed(() => [
   ...(!mobile.value ? [{ label: "Split view", value: "split" }] : []),
   { label: "Preview", value: "preview" },
 ]);
+
 // A split view becomes Edit on mobile without changing the stored desktop choice.
 const visibleView = computed({
   get: () => (mobile.value && view.value === "split" ? "edit" : view.value),
@@ -48,23 +55,29 @@ const visibleView = computed({
     view.value = value;
   },
 });
+
 async function canLeave() {
   if (!loggedIn.value) return true;
   return await confirmEdits();
 }
+
 onBeforeRouteLeave(canLeave);
+
 onBeforeRouteUpdate((to, from) => {
   if (to.fullPath !== from.fullPath) return canLeave();
 });
+
 watchEffect(() => {
   state.value.editor = { active: true, dirty: dirty.value, busy: saving.value };
 });
+
 function beforeUnload(event: BeforeUnloadEvent) {
   if (dirty.value || saving.value) {
     event.preventDefault();
     event.returnValue = "";
   }
 }
+
 onMounted(() => {
   const media = window.matchMedia("(max-width: 767px)");
   const update = () => {
@@ -78,9 +91,11 @@ onMounted(() => {
     window.removeEventListener("beforeunload", beforeUnload);
   });
 });
+
 onBeforeUnmount(() => {
   state.value.editor = { active: false, dirty: false, busy: false };
 });
+
 async function cancel() {
   if (await canLeave()) {
     saved.value = true;
@@ -88,6 +103,7 @@ async function cancel() {
     emit("cancel");
   }
 }
+
 async function save() {
   if (saving.value || saved.value) return;
   saving.value = true;
@@ -122,23 +138,25 @@ async function save() {
   <form class="note-editor" @submit.prevent="save">
     <div class="note-editor-actions">
       <h1 class="font-medium">{{ note ? "Edit note" : "New note" }}</h1>
-      <span class="note-save-status text-xs text-dimmed" role="status">{{
-        dirty ? "Unsaved changes" : ""
-      }}</span>
+      <span class="note-save-status text-xs text-dimmed" role="status">
+        {{ dirty ? "Unsaved changes" : "" }}
+      </span>
       <UButton
         type="button"
         color="neutral"
         variant="outline"
         :disabled="saving || saved"
         @click="cancel"
-        >Cancel</UButton
       >
+        Cancel
+      </UButton>
       <UButton
         type="submit"
         :loading="saving"
         :disabled="saved || (!!note && !dirty)"
-        >Save</UButton
       >
+        Save
+      </UButton>
     </div>
     <UAlert
       v-if="failure"
@@ -202,7 +220,7 @@ async function save() {
         aria-label="Markdown preview"
       >
         <p class="mb-4 text-xs text-dimmed">PREVIEW</p>
-        <h2 class="mb-6 text-2xl font-semibold break-words">
+        <h2 class="mb-6 text-2xl font-semibold wrap-break-word">
           {{ title.trim() || "Untitled note" }}
         </h2>
         <MarkdownContent v-if="markdown" :content="markdown" />
