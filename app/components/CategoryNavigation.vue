@@ -20,6 +20,12 @@ const emit = defineEmits<{
 
 const { mode, filter } = useWorkspace();
 
+const sortedCategories = computed(() =>
+  [...(props.data?.items ?? [])].sort(
+    (a, b) => b._count[mode.value] - a._count[mode.value],
+  ),
+);
+
 const tabs: TabsItem[] = [
   { label: "Notes", value: "notes", icon: "i-lucide-file-text" },
   { label: "Chat", value: "chats", icon: "i-lucide-message-circle" },
@@ -90,7 +96,7 @@ function categoryMenuItems(
       </button>
       <h2 class="mt-5 mb-2 text-sm font-semibold">Categories</h2>
       <div
-        v-for="category in data?.items"
+        v-for="category in sortedCategories"
         :key="category.id"
         class="category-row"
       >
