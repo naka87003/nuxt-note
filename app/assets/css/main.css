@@ -271,6 +271,8 @@ body {
 .chat-composer textarea {
   width: 100%;
   min-width: 0;
+  min-height: 24px;
+  line-height: 24px;
   resize: none;
   outline: none;
   background: transparent;
@@ -446,6 +448,10 @@ body {
   }
   .chat-composer {
     padding-block: 6px;
+  }
+  .chat-composer textarea {
+    min-height: 44px;
+    padding-block: 10px;
   }
 }
 @media (max-width: 639px) {

@@ -12,7 +12,11 @@ const textarea = ref<HTMLTextAreaElement>();
 function resize() {
   if (!textarea.value) return;
   textarea.value.style.height = "auto";
-  textarea.value.style.height = `${Math.min(textarea.value.scrollHeight, 160)}px`;
+  textarea.value.style.height = `${Math.max(24, Math.min(textarea.value.scrollHeight, 160))}px`;
+}
+
+function focusInput() {
+  if (!props.busy && !props.disabled) textarea.value?.focus();
 }
 
 onMounted(resize);
@@ -29,7 +33,11 @@ function keydown(event: KeyboardEvent) {
 }
 </script>
 <template>
-  <form class="chat-composer" @submit.prevent="emit('send')">
+  <form
+    class="chat-composer"
+    @click.self="focusInput"
+    @submit.prevent="emit('send')"
+  >
     <textarea
       ref="textarea"
       v-model="value"
