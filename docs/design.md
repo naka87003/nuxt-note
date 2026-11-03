@@ -71,7 +71,7 @@ Desktop, 1024px, 768px, and mobile layouts were rendered and visually checked fo
 
 LP responsive rules: at 1280px and above the hero and AI introduction can sit beside imagery/product views; at 768–1279px the hero and AI sections stack, using two-column application previews. Feature cards remain three across at 960px and above and stack below 960px. Navigation simplifies below 900px. Below 768px, 16px page gutters, stacked calls to action/cards, and real mobile product previews keep text readable. The decorative notebook and AI illustrations are shared across viewport sizes and keep their aspect ratios. The 1024px/768px samples use 32px page gutters.
 
-This is a Figma proposal. The application's landing page has not been changed to match it yet, and the product capabilities remain subject to the implementation status described above.
+The application now implements these landing-page compositions in `app/pages/index.vue`, with static Vue/CSS product previews in `LandingWorkspacePreview.vue`. The shared brand, Nuxt UI buttons, installed Lucide icons and palette tokens are reused. The adopted illustrations are served locally from `public/images`; product previews fetch no account data and make no AI requests. Navigation anchors open the corresponding page sections. Start and sign-in actions open `/login` for visitors or `/notes` for signed-in users. The specification and existing Figma frames continue to define the same responsive behavior; no design change was needed.
 
 ## Responsibilities
 
@@ -91,13 +91,13 @@ Code examples in the Figma Notes, Chat, Markdown editor, and LP previews use Git
 - Bold button labels. Mobile controls provide touch targets of at least 44px.
 - Bottom-align the logo and title using `align-items: flex-end` on the parent and `text-box-trim: trim-end; text-box-edge: cap alphabetic` on the title.
 
-The initial landing page establishes the colors, structure, and copy. Product previews in Figma are editable layers and should not be embedded in the actual app as complete UI screenshots. The shared workspace and Note editor are reconciled with the working application; the redesigned landing page remains to be implemented.
+The initial landing page establishes the colors, structure, and copy. Product previews in Figma are editable layers and should not be embedded in the actual app as complete UI screenshots. The shared workspace and Note editor are reconciled with the working application; the redesigned landing page is implemented and visually checked at all four reference widths.
 
 ## Workspace implementation
 
 The shared shell is implemented in `app/layouts/workspace.vue`, with CategoryNavigation, WorkspaceList and route-controlled UTabs. Breakpoints are 1280px and 768px; list widths are 340px and 280px below 960px. Category CRUD uses one API for both workspaces, preserves empty categories, and shows separate Notes/Chat counts. New and saved notes protect unsaved edits during navigation, category/workspace changes, sign-out and browser unload.
 
-Note creation/editing/deletion, search, safe Markdown readers/previews, Chat creation/streaming/stop/retry, and shared category operations are implemented. The sections below describe the runtime and editor contracts. Remaining work includes syntax highlighting, the redesigned landing page and deployment/device validation; the README records current verification results.
+Note creation/editing/deletion, search, safe Markdown readers/previews, Chat creation/streaming/stop/retry, and shared category operations are implemented. The sections below describe the runtime and editor contracts. Remaining work includes syntax highlighting and deployment/device validation; the README records current verification results.
 
 ## Chat runtime states
 

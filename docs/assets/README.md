@@ -27,7 +27,7 @@ Transparent background. Wide landscape 3:2 with comfortable surrounding padding.
 
 `nuxt-chat-ai-conversations.png` reuses the existing decorative illustration from `public/ai-conversations.png` in the reference nuxt-chat repository. It connects the new landing page visually with the current Nuxt Chat landing page. The Figma source image and both repository copies are byte-identical.
 
-The two retained assets are placed in Figma as image fills. Product interface previews use editable Figma layers rather than flattened UI images.
+The two retained assets are placed in Figma as image fills. Byte-identical production copies are served from `public/images/nuxt-note-hero.png` and `public/images/nuxt-chat-ai-conversations.png`. `public/images/preview-avatar.png` is the existing Figma sample avatar downloaded for the static product previews; it is not a live user profile. Product interface previews use editable Figma layers rather than flattened UI images.
 
 ## Figma presentation
 
