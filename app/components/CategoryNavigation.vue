@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, TabsItem } from "@nuxt/ui";
 import type { CategoriesResponse } from "#shared/types/workspace";
+import { sortCategoriesByCount } from "#shared/utils/categories";
 
 const props = defineProps<{
   data: CategoriesResponse | null | undefined;
@@ -21,9 +22,7 @@ const emit = defineEmits<{
 const { mode, filter } = useWorkspace();
 
 const sortedCategories = computed(() =>
-  [...(props.data?.items ?? [])].sort(
-    (a, b) => b._count[mode.value] - a._count[mode.value],
-  ),
+  sortCategoriesByCount(props.data?.items ?? []),
 );
 
 const tabs: TabsItem[] = [

@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import type { CategoriesResponse } from "#shared/types/workspace";
+import { sortCategoriesByCount } from "#shared/utils/categories";
+
 definePageMeta({
   key: (route) => String(route.params.id),
   middleware: "auth",
@@ -76,16 +79,16 @@ function onScroll() {
   }
 }
 
-const { data: categories } = useNuxtData<{
-  items: { id: string; name: string }[];
-}>("workspace-categories");
+const { data: categories } = useNuxtData<CategoriesResponse>(
+  "workspace-categories",
+);
 
 const categoryOptions = computed(() => [
   { label: "Uncategorized", value: "uncategorized" },
-  ...(categories.value?.items.map((item) => ({
+  ...sortCategoriesByCount(categories.value?.items ?? []).map((item) => ({
     label: item.name,
     value: item.id,
-  })) ?? []),
+  })),
 ]);
 
 const categoryName = computed(

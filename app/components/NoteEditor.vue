@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { NoteDraft, SavedNote } from "#shared/types/note";
+import type { CategoriesResponse } from "#shared/types/workspace";
+import { sortCategoriesByCount } from "#shared/utils/categories";
 
 const props = defineProps<{ note?: SavedNote }>();
 const emit = defineEmits<{ saved: [note: SavedNote]; cancel: [] }>();
@@ -29,16 +31,16 @@ const dirty = computed(
         initial.categoryId),
 );
 
-const { data: categories } = useNuxtData<{
-  items: { id: string; name: string }[];
-}>("workspace-categories");
+const { data: categories } = useNuxtData<CategoriesResponse>(
+  "workspace-categories",
+);
 
 const categoryOptions = computed(() => [
   { label: "Uncategorized", value: "uncategorized" },
-  ...(categories.value?.items.map((item) => ({
+  ...sortCategoriesByCount(categories.value?.items ?? []).map((item) => ({
     label: item.name,
     value: item.id,
-  })) ?? []),
+  })),
 ]);
 const view = ref("split");
 const mobile = ref(false);
