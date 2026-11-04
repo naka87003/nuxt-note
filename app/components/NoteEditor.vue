@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import type { NoteDraft, SavedNote } from "#shared/types/note";
 import type { CategoriesResponse } from "#shared/types/workspace";
 import { sortCategoriesByCount } from "#shared/utils/categories";
@@ -22,6 +23,12 @@ const category = ref(initial.categoryId ?? "uncategorized");
 const saving = ref(false);
 const saved = ref(false);
 const failure = ref("");
+
+const overLimit = computed(
+  () =>
+    title.value.length > INPUT_LIMITS.noteTitle ||
+    markdown.value.length > INPUT_LIMITS.noteBody,
+);
 
 const dirty = computed(
   () =>
@@ -109,7 +116,7 @@ async function cancel() {
 }
 
 async function save() {
-  if (saving.value || saved.value) return;
+  if (saving.value || saved.value || overLimit.value) return;
   saving.value = true;
   failure.value = "";
   const body: NoteDraft = {
@@ -157,7 +164,7 @@ async function save() {
       <UButton
         type="submit"
         :loading="saving"
-        :disabled="saved || (!!note && !dirty)"
+        :disabled="saved || overLimit || (!!note && !dirty)"
       >
         Save
       </UButton>
@@ -170,11 +177,24 @@ async function save() {
       role="alert"
       class="m-4"
     />
+    <UAlert
+      v-if="overLimit"
+      color="error"
+      title="This note exceeds the character limit"
+      :description="`Shorten the title to ${INPUT_LIMITS.noteTitle} characters and the body to ${INPUT_LIMITS.noteBody.toLocaleString('en-US')} characters before saving. Your existing content has been preserved.`"
+      role="alert"
+      class="m-4"
+    />
     <div class="note-editor-fields">
-      <UFormField label="Title" name="title" class="min-w-0">
+      <UFormField
+        label="Title"
+        name="title"
+        class="min-w-0"
+        :hint="`${title.length} / ${INPUT_LIMITS.noteTitle}`"
+      >
         <UInput
           v-model="title"
-          :maxlength="200"
+          :maxlength="INPUT_LIMITS.noteTitle"
           :disabled="saving || saved"
           placeholder="Untitled note"
           size="xl"
@@ -211,6 +231,7 @@ async function save() {
         <UTextarea
           id="note-markdown"
           v-model="markdown"
+          :maxlength="INPUT_LIMITS.noteBody"
           :disabled="saving || saved"
           :rows="18"
           placeholder="Start writing…"
@@ -232,7 +253,10 @@ async function save() {
       </section>
     </div>
     <footer class="note-editor-footer text-xs text-dimmed">
-      <span>Markdown · {{ markdown.length }} characters</span>
+      <span>
+        Markdown · {{ markdown.length.toLocaleString("en-US") }} /
+        {{ INPUT_LIMITS.noteBody.toLocaleString("en-US") }} characters
+      </span>
       <span>Save to apply your changes</span>
     </footer>
   </form>

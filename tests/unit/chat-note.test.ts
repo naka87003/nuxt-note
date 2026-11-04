@@ -90,7 +90,10 @@ describe("AI Note draft output", () => {
     );
   });
   it("counts Unicode characters, including Markdown and newlines, within 3000", async () => {
-    const draft = { title: "Title", markdown: "#\n" + "😀".repeat(2998) };
+    const draft = {
+      title: "Title",
+      markdown: "#\n" + "😀".repeat(1499) + "あ".repeat(1499),
+    };
     mocks.generate.mockResolvedValue(response(draft));
     await expect(
       createChatNoteDraft(history, config, new AbortController().signal),
@@ -98,8 +101,9 @@ describe("AI Note draft output", () => {
     expect(mocks.generate).toHaveBeenCalledTimes(1);
   });
   it.each([
-    { title: "x".repeat(201), markdown: "Body" },
+    { title: "x".repeat(51), markdown: "Body" },
     { title: "Title", markdown: "x".repeat(3001) },
+    { title: "Title", markdown: "😀".repeat(2501) },
   ])(
     "rejects output still exceeding limits after shortening",
     async (draft) => {

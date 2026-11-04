@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { INPUT_LIMITS } from "#shared/utils/input-limits";
 const value = defineModel<string>({ default: "" });
 
 const props = defineProps<{
@@ -23,32 +24,39 @@ onMounted(resize);
 watch(value, resize, { flush: "post" });
 
 const emit = defineEmits<{ send: [] }>();
+const canSend = computed(
+  () =>
+    !props.busy &&
+    !props.disabled &&
+    !!value.value.trim() &&
+    value.value.length <= INPUT_LIMITS.chatMessage,
+);
+
+function send() {
+  if (canSend.value) emit("send");
+}
 
 function keydown(event: KeyboardEvent) {
   if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
     event.preventDefault();
-    if (!props.busy && !props.disabled && value.value.trim()) emit("send");
+    send();
   }
 }
 </script>
 <template>
-  <form
-    class="chat-composer"
-    @click.self="focusInput"
-    @submit.prevent="emit('send')"
-  >
+  <form class="chat-composer" @click.self="focusInput" @submit.prevent="send">
     <textarea
       ref="textarea"
       v-model="value"
       :disabled="busy || disabled"
       rows="1"
-      maxlength="20000"
+      :maxlength="INPUT_LIMITS.chatMessage"
       aria-label="Message"
       @keydown="keydown"
     />
     <UButton
       type="submit"
-      :disabled="busy || disabled || !value.trim()"
+      :disabled="!canSend"
       class="chat-send"
       aria-label="Send message"
     >

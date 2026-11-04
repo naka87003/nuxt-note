@@ -1,3 +1,4 @@
+import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import { createError } from "nuxt/server";
 import type { Prisma } from "../../generated/prisma/client";
 import { getPrisma } from "./prisma";
@@ -34,11 +35,11 @@ export function messageInput(body: unknown) {
   if (
     typeof data.content !== "string" ||
     !data.content.trim() ||
-    data.content.length > 20_000
+    data.content.length > INPUT_LIMITS.chatMessage
   )
     throw createError({
       statusCode: 400,
-      statusMessage: "Use 1–20,000 characters for the message",
+      statusMessage: `Use 1–${INPUT_LIMITS.chatMessage.toLocaleString("en-US")} characters for the message`,
     });
   return { id, content: data.content.trim() };
 }

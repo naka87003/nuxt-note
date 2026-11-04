@@ -77,8 +77,9 @@ describe("notes API ownership and validation", () => {
     null,
     [],
     { title: 1, markdown: "" },
-    { title: "x".repeat(201), markdown: "" },
+    { title: "x".repeat(51), markdown: "" },
     { title: "title" },
+    { title: "Title", markdown: "あ".repeat(5001) },
   ])("rejects invalid input %j", async (body) => {
     mocks.body.mockResolvedValue(body);
     await expect(create(event)).rejects.toMatchObject({ statusCode: 400 });
@@ -275,8 +276,9 @@ describe("saved-note mutations", () => {
     null,
     [],
     {},
-    { title: "x".repeat(201), markdown: "", categoryId: null },
+    { title: "x".repeat(51), markdown: "", categoryId: null },
     { title: "x", markdown: 42, categoryId: null },
+    { title: "x", markdown: "あ".repeat(5001), categoryId: null },
     { title: "x", markdown: "" },
   ])("rejects invalid updates %j", async (body) => {
     mocks.body.mockResolvedValue(body);

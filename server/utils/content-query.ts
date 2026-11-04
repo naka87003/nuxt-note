@@ -1,3 +1,4 @@
+import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import { createError } from "nuxt/server";
 
 export function contentQuery(
@@ -8,7 +9,8 @@ export function contentQuery(
   const q = query.q;
   if (
     (category !== undefined && typeof category !== "string") ||
-    (q !== undefined && (typeof q !== "string" || q.length > 500))
+    (q !== undefined &&
+      (typeof q !== "string" || q.length > INPUT_LIMITS.search))
   )
     throw createError({
       statusCode: 400,

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import { groupNotesByUpdatedAt } from "#shared/utils/note-date-groups";
 import type {
   CategoriesResponse,
@@ -125,7 +126,7 @@ function date(value: string) {
       </div>
       <UInput
         v-model="current.search"
-        :maxlength="500"
+        :maxlength="INPUT_LIMITS.search"
         :placeholder="searchPlaceholder"
         :aria-label="searchAriaLabel"
         class="w-full"

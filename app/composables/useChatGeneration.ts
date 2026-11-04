@@ -1,3 +1,4 @@
+import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import type { ChatMessage, ChatStatus } from "#shared/types/chat";
 import { shallowRef } from "vue";
 import { readChatStream } from "../utils/chat-stream";
@@ -148,6 +149,10 @@ export function useChatGeneration(
   }
   async function send() {
     if (busy.value || !draft.value.trim() || (!chat.value && !creation)) return;
+    if (draft.value.length > INPUT_LIMITS.chatMessage) {
+      failure.value = `Use at most ${INPUT_LIMITS.chatMessage.toLocaleString("en-US")} characters for the message.`;
+      return;
+    }
     const isNew = !persisted.value;
     const content = draft.value.trim();
     const categoryId = creation?.categoryId() ?? null;

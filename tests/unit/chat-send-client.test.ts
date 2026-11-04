@@ -205,3 +205,15 @@ it("aborts its own stream on navigation and preserves the displayed partial answ
   expect(generation.failure.value).toBe("");
   expect(generation.waitingForResponse.value).toBe(false);
 });
+
+it("preserves an oversized draft without saving or starting AI", async () => {
+  const { chat, generation } = setup();
+  const content = "あ".repeat(2001);
+  generation.draft.value = content;
+  await generation.send();
+  expect(generation.draft.value).toBe(content);
+  expect(generation.failure.value).toContain("2,000");
+  expect(chat.value.messages).toEqual([]);
+  expect(save).not.toHaveBeenCalled();
+  expect(generate).not.toHaveBeenCalled();
+});

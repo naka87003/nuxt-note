@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import type { WorkspaceItem } from "#shared/types/workspace";
 
 const route = useRoute();
@@ -135,6 +136,13 @@ async function editCategory(
 }
 async function saveCategory() {
   if (busy.value) return;
+  if (
+    operation.value !== "delete" &&
+    categoryLabel.value.length > INPUT_LIMITS.categoryName
+  ) {
+    failure.value = `Use at most ${INPUT_LIMITS.categoryName} characters for the category name.`;
+    return;
+  }
   busy.value = true;
   failure.value = "";
   try {
@@ -306,11 +314,17 @@ async function saveCategory() {
             category will become Uncategorized. No notes, conversations, or
             messages will be deleted.
           </p>
-          <UFormField v-else label="Name" name="name" required>
+          <UFormField
+            v-else
+            label="Name"
+            name="name"
+            required
+            :hint="`${categoryLabel.length} / ${INPUT_LIMITS.categoryName}`"
+          >
             <UInput
               v-model="categoryLabel"
               autofocus
-              :maxlength="100"
+              :maxlength="INPUT_LIMITS.categoryName"
               :disabled="busy"
               class="w-full"
             />

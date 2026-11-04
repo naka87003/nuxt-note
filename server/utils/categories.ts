@@ -1,3 +1,4 @@
+import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import { createError } from "nuxt/server";
 import { getPrisma } from "./prisma";
 
@@ -12,10 +13,14 @@ export function categoryName(body: unknown) {
     });
   const trimmed = name.trim();
   const nameKey = trimmed.normalize("NFKC").toLowerCase();
-  if (!trimmed || trimmed.length > 100 || nameKey.length > 100)
+  if (
+    !trimmed ||
+    name.length > INPUT_LIMITS.categoryName ||
+    nameKey.length > 100
+  )
     throw createError({
       statusCode: 400,
-      statusMessage: "Use 1–100 characters for the category name",
+      statusMessage: `Use 1–${INPUT_LIMITS.categoryName} characters for the category name`,
     });
   return { name: trimmed, nameKey };
 }

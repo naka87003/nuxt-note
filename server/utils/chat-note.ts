@@ -1,3 +1,4 @@
+import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText, Output } from "ai";
 
@@ -7,8 +8,8 @@ export const NOTE_DRAFT_BODY_LIMIT = 3_000;
 
 const instructions =
   "Return only a JSON object with string fields title and markdown, without an outer code fence. " +
-  "The title must be non-empty and at most 200 UTF-16 code units. " +
-  "The markdown must be non-empty Markdown, at most 3000 Unicode characters INCLUDING Markdown syntax and newlines; aim for 2600. " +
+  `The title must be non-empty and at most ${INPUT_LIMITS.noteTitle} UTF-16 code units. ` +
+  `The markdown must be non-empty Markdown, at most 3000 Unicode characters and ${INPUT_LIMITS.noteBody} UTF-16 code units INCLUDING Markdown syntax and newlines; aim for 2600 characters. ` +
   "Use appropriate headings, bullets, conclusions, reasons, steps and useful code. " +
   "Reflect final corrections and decisions, distinguish unresolved questions and uncertainty, and never add information absent from the conversation. " +
   "Omit greetings and introductory commentary. Keep code fences complete. " +
@@ -53,7 +54,8 @@ export async function createChatNoteDraft(
       throw new Error("Empty draft");
     const draft = { title: title.trim(), markdown: markdown.trim() };
     if (
-      draft.title.length <= 200 &&
+      draft.title.length <= INPUT_LIMITS.noteTitle &&
+      draft.markdown.length <= INPUT_LIMITS.noteBody &&
       Array.from(draft.markdown).length <= NOTE_DRAFT_BODY_LIMIT
     )
       return draft;
