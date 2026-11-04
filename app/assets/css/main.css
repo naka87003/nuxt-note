@@ -321,6 +321,19 @@ body {
   padding: 6px 20px;
   flex-shrink: 0;
 }
+.chat-secondary-actions {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+.chat-secondary-actions > button {
+  flex-shrink: 0;
+}
+.chat-secondary-actions > .chat-category-action {
+  min-width: 0;
+  flex-shrink: 1;
+}
 .chat-messages {
   flex: 1;
   min-height: 0;
@@ -538,6 +551,13 @@ body {
     min-height: 44px;
     padding-left: 72px;
     align-items: center;
+    flex-wrap: wrap;
+  }
+  .chat-actions > button {
+    flex-shrink: 0;
+  }
+  .chat-category-prefix {
+    display: none;
   }
 }
 

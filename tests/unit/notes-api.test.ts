@@ -50,6 +50,16 @@ beforeEach(() => {
 });
 
 describe("notes API ownership and validation", () => {
+  it("keeps the AI draft length limit separate from manual Note creation", async () => {
+    const markdown = "# Manual note\n\n" + "あ".repeat(3001);
+    mocks.body.mockResolvedValue({ title: "Manual note", markdown });
+    await create(event);
+    expect(mocks.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ markdown }),
+      }),
+    );
+  });
   it("assigns ownership from the session and defaults a blank title", async () => {
     await expect(create(event)).resolves.toEqual({ id: "note" });
     expect(mocks.create).toHaveBeenCalledWith({
@@ -218,6 +228,20 @@ describe("saved-note mutations", () => {
       where: { id: "note", userId: ownerId },
       data: { title: "Untitled note", markdown: "# Changed", categoryId: null },
     });
+  });
+  it("allows manually edited Note bodies longer than the AI draft limit", async () => {
+    const markdown = "# Edited note\n\n" + "あ".repeat(3001);
+    mocks.body.mockResolvedValue({
+      title: "Edited note",
+      markdown,
+      categoryId: null,
+    });
+    await update(event);
+    expect(mocks.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ markdown }),
+      }),
+    );
   });
   it("validates reassignment ownership", async () => {
     mocks.body.mockResolvedValue({

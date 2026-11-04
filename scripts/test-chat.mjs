@@ -242,6 +242,42 @@ try {
     ).status,
     404,
   );
+  // Draft generation reads owner-scoped history without saving a Note or changing messages.
+  assert.equal(
+    (await fetch(base + path + "/note-draft", { method: "POST" })).status,
+    401,
+  );
+  assert.equal(
+    (await api(path + "/note-draft", {}, { headers: { Cookie: foreign } }))
+      .status,
+    404,
+  );
+  const draftCategory = await (
+    await api("/api/categories", { name: "AI Notes" })
+  ).json();
+  assert.equal(
+    (await api(path, { categoryId: draftCategory.id }, { method: "PATCH" }))
+      .status,
+    200,
+  );
+  const beforeDraft = await (await api(path)).json();
+  const notesBeforeDraft = await (await api("/api/notes")).json();
+  const draftResponse = await api(path + "/note-draft", {});
+  assert.equal(draftResponse.status, 200);
+  const draftNote = await draftResponse.json();
+  assert.equal(draftNote.title, "Conversation summary");
+  assert.match(draftNote.markdown, /^# Summary/);
+  assert(Array.from(draftNote.markdown).length <= 3000);
+  assert.equal(draftNote.categoryId, draftCategory.id);
+  assert.deepEqual(await (await api("/api/notes")).json(), notesBeforeDraft);
+  assert.deepEqual(
+    (await (await api(path)).json()).messages,
+    beforeDraft.messages,
+  );
+  console.log(
+    "Chat-to-Note HTTP smoke passed: owner isolation, Markdown draft, category inheritance, no implicit Note save or message changes.",
+  );
+
   // Notes share this isolated app, session and database; never touch live data.
   const noteBody = { title: "Original", markdown: "# Hello", categoryId: null };
   const newNote = await (await api("/api/notes", noteBody)).json();

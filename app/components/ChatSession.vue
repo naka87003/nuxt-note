@@ -146,6 +146,36 @@ const deletion = ref(false);
 const target = ref("uncategorized");
 const busy = ref(false);
 const failure = ref("");
+const noteHandoff = useNoteDraftHandoff();
+
+const {
+  phase: notePhase,
+  busy: creatingNote,
+  open: noteDialog,
+  failure: noteFailure,
+  confirm: confirmNote,
+  create: createNote,
+} = useChatNoteDraft(
+  () => activeId.value,
+  (draft) =>
+    noteHandoff.open({
+      draft,
+      returnTo: location(
+        `/chats/${activeId.value}`,
+        chat.value?.categoryId ?? "uncategorized",
+      ),
+    }),
+);
+const canCreateNote = computed(
+  () =>
+    persisted.value &&
+    !generating.value &&
+    !creatingNote.value &&
+    !!chat.value?.messages.some(
+      (m) =>
+        m.role === "assistant" && m.status === "completed" && m.content.trim(),
+    ),
+);
 
 watch(
   () => chat.value?.id,
@@ -223,28 +253,45 @@ async function remove() {
     <div v-else-if="chat" class="chat-session">
       <div class="chat-actions">
         <UButton
-          color="neutral"
-          variant="soft"
+          color="primary"
+          variant="solid"
           size="xs"
           class="font-bold"
-          :disabled="generating || !persisted"
-          @click="assign"
+          :disabled="!canCreateNote"
+          @click="confirmNote"
         >
-          Category: {{ categoryName }}
+          Create note
         </UButton>
-        <UButton
-          color="neutral"
-          variant="soft"
-          size="xs"
-          class="font-bold"
-          :disabled="generating || !persisted"
-          @click="
-            failure = '';
-            deletion = true;
-          "
-        >
-          Delete
-        </UButton>
+        <div class="chat-secondary-actions">
+          <UButton
+            color="neutral"
+            variant="soft"
+            size="xs"
+            class="chat-category-action font-bold"
+            :title="`Category: ${categoryName}`"
+            :aria-label="`Category: ${categoryName}`"
+            :disabled="generating || creatingNote || !persisted"
+            @click="assign"
+          >
+            <span class="truncate"
+              ><span class="chat-category-prefix">Category: </span
+              >{{ categoryName }}</span
+            >
+          </UButton>
+          <UButton
+            color="neutral"
+            variant="soft"
+            size="xs"
+            class="font-bold"
+            :disabled="generating || creatingNote || !persisted"
+            @click="
+              failure = '';
+              deletion = true;
+            "
+          >
+            Delete
+          </UButton>
+        </div>
       </div>
       <div ref="messagePane" class="chat-messages" @scroll="onScroll">
         <div class="chat-inner space-y-6">
@@ -333,7 +380,7 @@ async function remove() {
           <ChatComposer
             v-model="draft"
             :busy="sending"
-            :disabled="generating || (canRetry && !lastReply)"
+            :disabled="generating || creatingNote || (canRetry && !lastReply)"
             @send="send"
           />
         </div>
@@ -352,6 +399,61 @@ async function remove() {
         <ChatComposer v-model="draft" :busy="sending" @send="send" />
       </div>
     </div>
+    <UModal
+      v-model:open="noteDialog"
+      :title="
+        notePhase === 'generating'
+          ? 'Creating your note…'
+          : notePhase === 'failed'
+            ? 'Could not create your note'
+            : 'Create note from this chat?'
+      "
+      :dismissible="!creatingNote"
+      :close="false"
+    >
+      <template #body>
+        <template v-if="creatingNote">
+          <p>
+            AI is organizing this conversation into a draft. You can review,
+            edit or discard it when ready.
+          </p>
+          <p
+            class="mt-4 flex items-center gap-2 text-primary"
+            role="status"
+            aria-live="polite"
+          >
+            <UIcon
+              name="i-lucide-loader-circle"
+              class="motion-safe:animate-spin"
+            />
+            Organizing conversation…
+          </p>
+        </template>
+        <UAlert
+          v-else-if="notePhase === 'failed'"
+          :title="noteFailure"
+          color="error"
+          role="alert"
+        />
+        <p v-else>
+          AI will organize this conversation into a draft. You can review and
+          edit it before saving.
+        </p>
+      </template>
+      <template v-if="!creatingNote" #footer>
+        <UButton
+          color="neutral"
+          variant="outline"
+          class="min-h-11"
+          @click="noteDialog = false"
+        >
+          {{ notePhase === "failed" ? "Back to chat" : "Cancel" }}
+        </UButton>
+        <UButton class="min-h-11" @click="createNote">
+          {{ notePhase === "failed" ? "Try again" : "Create note" }}
+        </UButton>
+      </template>
+    </UModal>
     <UModal
       v-model:open="assignment"
       title="Change category"

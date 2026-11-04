@@ -20,6 +20,7 @@ Development continues in this repository. The original nuxt-chat repository rema
 - Category and workspace switching with filter/search/scroll state preservation and unsaved-note guards
 - Owner-scoped Note and Chat search with literal wildcard handling; Chat history, saved conversation reading, category reassignment, and confirmed deletion
 - Chat creation, OpenAI streaming, generation cursor, partial-answer persistence on disconnection, manual retry, and safe assistant Markdown
+- Chat-to-Note creation with confirmation, non-cancellable AI organization, a Markdown draft of up to 3,000 characters, inherited category, and explicit review/save or discard; no source-chat relation or schema change
 - New chats have no saved title and display “Untitled chat” until a summary is ready. After the first answer completes, a separate request summarizes that exchange in the question's language and reveals the title in the heading and list with a typewriter animation, without blocking the next message. It uses the configured OpenAI model; failures keep the existing title, and later exchanges do not regenerate it. Reduced-motion preferences disable the animation.
 - Request UUIDs, a database generation guard, and stale-attempt recovery to prevent duplicate or late writes
 - Disposable PostgreSQL checks for initial schema creation, RLS, foreign keys, and deletion behavior
@@ -56,6 +57,8 @@ Development URL: [http://localhost:3001](http://localhost:3001). This uses a sep
 See the [development guide](docs/development.md) for authentication and database setup, and the [specification](docs/specification.md) for features and interaction rules.
 
 ## Validation
+
+Chat-to-Note validation: 259 unit tests, lint, formatting, typecheck and production build pass. Disposable HTTP checks cover owner isolation, Markdown draft generation, inherited category and no implicit Note save or conversation edits. Browser checks at desktop and 390px cover confirmation, non-dismissible generation, draft handoff, preview, unchanged-draft discard confirmation, return to Chat, keeping edits and explicit Save. AI responses were mocked; no live provider requests or production data were used. Self-review added regression checks for failed/redirected navigation cleanup, one-use draft delivery, late-navigation isolation, a shared shortening timeout, and manual Note bodies exceeding the AI-only limit. Draft handoff state is centralized; AI requests use JSON output mode with explicit shortening instructions.
 
 ```bash
 pnpm lint

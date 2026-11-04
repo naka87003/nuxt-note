@@ -6,3 +6,8 @@ export interface NoteDraft {
 export interface SavedNote extends NoteDraft {
   id: string;
 }
+
+export interface NoteDraftTransfer {
+  draft: NoteDraft;
+  returnTo: { path: string; query: { category: string } };
+}

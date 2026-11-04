@@ -2,6 +2,13 @@
 import type { SavedNote } from "#shared/types/note";
 definePageMeta({ middleware: "auth", layout: "workspace" });
 const { categoryId, filter, location } = useWorkspace();
+const { consume, returnTo: draftReturnTo } = useNoteDraftHandoff();
+// Consume once. Reloading or opening another new-note screen starts a blank note.
+const transfer = consume();
+draftReturnTo.value = transfer?.returnTo ?? null;
+onBeforeUnmount(() => {
+  draftReturnTo.value = null;
+});
 async function saved(note: SavedNote) {
   await navigateTo(
     location(
@@ -17,5 +24,9 @@ async function saved(note: SavedNote) {
 </script>
 
 <template>
-  <NoteEditor @saved="saved" @cancel="navigateTo(location('/notes'))" />
+  <NoteEditor
+    :initial-draft="transfer?.draft"
+    @saved="saved"
+    @cancel="navigateTo(transfer?.returnTo ?? location('/notes'))"
+  />
 </template>

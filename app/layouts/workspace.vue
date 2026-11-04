@@ -3,6 +3,10 @@ import type { WorkspaceItem } from "#shared/types/workspace";
 
 const route = useRoute();
 const { state, mode, current, filter, location } = useWorkspace();
+const { returnTo: draftReturnTo } = useNoteDraftHandoff();
+const backToChat = computed(
+  () => route.path === "/notes/new" && !!draftReturnTo.value,
+);
 
 const workspaceRoot = useTemplateRef("workspaceRoot");
 
@@ -233,12 +237,14 @@ async function saveCategory() {
       <main class="workspace-content">
         <div class="pane-navigation">
           <UButton
-            :to="location(`/${mode}`)"
+            :to="
+              backToChat && draftReturnTo ? draftReturnTo : location(`/${mode}`)
+            "
             icon="i-lucide-arrow-left"
             color="neutral"
             variant="ghost"
             class="mobile-back"
-            aria-label="Back to list"
+            :aria-label="backToChat ? 'Back to chat' : 'Back to list'"
             >Back</UButton
           >
           <UButton

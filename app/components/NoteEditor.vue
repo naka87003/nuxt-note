@@ -3,17 +3,18 @@ import type { NoteDraft, SavedNote } from "#shared/types/note";
 import type { CategoriesResponse } from "#shared/types/workspace";
 import { sortCategoriesByCount } from "#shared/utils/categories";
 
-const props = defineProps<{ note?: SavedNote }>();
+const props = defineProps<{ note?: SavedNote; initialDraft?: NoteDraft }>();
 const emit = defineEmits<{ saved: [note: SavedNote]; cancel: [] }>();
 
 const { loggedIn } = useUserSession();
 const { state, categoryId, confirmEdits } = useWorkspace();
 
 // Snapshot once: background refreshes must never replace a local draft.
+const supplied = props.note ?? props.initialDraft;
 const initial: NoteDraft = {
-  title: props.note?.title ?? "",
-  markdown: props.note?.markdown ?? "",
-  categoryId: props.note ? props.note.categoryId : categoryId.value,
+  title: supplied?.title ?? "",
+  markdown: supplied?.markdown ?? "",
+  categoryId: supplied ? supplied.categoryId : categoryId.value,
 };
 const title = ref(initial.title);
 const markdown = ref(initial.markdown);
@@ -25,7 +26,8 @@ const failure = ref("");
 const dirty = computed(
   () =>
     !saved.value &&
-    (title.value !== initial.title ||
+    (!!props.initialDraft ||
+      title.value !== initial.title ||
       markdown.value !== initial.markdown ||
       (category.value === "uncategorized" ? null : category.value) !==
         initial.categoryId),

@@ -11,6 +11,36 @@ globalThis.fetch = async (input, init) => {
   const fail = prompt.includes("FAIL") && failures++ === 0;
   const slow = prompt.includes("SLOW");
   const signal = init.signal;
+  if (!body.stream) {
+    await delay(slow ? 3000 : 30, undefined, { signal });
+    const isNote = JSON.stringify(body).includes(
+      "Organize the supplied conversation",
+    );
+    const text = isNote
+      ? JSON.stringify({
+          title: "Conversation summary",
+          markdown:
+            "# Summary\n\n## Key points\n\n- Completed answers are organized into a note.\n- Review this draft before saving.",
+        })
+      : "Conversation title";
+    return Response.json({
+      id: "resp-test",
+      object: "response",
+      created_at: 1,
+      model: "test-model",
+      status: "completed",
+      output: [
+        {
+          type: "message",
+          id: "msg-test",
+          status: "completed",
+          role: "assistant",
+          content: [{ type: "output_text", text, annotations: [] }],
+        },
+      ],
+      usage: { input_tokens: 1, output_tokens: 2, total_tokens: 3 },
+    });
+  }
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
