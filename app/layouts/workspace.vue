@@ -12,12 +12,20 @@ const sidebar = ref(true);
 onMounted(() => {
   const viewport = window.visualViewport;
   const fitKeyboard = () => {
-    if (workspaceRoot.value)
-      workspaceRoot.value.style.height = `${viewport?.height ?? window.innerHeight}px`;
+    // Let pinch zoom pan naturally instead of resizing the app around it.
+    if (!workspaceRoot.value || (viewport && viewport.scale !== 1)) return;
+    // iOS can pan the visual viewport after focusing an input, independently
+    // of resizing it. Keep both edges of the workspace inside the visible area.
+    workspaceRoot.value.style.top = `${viewport?.offsetTop ?? 0}px`;
+    workspaceRoot.value.style.height = `${viewport?.height ?? window.innerHeight}px`;
   };
   fitKeyboard();
   viewport?.addEventListener("resize", fitKeyboard);
-  onBeforeUnmount(() => viewport?.removeEventListener("resize", fitKeyboard));
+  viewport?.addEventListener("scroll", fitKeyboard);
+  onBeforeUnmount(() => {
+    viewport?.removeEventListener("resize", fitKeyboard);
+    viewport?.removeEventListener("scroll", fitKeyboard);
+  });
   const desktop = window.matchMedia("(min-width: 1280px)");
   const closeDrawer = () => {
     if (desktop.matches) drawer.value = false;

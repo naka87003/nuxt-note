@@ -58,6 +58,8 @@ body {
 }
 
 .workspace-root {
+  position: fixed;
+  inset: 0 0 auto;
   height: 100dvh;
   display: flex;
   flex-direction: column;
