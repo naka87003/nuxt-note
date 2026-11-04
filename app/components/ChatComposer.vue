@@ -4,7 +4,6 @@ const value = defineModel<string>({ default: "" });
 const props = defineProps<{
   busy?: boolean;
   disabled?: boolean;
-  canStop?: boolean;
 }>();
 
 const textarea = ref<HTMLTextAreaElement>();
@@ -23,7 +22,7 @@ onMounted(resize);
 
 watch(value, resize, { flush: "post" });
 
-const emit = defineEmits<{ send: []; stop: [] }>();
+const emit = defineEmits<{ send: [] }>();
 
 function keydown(event: KeyboardEvent) {
   if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
@@ -48,18 +47,8 @@ function keydown(event: KeyboardEvent) {
       @keydown="keydown"
     />
     <UButton
-      v-if="busy"
-      type="button"
-      :disabled="canStop === false"
-      class="chat-send"
-      icon="i-lucide-square"
-      aria-label="Stop generating"
-      @click="emit('stop')"
-    />
-    <UButton
-      v-else
       type="submit"
-      :disabled="disabled || !value.trim()"
+      :disabled="busy || disabled || !value.trim()"
       class="chat-send"
       aria-label="Send message"
     >

@@ -39,7 +39,6 @@ vi.stubGlobal("setResponseStatus", vi.fn());
 vi.stubGlobal("createEventStream", () => mocks);
 const { default: generate } =
   await import("../../server/api/chats/[id]/generate.post");
-const { default: stop } = await import("../../server/api/chats/[id]/stop.post");
 const { default: sendMessage } =
   await import("../../server/api/chats/[id]/messages.post");
 const { default: createChat } =
@@ -100,7 +99,7 @@ beforeEach(() => {
   });
 });
 describe("Chat generation", () => {
-  it.each([generate, stop, sendMessage, createChat, summarizeTitle])(
+  it.each([generate, sendMessage, createChat, summarizeTitle])(
     "requires authentication before touching chat data",
     async (handler) => {
       mocks.session.mockRejectedValue({ statusCode: 401 });
@@ -109,7 +108,7 @@ describe("Chat generation", () => {
       expect(mocks.body).not.toHaveBeenCalled();
     },
   );
-  it.each([generate, stop, sendMessage, summarizeTitle])(
+  it.each([generate, sendMessage, summarizeTitle])(
     "hides foreign conversations before parsing input or calling AI",
     async (handler) => {
       mocks.chat.findFirst.mockResolvedValue(null);
@@ -395,17 +394,6 @@ describe("Chat generation", () => {
         where: { id: "chat", userId: owner, generationId: attemptId },
       }),
     );
-  });
-  it("stop only releases the specified owner's attempt", async () => {
-    await stop(event);
-    expect(mocks.chat.updateMany).toHaveBeenCalledWith({
-      where: { id: "chat", userId: owner, generationId: attemptId },
-      data: { generationId: null, generationStartedAt: null },
-    });
-    expect(mocks.message.updateMany).toHaveBeenCalledWith({
-      where: { chatId: "chat", status: "generating" },
-      data: { status: "stopped" },
-    });
   });
   it("recovers expired workers without modifying a live attempt", async () => {
     await recoverGeneration(owner, "chat");

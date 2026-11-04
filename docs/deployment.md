@@ -12,7 +12,7 @@ The production OAuth homepage is `https://nuxt-note-ivory.vercel.app` and the in
 
 Prisma Postgres integration was intentionally not required: Prisma ORM connects to the existing Nuxt Note Supabase database. Keep the original nuxt-chat database separate. Enter the Build Command as plain `pnpm build`, without Markdown backticks or decorative characters; backticks caused the initial deployment failure by making the shell interpret build output as a command.
 
-The audit table below preserves the initial findings. The proposed settings and release sequence remain a reference, not a claim that every step was completed. Still verify the actual Vercel plan, Node/pnpm versions, function duration/region, runtime pooler/TLS configuration, Preview isolation, backups, and long-stream/stop/retry behavior. Physical-device checks and public-access/AI spending controls remain pending. A custom domain is undecided; the current production hostname is established.
+The audit table below preserves the initial findings. The proposed settings and release sequence remain a reference, not a claim that every step was completed. Still verify the actual Vercel plan, Node/pnpm versions, function duration/region, runtime pooler/TLS configuration, Preview isolation, backups, and long-stream/disconnection/retry behavior. Physical-device checks and public-access/AI spending controls remain pending. A custom domain is undecided; the current production hostname is established.
 
 ## Initial audit findings
 
@@ -62,7 +62,7 @@ nitro: {
 },
 ```
 
-Verify generated `.vercel/output/functions/**/.vc-config.json` and hosted settings. Streaming counts toward duration; see [Vercel function duration](https://vercel.com/docs/functions/configuring-functions/duration). Verify long responses, stop, partial persistence, and stale-attempt recovery on Vercel itself. Local Node validation cannot establish hosted stream/cancellation behavior.
+Verify generated `.vercel/output/functions/**/.vc-config.json` and hosted settings. Streaming counts toward duration; see [Vercel function duration](https://vercel.com/docs/functions/configuring-functions/duration). Verify long responses, disconnection, partial persistence, and stale-attempt recovery on Vercel itself. Local Node validation cannot establish hosted stream/cancellation behavior.
 
 ## Database and environment variables
 
@@ -101,7 +101,7 @@ Preview URLs vary. Use a stable staging hostname with its own OAuth App/DB for a
 2. Prepare staging DB, OAuth App, app secret and scoped AI credentials. Configure Preview protection. Repository import/Git auto-deploy setup can trigger a deployment; review the target before enabling them.
 3. Implement/review Vercel duration and package-manager settings. On Node 26.11.1, run lint, formatting, typecheck, unit tests, Prisma validation and build. With Docker, run disposable `test:db` and built-server `test:chat`; never target Supabase with fixtures.
 4. Deploy staging with the Vercel preset. Check output, runtime/install versions, streaming, duration, region and environment separation. `/api/health` is liveness only, not DB/OAuth readiness.
-5. On staging, verify GitHub login/logout, avatar and protected redirects; anonymous/other-user API rejection; Note save/edit/delete and unsaved guards; shared categories; Chat send/stop/partial persistence/retry, duplicate sends and two-tab concurrency. Use designated test accounts/records.
+5. On staging, verify GitHub login/logout, avatar and protected redirects; anonymous/other-user API rejection; Note save/edit/delete and unsaved guards; shared categories; Chat send/cursor/disconnection/partial persistence/retry, duplicate sends and two-tab concurrency. Use designated test accounts/records.
 6. Check 1440/1024/768/390px layouts, GitHub Dark Markdown, code scrolling and LP assets. Check physical iOS/Android keyboard, IME, safe areas and drafts. Measure mobile first load with the approximately 293 kB gzip Markdown chunk.
 7. Before unrestricted signup, decide access and AI spending controls. The OAuth handler upserts any successfully authenticated GitHub user. No signup allowlist, per-user rate/quota or global application AI budget is implemented. Per-chat locks/output caps do not limit parallel chats or total spending. Add controls or keep initial access restricted. Agree on privacy/data handling, support/deletion contact and operational ownership.
 8. Review the exact release commit, backup/restore route, production variables, callback, limits and compatible rollback target. Production deployment, domain changes and write/cost-incurring production smoke tests are separate execution work.

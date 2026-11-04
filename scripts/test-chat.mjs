@@ -154,9 +154,13 @@ try {
       .status,
     409,
   );
-  assert.equal((await api(path + "/stop", { attemptId })).status, 204);
   abort.abort();
-  let saved = await (await api(path)).json();
+  let saved;
+  for (let i = 0; i < 40; i++) {
+    saved = await (await api(path)).json();
+    if (!saved.generationId) break;
+    await delay(50);
+  }
   assert.equal(saved.generationId, null);
   assert.equal(saved.messages.at(-1).status, "stopped");
   assert.equal(saved.messages.at(-1).content, "Partial");
@@ -296,7 +300,7 @@ try {
     "Notes HTTP smoke passed: create/update/category/default title/delete, auth and owner isolation.",
   );
   console.log(
-    "Chat HTTP smoke passed: auth, create/send idempotency, streaming, concurrency, stop/partial save, retry, disconnect, provider failure, owner isolation.",
+    "Chat HTTP smoke passed: auth, create/send idempotency, streaming, concurrency, disconnect/partial save, retry, provider failure, owner isolation.",
   );
   if (process.argv.includes("--preview")) {
     const preview = httpServer(async (request, response) => {

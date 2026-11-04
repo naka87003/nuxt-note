@@ -1,42 +1,53 @@
 import type { ChatMessage, ChatStatus } from "#shared/types/chat";
 import { shallowRef } from "vue";
 import { readChatStream } from "../utils/chat-stream";
-interface Conversation {
+export interface Conversation {
   id: string;
   title: string | null;
+  categoryId?: string | null;
   generationId: string | null;
   messages: ChatMessage[];
 }
 export function useChatGeneration(
   chat: Ref<Conversation | null | undefined>,
   refresh: () => Promise<unknown>,
+  creation?: {
+    categoryId: () => string | null;
+    onCreated: (chat: Conversation) => void;
+  },
 ) {
+  const persisted = ref(!creation || !!chat.value);
   const sending = ref(false);
-  const stopping = ref(false);
   const activeGeneration = shallowRef<{
     id: string;
     controller: AbortController;
   }>();
   const failure = ref("");
   const draft = ref("");
-  const busy = computed(
-    () => sending.value || stopping.value || !!chat.value?.generationId,
-  );
+  const busy = computed(() => sending.value || !!chat.value?.generationId);
   const lastQuestion = computed(() =>
     chat.value?.messages.filter((m) => m.role === "user").at(-1),
   );
   const lastReply = computed(() =>
     chat.value?.messages.find((m) => m.replyToId === lastQuestion.value?.id),
   );
-  const stoppable = computed(() => !stopping.value && !!activeGeneration.value);
+  const waitingForResponse = computed(() => sending.value && !failure.value);
   const canRetry = computed(
     () =>
       !!lastQuestion.value &&
+      persisted.value &&
       !busy.value &&
       (!lastReply.value ||
         ["failed", "stopped"].includes(lastReply.value.status)),
   );
-  let pending: { messageId: string; content: string } | undefined;
+  let pending:
+    | {
+        messageId: string;
+        content: string;
+        chatId?: string;
+        categoryId?: string | null;
+      }
+    | undefined;
   let disposed = false;
   async function summarizeTitle(chatId: string) {
     try {
@@ -51,7 +62,8 @@ export function useChatGeneration(
     }
   }
   async function generate() {
-    if (busy.value || !chat.value || !lastQuestion.value) return;
+    if (busy.value || !persisted.value || !chat.value || !lastQuestion.value)
+      return;
     const target = chat.value;
     const questionId = lastQuestion.value.id;
     sending.value = true;
@@ -122,11 +134,11 @@ export function useChatGeneration(
             failure.value =
               "Could not reload this chat. Please reload the page.";
           });
-        sending.value = false;
         void refreshNuxtData(["workspace-list", "workspace-categories"]).catch(
           () => {},
         );
       }
+      sending.value = false;
       if (
         terminalStatus === "completed" &&
         questionId === target.messages.find((m) => m.role === "user")?.id
@@ -135,11 +147,29 @@ export function useChatGeneration(
     }
   }
   async function send() {
-    if (busy.value || !draft.value.trim() || !chat.value) return;
+    if (busy.value || !draft.value.trim() || (!chat.value && !creation)) return;
+    const isNew = !persisted.value;
     const content = draft.value.trim();
-    if (!pending || pending.content !== content)
-      pending = { messageId: crypto.randomUUID(), content };
-    const target = chat.value;
+    const categoryId = creation?.categoryId() ?? null;
+    if (
+      !pending ||
+      pending.content !== content ||
+      (isNew && pending.categoryId !== categoryId)
+    )
+      pending = {
+        messageId: crypto.randomUUID(),
+        content,
+        ...(isNew ? { chatId: crypto.randomUUID(), categoryId } : {}),
+      };
+    if (isNew)
+      chat.value = {
+        id: pending.chatId!,
+        title: null,
+        categoryId,
+        generationId: null,
+        messages: [],
+      };
+    const target = chat.value!;
     const message = {
       id: pending.messageId,
       role: "user" as const,
@@ -153,37 +183,31 @@ export function useChatGeneration(
     sending.value = true;
     failure.value = "";
     try {
-      await $fetch(`/api/chats/${target.id}/messages`, {
+      await $fetch(isNew ? "/api/chats" : `/api/chats/${target.id}/messages`, {
         method: "POST",
         body: pending,
       });
+      persisted.value = true;
       pending = undefined;
     } catch {
-      target.messages = target.messages.filter((m) => m.id !== message.id);
+      if (isNew) chat.value = null;
+      else target.messages = target.messages.filter((m) => m.id !== message.id);
       if (!disposed && !draft.value) draft.value = content;
-      failure.value = "Could not save your message. Please try again.";
+      failure.value = isNew
+        ? "Could not create your chat. Please try again."
+        : "Could not save your message. Please try again.";
       return;
     } finally {
       sending.value = false;
     }
-    if (!disposed && chat.value?.id === target.id) await generate();
-  }
-  async function stop() {
-    const attempt = activeGeneration.value;
-    if (!chat.value || !stoppable.value || !attempt) return;
-    const target = chat.value;
-    stopping.value = true;
-    try {
-      await $fetch(`/api/chats/${target.id}/stop`, {
-        method: "POST",
-        body: { attemptId: attempt.id },
-      });
-      attempt.controller.abort();
-      await refresh();
-    } catch {
-      failure.value = "Could not stop the response. Please try again.";
-    } finally {
-      stopping.value = false;
+    if (!disposed && chat.value?.id === target.id) {
+      if (isNew) {
+        creation?.onCreated(target);
+        void refreshNuxtData(["workspace-list", "workspace-categories"]).catch(
+          () => {},
+        );
+      }
+      await generate();
     }
   }
   onMounted(() => {
@@ -196,14 +220,14 @@ export function useChatGeneration(
   });
   return {
     draft,
+    persisted,
     busy,
-    stoppable,
+    waitingForResponse,
     sending,
     failure,
     canRetry,
     lastReply,
     send,
     generate,
-    stop,
   };
 }

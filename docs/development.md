@@ -86,7 +86,7 @@ pnpm dev
 3. Verify that `/notes` opens and the avatar and user name are displayed.
 4. Create a test note, save it, edit its title/body/category, and check Edit / Split view / Preview. Confirm that Cancel/Back with unsaved edits offers Keep editing / Discard changes. Use only a disposable test note for the confirmed-deletion check.
 5. Verify desktop/medium/mobile layouts, bounded Markdown scrolling and draft preservation while resizing. New/saved notes use the same editor; Title and Category share a row from 768px and stack below it.
-6. Create a test Chat and check send, stop/partial save and manual retry. Confirm that shared categories appear in both workspaces.
+6. Create a test Chat and check send, generation cursor, partial save on disconnection and manual retry. Confirm that shared categories appear in both workspaces.
 7. Verify that Sign out works from the avatar menu, including unsaved-note confirmation.
 8. After signing out, verify that opening `/notes` directly redirects to `/login`.
 
@@ -96,7 +96,7 @@ pnpm dev
 
 Set `NUXT_OPENAI_API_KEY` in the ignored `.env` or the deployment's secret store. The user authorized sharing the existing nuxt-chat key. `NUXT_OPENAI_MODEL` defaults to `gpt-6.1-sol`; change it server-side when needed. No new OAuth or Supabase API keys are required. These settings are private runtime configuration; never place the key in `runtimeConfig.public`, browser storage, logs, or commits. Restart the server after changing local settings.
 
-The first send saves the chat/question and then requests an answer. Missing AI configuration yields a retryable message without discarding the question. Provider/model access or quota failures also preserve the question. Shared-key requests use the same provider project limits and budget; no automatic paid retries or title-generation requests are made. Stop/failed partial answers remain saved. Application-level retention in OpenAI is disabled with `store: false`; this does not promise zero provider retention. See [OpenAI authentication](https://developers.openai.com/api/reference/overview#authentication), [streaming](https://developers.openai.com/api/docs/guides/streaming-responses), [data controls](https://developers.openai.com/api/docs/guides/your-data), and [AI SDK cancellation](https://ai-sdk.dev/docs/advanced/stopping-streams).
+The first send saves the chat/question and then requests an answer. Missing AI configuration yields a retryable message without discarding the question. Provider/model access or quota failures also preserve the question. Shared-key requests use the same provider project limits and budget; no automatic paid retries or title-generation requests are made. Interrupted/failed partial answers remain saved. Application-level retention in OpenAI is disabled with `store: false`; this does not promise zero provider retention. See [OpenAI authentication](https://developers.openai.com/api/reference/overview#authentication), [streaming](https://developers.openai.com/api/docs/guides/streaming-responses), [data controls](https://developers.openai.com/api/docs/guides/your-data), and [AI SDK cancellation](https://ai-sdk.dev/docs/advanced/stopping-streams).
 
 Generation uses a 120-second server timeout and 4,096 output-token cap. The initial target remains a long-running Node server; verify the eventual host's streaming, proxy buffering and request-duration settings before deployment. There is no stream resumption or durable background worker.
 

@@ -51,6 +51,7 @@ it("shows the question immediately and starts AI after saving without reloading 
   expect(chat.value.messages[0]?.content).toBe("Question");
   expect(generation.draft.value).toBe("");
   expect(generation.busy.value).toBe(true);
+  expect(generation.waitingForResponse.value).toBe(true);
   expect(generate).not.toHaveBeenCalled();
   await generation.send();
   expect(save).toHaveBeenCalledTimes(1);
@@ -74,6 +75,7 @@ it("restores a failed send and reuses its request ID on retry", async () => {
   expect(chat.value.messages).toEqual([]);
   expect(generation.draft.value).toBe("Question");
   expect(generation.failure.value).toContain("Could not save");
+  expect(generation.waitingForResponse.value).toBe(false);
   expect(generate).not.toHaveBeenCalled();
   save.mockResolvedValue(undefined);
   await generation.send();
@@ -103,10 +105,11 @@ it("makes the next send available after completion while sidebar updates are pen
   expect(refresh).not.toHaveBeenCalled();
   expect(chat.value.messages.at(-1)?.content).toBe("Answer");
   expect(chat.value.messages.at(-1)?.status).toBe("completed");
+  expect(generation.waitingForResponse.value).toBe(false);
   expect(generation.busy.value).toBe(false);
 });
 
-it("disables stop while reloading after generation has failed", async () => {
+it("keeps sending disabled while reloading after generation has failed", async () => {
   save.mockResolvedValue(undefined);
   let respond!: (response: Response) => void;
   generate.mockReturnValueOnce(
@@ -120,19 +123,51 @@ it("disables stop while reloading after generation has failed", async () => {
   generation.draft.value = "Question";
   const sending = generation.send();
   await vi.waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
-  expect(generation.stoppable.value).toBe(true);
+  expect(generation.waitingForResponse.value).toBe(true);
   respond(new Response("", { status: 503 }));
   await vi.waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
   expect(generation.busy.value).toBe(true);
-  expect(generation.stoppable.value).toBe(false);
-  await generation.stop();
-  expect(save.mock.calls.some(([url]) => url.endsWith("/stop"))).toBe(false);
+  expect(generation.waitingForResponse.value).toBe(false);
   reloaded();
   await sending;
   expect(generation.busy.value).toBe(false);
 });
 
-it("still aborts its own stream on stop and reloads the saved partial answer", async () => {
+it("clears the cursor and permits retry after an interrupted partial response", async () => {
+  save.mockResolvedValue(undefined);
+  generate.mockResolvedValueOnce(
+    new Response(
+      [
+        { type: "start", messageId: "reply" },
+        { type: "text", text: "Partial answer" },
+      ]
+        .map((data) => `data: ${JSON.stringify(data)}\n\n`)
+        .join(""),
+    ),
+  );
+  const { chat, refresh, generation } = setup();
+  refresh.mockImplementation(async () => {
+    expect(generation.waitingForResponse.value).toBe(false);
+    expect(generation.busy.value).toBe(true);
+    chat.value.messages.at(-1)!.status = "stopped";
+    chat.value.generationId = null;
+  });
+  generation.draft.value = "Question";
+  await generation.send();
+  expect(refresh).toHaveBeenCalledTimes(1);
+  expect(chat.value.messages.at(-1)?.content).toBe("Partial answer");
+  expect(generation.failure.value).toContain("connection was interrupted");
+  expect(generation.waitingForResponse.value).toBe(false);
+  expect(generation.busy.value).toBe(false);
+  expect(generation.canRetry.value).toBe(true);
+  await generation.generate();
+  expect(chat.value.messages).toHaveLength(2);
+  expect(chat.value.messages.at(-1)?.content).toBe("Answer");
+  expect(generation.failure.value).toBe("");
+  expect(generation.canRetry.value).toBe(false);
+});
+
+it("aborts its own stream on navigation and preserves the displayed partial answer", async () => {
   save.mockResolvedValue(undefined);
   generate.mockImplementationOnce(async (_url, options) => {
     const encoder = new TextEncoder();
@@ -156,81 +191,17 @@ it("still aborts its own stream on stop and reloads the saved partial answer", a
     );
   });
   const { chat, refresh, generation } = setup();
-  refresh.mockImplementation(async () => {
-    chat.value.messages.at(-1)!.status = "stopped";
-  });
   generation.draft.value = "Question";
   const sending = generation.send();
   await vi.waitFor(() =>
     expect(chat.value.messages.at(-1)?.content).toBe("Partial answer"),
   );
-  expect(generation.stoppable.value).toBe(true);
-  await generation.stop();
+  expect(generation.waitingForResponse.value).toBe(true);
+  unmount();
   await sending;
   expect(generate.mock.calls[0]![1].signal.aborted).toBe(true);
   expect(chat.value.messages.at(-1)?.content).toBe("Partial answer");
-  expect(chat.value.messages.at(-1)?.status).toBe("stopped");
+  expect(refresh).not.toHaveBeenCalled();
   expect(generation.failure.value).toBe("");
-  expect(generation.stoppable.value).toBe(false);
-  expect(generation.busy.value).toBe(false);
+  expect(generation.waitingForResponse.value).toBe(false);
 });
-
-it.each([true, false])(
-  "keeps a pending stop from racing with the next send when AI completes first (stop succeeds: %s)",
-  async (succeeds) => {
-    save.mockResolvedValue(undefined);
-    let finishResponse!: () => void;
-    const encoder = new TextEncoder();
-    generate.mockResolvedValueOnce(
-      new Response(
-        new ReadableStream({
-          start(controller) {
-            const emit = (data: object) =>
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify(data)}\n\n`),
-              );
-            emit({ type: "start", messageId: "reply" });
-            emit({ type: "text", text: "Answer" });
-            finishResponse = () => {
-              emit({ type: "done", status: "completed" });
-              controller.close();
-            };
-          },
-        }),
-      ),
-    );
-    const { chat, generation } = setup();
-    generation.draft.value = "Question";
-    const sending = generation.send();
-    await vi.waitFor(() =>
-      expect(chat.value.messages.at(-1)?.content).toBe("Answer"),
-    );
-    let finishStop!: () => void;
-    save.mockReturnValueOnce(
-      new Promise<void>((resolve, reject) => {
-        finishStop = () =>
-          succeeds ? resolve() : reject(new Error("Stop failed"));
-      }),
-    );
-    const stopping = generation.stop();
-    await generation.stop();
-    expect(
-      save.mock.calls.filter(([url]) => url.endsWith("/stop")),
-    ).toHaveLength(1);
-    expect(
-      save.mock.calls.find(([url]) => url.endsWith("/stop"))![1].body.attemptId,
-    ).toBe(JSON.parse(generate.mock.calls[0]![1].body).attemptId);
-    finishResponse();
-    await sending;
-    expect(generation.busy.value).toBe(true);
-    generation.draft.value = "Next question";
-    await generation.send();
-    expect(generate).toHaveBeenCalledTimes(1);
-    finishStop();
-    await stopping;
-    expect(generation.busy.value).toBe(false);
-    expect(generation.failure.value).toBe(
-      succeeds ? "" : "Could not stop the response. Please try again.",
-    );
-  },
-);

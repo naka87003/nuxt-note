@@ -64,7 +64,7 @@ it("shows a saved snapshot without polling when another tab owns generation", as
   expect(vi.getTimerCount()).toBe(0);
   expect(chat.value.messages[1]!.content).toBe("Partial");
   expect(generation.busy.value).toBe(true);
-  expect(generation.stoppable.value).toBe(false);
+  expect(generation.waitingForResponse.value).toBe(false);
   // A manual reload can replace the saved state and enable sending again.
   chat.value.generationId = null;
   chat.value.messages[1]!.status = "completed";
@@ -76,13 +76,12 @@ it("does not discover a generation started elsewhere after an idle tab has alrea
   await vi.advanceTimersByTimeAsync(6000);
   expect(refresh).not.toHaveBeenCalled();
   expect(generation.busy.value).toBe(false);
-  expect(generation.stoppable.value).toBe(false);
+  expect(generation.waitingForResponse.value).toBe(false);
 });
 
-it("does not stop, send or retry a response owned by another tab", async () => {
+it("does not send or retry a response owned by another tab", async () => {
   const { chat, refresh, generation } = setup("remote-attempt");
   generation.draft.value = "Another question";
-  await generation.stop();
   await generation.send();
   await generation.generate();
   expect(request).not.toHaveBeenCalled();

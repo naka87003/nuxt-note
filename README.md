@@ -19,18 +19,18 @@ Development continues in this repository. The original nuxt-chat repository rema
 - Figma-aligned Notes / Chat shell: desktop three columns, medium two columns, mobile list/reader navigation, accessible category drawer, and pinned Nuxt UI workspace Tabs
 - Category and workspace switching with filter/search/scroll state preservation and unsaved-note guards
 - Owner-scoped Note and Chat search with literal wildcard handling; Chat history, saved conversation reading, category reassignment, and confirmed deletion
-- Chat creation, OpenAI streaming, stop with partial-answer persistence, manual retry, and safe assistant Markdown
+- Chat creation, OpenAI streaming, generation cursor, partial-answer persistence on disconnection, manual retry, and safe assistant Markdown
 - New chats have no saved title and display “Untitled chat” until a summary is ready. After the first answer completes, a separate request summarizes that exchange in the question's language and reveals the title in the heading and list with a typewriter animation, without blocking the next message. It uses the configured OpenAI model; failures keep the existing title, and later exchanges do not regenerate it. Reduced-motion preferences disable the animation.
 - Request UUIDs, a database generation guard, and stale-attempt recovery to prevent duplicate or late writes
 - Disposable PostgreSQL checks for initial schema creation, RLS, foreign keys, and deletion behavior
 
-Notes readers, live previews and Chat assistant messages share GitHub Dark code syntax highlighting. New Chat creates records only on the first send. The Notes and Chat workspaces shown on the landing page are static design previews, rendered with Vue and CSS without account data or API calls. Actual sign-in requires an OAuth App and database configuration.
+Notes readers, live previews and Chat assistant messages share GitHub Dark code syntax highlighting. New Chat creates records only on the first send, immediately shows the question and cursor, and preserves the conversation view and stream while updating the URL. The Notes and Chat workspaces shown on the landing page are static design previews, rendered with Vue and CSS without account data or API calls. Actual sign-in requires an OAuth App and database configuration.
 
 The shared workspace foundation follows the agreed Figma structure. Note readers, live previews and Chat assistant messages share the HTML-disabled MarkdownIt renderer, with safe URL protocols, no remote images and escaped syntax tokens. The redesigned landing page follows the approved 1440px, 1024px, 768px and 390px Figma compositions.
 
 Workspace API coverage includes category name validation/conflicts, per-owner lists/counts/mutations, foreign-category rejection on note creation and Chat reassignment, and parent-owned message reads. Validation uses mocked sessions/database calls and a temporary fixture app for browser checks; no live database or OAuth account is modified. Browser checks covered 1440px, 1024px, 768px and 390px layouts, workspace filter/count changes, list collapse/restore, drawer dismissal, shared category creation, and unsaved-edit cancellation/confirmation. The database must already use the shared-category init described in the integration plan.
 
-Chat runtime validation includes unit tests and disposable HTTP checks for streaming, stop/partial save, failure/retry, duplicate sends, concurrent generation and owner isolation. The shared OpenAI key/default model was checked with one short successful request. Schema changes are consolidated into the prerelease init at the user’s request; no existing database was reset or migrated. See the development guide before adopting the rewritten init.
+Chat runtime validation includes unit tests and disposable HTTP checks for streaming, disconnect/partial save, failure/retry, duplicate sends, concurrent generation and owner isolation. The shared OpenAI key/default model was checked with one short successful request. Schema changes are consolidated into the prerelease init at the user’s request; no existing database was reset or migrated. See the development guide before adopting the rewritten init.
 
 ## Getting started
 
