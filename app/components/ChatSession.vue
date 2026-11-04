@@ -275,7 +275,17 @@ async function remove() {
               </p>
             </template>
           </div>
-          <ChatResponseCursor v-if="waitingForResponse" />
+          <Transition
+            :duration="{
+              enter: 0,
+              leave:
+                !generationFailure && lastReply?.status === 'completed'
+                  ? 250
+                  : 0,
+            }"
+          >
+            <ChatResponseCursor v-if="waitingForResponse" />
+          </Transition>
         </div>
       </div>
       <div class="chat-composer-container">

@@ -4,15 +4,15 @@ interface ChatOutputOptions {
   publish: (text: string) => Promise<unknown>;
 }
 
-// One writer owns the saved/published offsets. AI reads can continue while it
-// saves, but clients only receive text from a successfully saved snapshot.
+// Deliver provider deltas immediately. A separate writer checkpoints partial
+// answers without putting database latency in the display path.
 export function createChatOutput({
   controller,
   save,
   publish,
 }: ChatOutputOptions) {
   let content = "";
-  let published = 0;
+  let saved = 0;
   let pending: Promise<void> | undefined;
   let failed = false;
   // A fixed cadence handles both continuous output and pauses. Idle ticks do
@@ -20,7 +20,7 @@ export function createChatOutput({
   const timer = setInterval(startCheckpoint, 100);
 
   function startCheckpoint() {
-    if (pending || controller.signal.aborted || content.length === published)
+    if (pending || controller.signal.aborted || content.length === saved)
       return;
     pending = (async () => {
       const snapshot = content;
@@ -28,8 +28,7 @@ export function createChatOutput({
         controller.abort();
         return;
       }
-      await publish(snapshot.slice(published));
-      published = snapshot.length;
+      saved = snapshot.length;
     })()
       .catch(() => {
         failed = true;
@@ -47,10 +46,18 @@ export function createChatOutput({
     get failed() {
       return failed;
     },
-    append(text: string) {
+    async append(text: string) {
+      if (controller.signal.aborted) return;
       content += text;
-      // Do not wait for the first timer tick to display the first text.
-      if (published === 0) startCheckpoint();
+      if (saved === 0) startCheckpoint();
+      try {
+        // The caller awaits delivery to preserve ordering and backpressure,
+        // independently of any checkpoint currently in flight.
+        await publish(text);
+      } catch {
+        failed = true;
+        controller.abort();
+      }
     },
     async flush() {
       // Drain before a terminal write, including after cancellation. Never let

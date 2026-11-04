@@ -130,7 +130,7 @@ export default defineEventHandler(async (event) => {
       });
       for await (const part of response.fullStream) {
         if (part.type === "text-delta") {
-          output.append(part.text);
+          await output.append(part.text);
           if (controller.signal.aborted) break;
         } else if (part.type === "error") throw part.error;
         else if (part.type === "finish")

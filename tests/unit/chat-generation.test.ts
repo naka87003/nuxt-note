@@ -130,7 +130,7 @@ describe("Chat generation", () => {
     await expect(generate(event)).rejects.toMatchObject({ statusCode: 409 });
     expect(mocks.streamText).not.toHaveBeenCalled();
   });
-  it("checkpoints text before delivering it and commits completion before done", async () => {
+  it("delivers text and commits completion before announcing done", async () => {
     await run();
     expect(mocks.message.updateMany).toHaveBeenCalledWith({
       where: { id: "reply", chatId: "chat" },
@@ -139,9 +139,6 @@ describe("Chat generation", () => {
     expect(
       mocks.push.mock.calls.map(([data]) => JSON.parse(data).type),
     ).toEqual(["start", "text", "done"]);
-    expect(mocks.message.updateMany.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.push.mock.invocationCallOrder[1]!,
-    );
     expect(
       mocks.message.updateMany.mock.invocationCallOrder.at(-1),
     ).toBeLessThan(mocks.push.mock.invocationCallOrder.at(-1)!);
@@ -189,7 +186,7 @@ describe("Chat generation", () => {
     );
     expect(mocks.close).toHaveBeenCalled();
   });
-  it("keeps reading AI output during a slow checkpoint and only publishes saved snapshots", async () => {
+  it("delivers successive AI deltas while a checkpoint is blocked", async () => {
     let releaseCheckpoint!: () => void;
     let checkpointStarted!: () => void;
     const started = new Promise<void>((resolve) => {
@@ -222,9 +219,8 @@ describe("Chat generation", () => {
     await vi.waitFor(() => expect(consumed).toBe(true));
     expect(
       mocks.push.mock.calls.map(([data]) => JSON.parse(data).type),
-    ).toEqual(["start"]);
+    ).toEqual(["start", "text", "text"]);
     releaseCheckpoint();
-    await vi.waitFor(() => expect(mocks.push).toHaveBeenCalledTimes(3));
     expect(
       mocks.push.mock.calls
         .map(([data]) => JSON.parse(data))
@@ -271,12 +267,12 @@ describe("Chat generation", () => {
       }),
     );
   });
-  it("fails a generation when its checkpoint fails without publishing unsaved text", async () => {
+  it("fails a generation when its checkpoint fails and preserves delivered text", async () => {
     mocks.message.updateMany.mockRejectedValueOnce(new Error("DB unavailable"));
     await run();
     expect(
       mocks.push.mock.calls.map(([data]) => JSON.parse(data).type),
-    ).toEqual(["start"]);
+    ).toEqual(["start", "text"]);
     expect(mocks.message.updateMany).toHaveBeenLastCalledWith(
       expect.objectContaining({ data: { content: "Hello", status: "failed" } }),
     );
