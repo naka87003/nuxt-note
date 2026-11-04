@@ -300,6 +300,7 @@ body {
 }
 .chat-send {
   flex-shrink: 0;
+  justify-content: center;
   width: 32px;
   height: 32px;
   padding: 6px;
