@@ -84,6 +84,7 @@ async function remove() {
         title="Could not open this note"
         description="The note may be unavailable. Return to the list or try again."
         color="error"
+        class="note-reader-error"
       >
         <template #actions>
           <UButton color="neutral" variant="soft" @click="refresh()">
@@ -91,16 +92,49 @@ async function remove() {
           </UButton>
         </template>
       </UAlert>
-      <article v-else-if="note" class="space-y-6">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <p class="text-sm text-dimmed">{{ categoryName }}</p>
-          <div class="flex gap-2 note-reader-actions">
-            <UButton color="neutral" variant="soft" @click="editing = true">
+      <article v-else-if="note">
+        <div class="note-reader-toolbar">
+          <p
+            class="note-reader-meta flex flex-wrap items-baseline gap-x-1 text-xs text-dimmed"
+          >
+            <span class="wrap-break-word">{{ categoryName }}</span>
+            <span aria-hidden="true">·</span>
+            <span>
+              Created
+              <NuxtTime
+                :datetime="note.createdAt"
+                locale="en-US"
+                month="short"
+                day="numeric"
+              />
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>
+              Updated
+              <NuxtTime
+                :datetime="note.updatedAt"
+                locale="en-US"
+                month="short"
+                day="numeric"
+                hour="2-digit"
+                minute="2-digit"
+                hour-cycle="h23"
+              />
+            </span>
+          </p>
+          <div class="ml-auto flex shrink-0 gap-2 note-reader-actions">
+            <UButton
+              color="primary"
+              variant="solid"
+              class="min-w-20 justify-center"
+              @click="editing = true"
+            >
               Edit
             </UButton>
             <UButton
               color="neutral"
               variant="soft"
+              class="min-w-16 justify-center"
               @click="
                 failure = '';
                 deletion = true;
@@ -110,9 +144,13 @@ async function remove() {
             </UButton>
           </div>
         </div>
-        <h1 class="wrap-break-word text-2xl font-semibold">{{ note.title }}</h1>
-        <MarkdownContent v-if="note.markdown" :content="note.markdown" />
-        <p v-else class="text-dimmed">This note is empty.</p>
+        <div class="note-reader-body space-y-6">
+          <h1 class="wrap-break-word text-2xl font-semibold">
+            {{ note.title }}
+          </h1>
+          <MarkdownContent v-if="note.markdown" :content="note.markdown" />
+          <p v-else class="text-dimmed">This note is empty.</p>
+        </div>
       </article>
     </div>
     <UModal

@@ -137,7 +137,9 @@ const summaries = computed(() =>
         <div class="sample-content">
           <div class="sample-toolbar">
             <span class="back-label">← Back</span>
-            <span v-if="!isChat" class="preview-label">Preview</span>
+            <small v-if="!isChat" class="sample-note-meta">
+              Nuxt · Created Nov 1 · Updated Nov 3, 10:24
+            </small>
             <div>
               <span :class="isChat ? 'sample-soft' : 'sample-primary'">
                 {{ isChat ? "Category: Nuxt" : "Edit" }}
@@ -147,7 +149,6 @@ const summaries = computed(() =>
           </div>
           <div v-if="!isChat" class="sample-note">
             <h3>Nuxt data fetching</h3>
-            <small>Nuxt · Created Nov 1 · Updated Nov 3, 10:24</small>
             <h4>Overview</h4>
             <p>
               Use useFetch for URL-based requests and useAsyncData for custom
@@ -396,6 +397,8 @@ small {
 }
 .sample-toolbar {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: space-between;
   align-items: center;
   min-height: 40px;
@@ -407,7 +410,10 @@ small {
   gap: 8px;
   margin-left: auto;
 }
-.preview-label {
+.sample-note-meta {
+  flex: 1 1 180px;
+  min-width: 0;
+  color: var(--ui-text-dimmed);
   font-size: 10px;
 }
 .back-label {
@@ -786,8 +792,10 @@ blockquote {
   .back-label {
     display: block;
   }
-  .preview-label {
-    display: none;
+  .sample-note-meta {
+    flex-basis: 100%;
+    order: 1;
+    font-size: 12px;
   }
   .sample-note {
     padding: 14px;
