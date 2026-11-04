@@ -197,6 +197,26 @@ useSeoMeta({
           </figcaption>
         </figure>
       </section>
+      <section
+        id="chat-to-note"
+        class="chat-note-section"
+        aria-labelledby="chat-note-title"
+      >
+        <p class="eyebrow">
+          <span class="chat-note-eyebrow-desktop">
+            FROM CONVERSATION TO SOMETHING WORTH KEEPING
+          </span>
+          <span class="chat-note-eyebrow-mobile"
+            >FROM CONVERSATION TO NOTE</span
+          >
+        </p>
+        <h2 id="chat-note-title">Turn a good conversation into a note.</h2>
+        <p class="description">
+          Turn the useful parts of a conversation into a Markdown draft. Review
+          and edit it before saving to Notes.
+        </p>
+        <LandingWorkspacePreview mode="chat" note-draft />
+      </section>
       <section class="workflow" aria-labelledby="workflow-title">
         <h2 id="workflow-title">
           From a passing thought to something worth keeping.
@@ -357,10 +377,14 @@ h2 {
   font-size: 14px;
   font-weight: 500;
 }
-.notes-section {
+.notes-section,
+.chat-note-section {
   display: flex;
   flex-direction: column;
   gap: 24px;
+}
+.chat-note-eyebrow-mobile {
+  display: none;
 }
 .features-section {
   padding: 48px;
@@ -571,6 +595,12 @@ h2 {
   }
 }
 @media (max-width: 767px) {
+  .chat-note-eyebrow-desktop {
+    display: none;
+  }
+  .chat-note-eyebrow-mobile {
+    display: inline;
+  }
   .landing {
     padding: 0 16px 24px;
   }

@@ -1,5 +1,8 @@
 <script setup lang="ts">
-const props = defineProps<{ mode: "notes" | "chat" }>();
+const props = withDefaults(
+  defineProps<{ mode: "notes" | "chat"; noteDraft?: boolean }>(),
+  { noteDraft: false },
+);
 
 const isChat = computed(() => props.mode === "chat");
 
@@ -39,12 +42,18 @@ const summaries = computed(() =>
 <template>
   <div
     class="product-preview"
-    :class="{ 'is-chat': isChat }"
+    :class="{
+      'is-chat': isChat,
+      'is-compact': isChat && !noteDraft,
+      'is-note-draft': noteDraft,
+    }"
     role="img"
     :aria-label="
-      isChat
-        ? 'Example Chat workspace with shared categories and a conversation about useFetch'
-        : 'Example Notes workspace with categories, recent notes, and a Markdown note about Nuxt data fetching'
+      noteDraft
+        ? 'Example Chat workspace with a Create note confirmation: AI organizes the conversation into a draft to review and edit before saving'
+        : isChat
+          ? 'Example Chat workspace with shared categories and a conversation about useFetch'
+          : 'Example Notes workspace with categories, recent notes, and a Markdown note about Nuxt data fetching'
     "
   >
     <!-- Static sample UI is kept out of the tab order; the landing CTA opens the real workspace. -->
@@ -114,6 +123,7 @@ const summaries = computed(() =>
               <small>
                 {{ isChat ? 4 : 7 }} {{ isChat ? "chats" : "notes" }}
               </small>
+              <span v-if="isChat" class="sample-hide-list">Hide list</span>
             </strong>
             <div class="sample-search">Search in Nuxt…</div>
             <small>Grouped by last updated</small>
@@ -140,11 +150,18 @@ const summaries = computed(() =>
             <small v-if="!isChat" class="sample-note-meta">
               Nuxt · Created Nov 1 · Updated Nov 3, 10:24
             </small>
-            <div>
-              <span :class="isChat ? 'sample-soft' : 'sample-primary'">
-                {{ isChat ? "Category: Nuxt" : "Edit" }}
-              </span>
-              <span class="sample-soft">Delete</span>
+            <div class="sample-actions">
+              <span v-if="isChat" class="sample-primary">Create note</span>
+              <div class="sample-secondary-actions">
+                <span :class="isChat ? 'sample-soft' : 'sample-primary'">
+                  <template v-if="isChat">
+                    <span class="sample-category-prefix">Category:&nbsp;</span
+                    >Nuxt
+                  </template>
+                  <template v-else>Edit</template>
+                </span>
+                <span class="sample-soft">Delete</span>
+              </div>
             </div>
           </div>
           <div v-if="!isChat" class="sample-note">
@@ -193,11 +210,13 @@ const summaries = computed(() =>
         </div>
       </div>
     </div>
+    <LandingNoteDraftConfirmation v-if="noteDraft" />
   </div>
 </template>
 
 <style scoped>
 .product-preview {
+  position: relative;
   width: 100%;
   border: 1px solid var(--ui-border);
   border-radius: 16px;
@@ -369,6 +388,9 @@ small {
   justify-content: space-between;
   margin-bottom: 12px;
 }
+.sample-hide-list {
+  color: var(--ui-text-dimmed);
+}
 .sample-search {
   border: 1px solid var(--ui-border-accented);
   border-radius: 4px;
@@ -409,6 +431,20 @@ small {
   display: flex;
   gap: 8px;
   margin-left: auto;
+}
+.sample-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.sample-actions > .sample-primary,
+.sample-secondary-actions > span {
+  white-space: nowrap;
+}
+.sample-secondary-actions {
+  display: flex;
+  gap: inherit;
+  min-width: 0;
 }
 .sample-note-meta {
   flex: 1 1 180px;
@@ -505,133 +541,145 @@ blockquote {
   background: var(--ui-primary);
   opacity: 0.5;
 }
-.is-chat {
-  border-radius: 0;
-  font-size: 6px;
+.is-note-draft {
+  border-radius: 8px;
 }
 .is-chat .browser-bar {
   display: none;
 }
-.is-chat .sample-app {
-  height: 345px;
+.is-compact {
+  border-radius: 0;
 }
-.is-chat .sample-header {
-  height: 25px;
-  padding-inline: 6px;
-}
-.is-chat .sample-header > img {
-  width: 11px;
-  height: 11px;
-}
-.is-chat .header-actions {
-  gap: 6px;
-}
-.is-chat .header-actions > .iconify {
-  width: 10px;
-  height: 10px;
-}
-.is-chat .sample-brand :deep(.brand-title) {
-  font-size: 9px;
-}
-.is-chat .sample-brand :deep(img) {
-  width: 13px;
-}
-.is-chat .sample-brand {
+.is-compact .sample-brand {
   gap: 3px;
 }
-.is-chat .sample-primary,
-.is-chat .sample-soft {
-  padding: 2px 4px;
-  font-size: 5px;
+.is-compact .sample-primary,
+.is-compact .sample-soft {
   border-radius: 2px;
 }
-.is-chat .sample-sidebar,
-.is-chat .sample-list {
-  padding: 6px;
-}
-.is-chat .category-link {
-  padding: 2px 4px;
-  gap: 2px;
-}
-.is-chat .category-link .iconify {
-  width: 8px;
-  height: 8px;
-}
-.is-chat .category-heading {
-  margin: 6px 4px 2px;
-}
-.is-chat .sample-tabs {
-  height: 14px;
-  padding: 1.5px;
-}
-.is-chat .sample-tabs > span {
-  font-size: 5px;
-  gap: 3px;
-  line-height: 6px;
-}
-.is-chat .sample-tabs > span > .iconify {
-  width: 6px;
-  height: 6px;
-  flex-basis: 6px;
-}
-.is-chat .new-category {
-  padding: 1px;
-}
-.is-chat .list-top strong {
-  margin-bottom: 6px;
-}
-.is-chat .sample-search {
-  padding: 2px 4px;
-}
-.is-chat .sample-group > p {
-  margin-block: 6px 3px;
-}
-.is-chat .sample-list-card {
-  padding: 5px;
-}
-.is-chat .sample-list-card p {
-  font-size: 5px;
-  margin-block: 2px;
-}
-.is-chat .sample-toolbar {
-  min-height: 20px;
-  padding: 3px 8px;
-}
-.is-chat .sample-toolbar > div {
-  gap: 4px;
-}
-.is-chat .sample-conversation {
-  padding: 8px 12px;
-  gap: 8px;
-}
-.is-chat .sample-conversation h3 {
-  font-size: 9px;
-}
-.is-chat .sample-question {
-  padding: 8px;
-}
-.is-chat pre {
-  font-size: 5px;
-  padding: 8px;
-}
-.is-chat .sample-composer {
-  min-height: 22px;
-  padding: 4px 5px;
-}
-.is-chat .sample-send {
-  width: 13px;
-  height: 13px;
-}
-.is-chat .sample-send img {
-  width: 8px;
-  height: 8px;
+@media (min-width: 1280px) {
+  .is-compact {
+    font-size: 6px;
+  }
+  .is-compact .sample-app {
+    height: 345px;
+  }
+  .is-compact .sample-header {
+    height: 25px;
+    padding-inline: 6px;
+  }
+  .is-compact .sample-header > img {
+    width: 11px;
+    height: 11px;
+  }
+  .is-compact .header-actions {
+    gap: 6px;
+  }
+  .is-compact .header-actions > .iconify {
+    width: 10px;
+    height: 10px;
+  }
+  .is-compact .sample-brand :deep(.brand-title) {
+    font-size: 9px;
+  }
+  .is-compact .sample-brand :deep(img) {
+    width: 13px;
+  }
+  .is-compact .sample-primary,
+  .is-compact .sample-soft {
+    padding: 2px 4px;
+    font-size: 5px;
+  }
+  .is-compact .sample-sidebar,
+  .is-compact .sample-list {
+    padding: 6px;
+  }
+  .is-compact .category-link {
+    padding: 2px 4px;
+    gap: 2px;
+  }
+  .is-compact .category-link .iconify {
+    width: 8px;
+    height: 8px;
+  }
+  .is-compact .category-heading {
+    margin: 6px 4px 2px;
+  }
+  .is-compact .sample-tabs {
+    height: 14px;
+    padding: 1.5px;
+  }
+  .is-compact .sample-tabs > span {
+    font-size: 5px;
+    gap: 3px;
+    line-height: 6px;
+  }
+  .is-compact .sample-tabs > span > .iconify {
+    width: 6px;
+    height: 6px;
+    flex-basis: 6px;
+  }
+  .is-compact .new-category {
+    padding: 1px;
+  }
+  .is-compact .list-top strong {
+    margin-bottom: 6px;
+  }
+  .is-compact .sample-search {
+    padding: 2px 4px;
+  }
+  .is-compact .sample-group > p {
+    margin-block: 6px 3px;
+  }
+  .is-compact .sample-list-card {
+    padding: 5px;
+  }
+  .is-compact .sample-list-card p {
+    font-size: 5px;
+    margin-block: 2px;
+  }
+  .is-compact .sample-toolbar {
+    min-height: 20px;
+    padding: 3px 8px;
+  }
+  .is-compact .sample-toolbar > div {
+    gap: 4px;
+  }
+  .is-compact .sample-conversation {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  .is-compact .sample-conversation h3 {
+    font-size: 9px;
+  }
+  .is-compact .sample-question {
+    padding: 8px;
+  }
+  .is-compact pre {
+    font-size: 5px;
+    padding: 8px;
+  }
+  .is-compact .sample-composer {
+    min-height: 22px;
+    padding: 4px 5px;
+  }
+  .is-compact .sample-send {
+    width: 13px;
+    height: 13px;
+  }
+  .is-compact .sample-send img {
+    width: 8px;
+    height: 8px;
+  }
+  .is-note-draft .sample-app {
+    height: 586px;
+  }
 }
 @media (min-width: 768px) and (max-width: 1279px) {
   .product-preview {
     font-size: 14px;
   }
-  .sample-app,
-  .is-chat .sample-app {
+  .sample-app {
     height: 844px;
   }
   .sample-sidebar {
@@ -640,22 +688,16 @@ blockquote {
   .sample-list {
     flex-basis: 33.2%;
   }
-  .sample-header,
-  .is-chat .sample-header {
+  .sample-header {
     height: 60px;
     padding-inline: 15px;
   }
-  .sample-header > img,
-  .is-chat .sample-header > img {
+  .sample-header > img {
     width: 26px;
     height: 26px;
   }
   .is-chat .header-actions {
     gap: 14px;
-  }
-  .is-chat .header-actions > .iconify {
-    width: 20px;
-    height: 20px;
   }
   .is-chat .sample-brand :deep(.brand-title) {
     font-size: 22px;
@@ -685,14 +727,10 @@ blockquote {
   }
   .is-chat .sample-list-card p {
     font-size: 12px;
-    margin-block: 4px;
   }
   .is-chat .sample-toolbar {
     min-height: 44px;
     padding: 6px 18px;
-  }
-  .is-chat .sample-toolbar > div {
-    gap: 8px;
   }
   .is-chat .sample-conversation {
     padding: 18px 30px;
@@ -725,25 +763,25 @@ blockquote {
   .sample-list {
     flex-basis: 36.5%;
   }
-  .sample-app,
-  .is-chat .sample-app {
+  .sample-app {
     height: 825px;
   }
 }
 @media (max-width: 767px) {
+  .sample-category-prefix {
+    display: none;
+  }
   .header-actions > .desktop-preview-menu {
     display: none;
   }
   .header-actions > .mobile-preview-menu {
     display: inline-block;
   }
-  .product-preview,
-  .is-chat {
+  .product-preview {
     font-size: 13px;
     border-radius: 16px;
   }
-  .sample-app,
-  .is-chat .sample-app {
+  .sample-app {
     height: 775px;
   }
   .browser-bar,
@@ -752,42 +790,31 @@ blockquote {
   .sample-brand {
     display: none;
   }
-  .sample-header,
-  .is-chat .sample-header {
+  .sample-header {
     height: 59px;
     padding-inline: 12px;
   }
-  .sample-header > img,
-  .is-chat .sample-header > img {
+  .sample-header > img {
     width: 26px;
     height: 26px;
   }
-  .header-actions,
-  .is-chat .header-actions {
+  .header-actions {
     gap: 16px;
   }
-  .header-actions > .iconify,
-  .is-chat .header-actions > .iconify {
+  .header-actions > .iconify {
     width: 22px;
     height: 22px;
     color: var(--ui-text);
   }
   .sample-primary,
-  .sample-soft,
-  .is-chat .sample-primary,
-  .is-chat .sample-soft {
+  .sample-soft {
     padding: 5px 12px;
     font-size: 12px;
   }
-  .sample-toolbar,
-  .is-chat .sample-toolbar {
+  .sample-toolbar {
     min-height: 54px;
     padding: 8px 14px;
     border: 0;
-  }
-  .sample-toolbar > div,
-  .is-chat .sample-toolbar > div {
-    gap: 8px;
   }
   .back-label {
     display: block;
@@ -804,12 +831,7 @@ blockquote {
   .is-chat .sample-conversation h3 {
     font-size: 22px;
   }
-  h4 {
-    font-size: 16px;
-    margin-block: 24px 10px;
-  }
-  pre,
-  .is-chat pre {
+  pre {
     padding: 14px;
     font-size: 11px;
   }
@@ -835,6 +857,14 @@ blockquote {
   .is-chat .sample-send img {
     width: 18px;
     height: 18px;
+  }
+  .is-chat .sample-actions > .sample-primary,
+  .is-chat .sample-secondary-actions > .sample-soft {
+    min-height: 44px;
+    padding-inline: 6px;
+  }
+  .is-note-draft {
+    border-radius: 8px;
   }
 }
 </style>
