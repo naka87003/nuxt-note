@@ -169,6 +169,119 @@ describe("Chat generation", () => {
       "private provider detail",
     );
   });
+  it("does not announce completion after the attempt has lost ownership", async () => {
+    mocks.chat.updateMany.mockImplementation(({ where, data }) =>
+      Promise.resolve({
+        count:
+          where.generationStartedAt ||
+          (where.generationId === attemptId && data.generationId === null)
+            ? 0
+            : 1,
+      }),
+    );
+    await run();
+    expect(
+      mocks.push.mock.calls.map(([data]) => JSON.parse(data).type),
+    ).toEqual(["start", "text"]);
+    expect(mocks.message.updateMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "completed" }),
+      }),
+    );
+    expect(mocks.close).toHaveBeenCalled();
+  });
+  it("keeps reading AI output during a slow checkpoint and only publishes saved snapshots", async () => {
+    let releaseCheckpoint!: () => void;
+    let checkpointStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      checkpointStarted = resolve;
+    });
+    const checkpoint = new Promise<void>((resolve) => {
+      releaseCheckpoint = resolve;
+    });
+    let finishProvider!: () => void;
+    const providerFinished = new Promise<void>((resolve) => {
+      finishProvider = resolve;
+    });
+    mocks.message.updateMany.mockImplementationOnce(async () => {
+      checkpointStarted();
+      await checkpoint;
+      return { count: 1 };
+    });
+    let consumed = false;
+    mocks.streamText.mockReturnValue({
+      fullStream: (async function* () {
+        yield { type: "text-delta", text: "First" };
+        await started;
+        yield { type: "text-delta", text: " second" };
+        consumed = true;
+        await providerFinished;
+        yield { type: "finish", finishReason: "stop" };
+      })(),
+    });
+    const running = run();
+    await vi.waitFor(() => expect(consumed).toBe(true));
+    expect(
+      mocks.push.mock.calls.map(([data]) => JSON.parse(data).type),
+    ).toEqual(["start"]);
+    releaseCheckpoint();
+    await vi.waitFor(() => expect(mocks.push).toHaveBeenCalledTimes(3));
+    expect(
+      mocks.push.mock.calls
+        .map(([data]) => JSON.parse(data))
+        .filter((data) => data.type === "text")
+        .map((data) => data.text),
+    ).toEqual(["First", " second"]);
+    finishProvider();
+    await running;
+    expect(mocks.message.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: { content: "First second", status: "completed" },
+      }),
+    );
+  });
+  it("drains an in-flight checkpoint before saving a disconnected response", async () => {
+    let releaseCheckpoint!: () => void;
+    let checkpointStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      checkpointStarted = resolve;
+    });
+    mocks.message.updateMany.mockImplementationOnce(async () => {
+      checkpointStarted();
+      await new Promise<void>((resolve) => {
+        releaseCheckpoint = resolve;
+      });
+      return { count: 1 };
+    });
+    mocks.streamText.mockReturnValue({
+      fullStream: (async function* () {
+        yield { type: "text-delta", text: "Partial" };
+        await started;
+        mocks.onClosed.mock.calls[0]![0]();
+        throw new Error("disconnected");
+      })(),
+    });
+    const running = run();
+    await started;
+    expect(mocks.message.updateMany).toHaveBeenCalledTimes(1);
+    releaseCheckpoint();
+    await running;
+    expect(mocks.message.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: { content: "Partial", status: "stopped" },
+      }),
+    );
+  });
+  it("fails a generation when its checkpoint fails without publishing unsaved text", async () => {
+    mocks.message.updateMany.mockRejectedValueOnce(new Error("DB unavailable"));
+    await run();
+    expect(
+      mocks.push.mock.calls.map(([data]) => JSON.parse(data).type),
+    ).toEqual(["start"]);
+    expect(mocks.message.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: { content: "Hello", status: "failed" } }),
+    );
+  });
   it("marks a timed-out stream failed and releases the guard", async () => {
     vi.useFakeTimers();
     try {

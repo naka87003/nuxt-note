@@ -31,7 +31,9 @@ async function create() {
   failure.value = "";
   try {
     const chat = await $fetch("/api/chats", { method: "POST", body: pending });
-    await refreshNuxtData(["workspace-list", "workspace-categories"]);
+    void refreshNuxtData(["workspace-list", "workspace-categories"]).catch(
+      () => {},
+    );
     await navigateTo(
       location(`/chats/${chat.id}`, pending.categoryId ?? "uncategorized"),
     );

@@ -1,4 +1,6 @@
-import type { ChatMessage } from "#shared/types/chat";
+import type { ChatMessage, ChatStatus } from "#shared/types/chat";
+import { shallowRef } from "vue";
+import { readChatStream } from "../utils/chat-stream";
 interface Conversation {
   id: string;
   title: string | null;
@@ -10,18 +12,23 @@ export function useChatGeneration(
   refresh: () => Promise<unknown>,
 ) {
   const sending = ref(false);
+  const stopping = ref(false);
+  const activeGeneration = shallowRef<{
+    id: string;
+    controller: AbortController;
+  }>();
   const failure = ref("");
   const draft = ref("");
-  const busy = computed(() => sending.value || !!chat.value?.generationId);
+  const busy = computed(
+    () => sending.value || stopping.value || !!chat.value?.generationId,
+  );
   const lastQuestion = computed(() =>
     chat.value?.messages.filter((m) => m.role === "user").at(-1),
   );
   const lastReply = computed(() =>
     chat.value?.messages.find((m) => m.replyToId === lastQuestion.value?.id),
   );
-  const stoppable = computed(
-    () => !!chat.value?.generationId || (sending.value && !!controller),
-  );
+  const stoppable = computed(() => !stopping.value && !!activeGeneration.value);
   const canRetry = computed(
     () =>
       !!lastQuestion.value &&
@@ -29,8 +36,6 @@ export function useChatGeneration(
       (!lastReply.value ||
         ["failed", "stopped"].includes(lastReply.value.status)),
   );
-  let controller: AbortController | undefined;
-  let attemptId = "";
   let pending: { messageId: string; content: string } | undefined;
   let disposed = false;
   async function summarizeTitle(chatId: string) {
@@ -51,15 +56,18 @@ export function useChatGeneration(
     const questionId = lastQuestion.value.id;
     sending.value = true;
     failure.value = "";
-    attemptId = crypto.randomUUID();
-    controller = new AbortController();
-    let shouldSummarizeTitle = false;
+    const attempt = {
+      id: crypto.randomUUID(),
+      controller: new AbortController(),
+    };
+    activeGeneration.value = attempt;
+    let terminalStatus: ChatStatus | undefined;
     try {
       const response = await fetch(`/api/chats/${target.id}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageId: questionId, attemptId }),
-        signal: controller.signal,
+        body: JSON.stringify({ messageId: questionId, attemptId: attempt.id }),
+        signal: attempt.controller.signal,
       });
       if (!response.ok || !response.body) {
         if (response.status === 503)
@@ -70,73 +78,60 @@ export function useChatGeneration(
           throw new Error("This conversation has changed. Please try again.");
         throw new Error("Could not generate a response. Please try again.");
       }
-      const reader = response.body
-        .pipeThrough(new TextDecoderStream())
-        .getReader();
-      let buffer = "";
       let reply: ChatMessage | undefined;
-      let done = false;
-      try {
-        while (true) {
-          const result = await reader.read();
-          if (result.done) break;
-          buffer += result.value;
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-          for (const line of lines) {
-            if (!line.startsWith("data:")) continue;
-            const data = JSON.parse(line.slice(5).trim());
-            if (disposed) continue;
-            if (data.type === "start") {
-              reply = target.messages.find((m) => m.id === data.messageId);
-              if (reply) {
-                reply.content = "";
-                reply.status = "generating";
-              } else {
-                reply = {
-                  id: data.messageId,
-                  role: "assistant",
-                  content: "",
-                  status: "generating",
-                  replyToId: questionId,
-                  createdAt: new Date().toISOString(),
-                };
-                target.messages.push(reply);
-                reply = target.messages.at(-1);
-              }
-            } else if (data.type === "text" && reply)
-              reply.content += data.text;
-            else if (data.type === "done") {
-              done = true;
-              if (reply) reply.status = data.status;
-              shouldSummarizeTitle =
-                data.status === "completed" &&
-                reply?.replyToId ===
-                  target.messages.find((m) => m.role === "user")?.id;
-            }
+      for await (const data of readChatStream(response.body)) {
+        if (disposed) continue;
+        if (data.type === "start") {
+          reply = target.messages.find((m) => m.id === data.messageId);
+          if (reply) {
+            reply.content = "";
+            reply.status = "generating";
+          } else {
+            target.messages.push({
+              id: data.messageId,
+              role: "assistant",
+              content: "",
+              status: "generating",
+              replyToId: questionId,
+              createdAt: new Date().toISOString(),
+            });
+            reply = target.messages.at(-1);
           }
+        } else if (data.type === "text" && reply) reply.content += data.text;
+        else if (data.type === "done") {
+          terminalStatus = data.status;
+          if (reply) reply.status = data.status;
         }
-      } finally {
-        reader.releaseLock();
       }
-      if (!done)
+      if (!terminalStatus)
         throw new Error("The connection was interrupted. Please try again.");
     } catch (error) {
-      if (!controller.signal.aborted && !disposed)
+      if (!attempt.controller.signal.aborted && !disposed)
         failure.value =
           error instanceof Error
             ? error.message
             : "Could not generate a response. Please try again.";
     } finally {
-      controller = undefined;
+      activeGeneration.value = undefined;
       if (!disposed) {
+        // A completed stream already contains the saved answer. Only failures
+        // and interruptions need to reload the server's partial state.
+        if (terminalStatus === "completed") target.generationId = null;
+        else
+          await refresh().catch(() => {
+            failure.value =
+              "Could not reload this chat. Please reload the page.";
+          });
         sending.value = false;
-        await refresh().catch(() => {
-          failure.value = "Could not reload this chat. Please reload the page.";
-        });
-        await refreshNuxtData(["workspace-list", "workspace-categories"]);
+        void refreshNuxtData(["workspace-list", "workspace-categories"]).catch(
+          () => {},
+        );
       }
-      if (shouldSummarizeTitle) void summarizeTitle(target.id);
+      if (
+        terminalStatus === "completed" &&
+        questionId === target.messages.find((m) => m.role === "user")?.id
+      )
+        void summarizeTitle(target.id);
     }
   }
   async function send() {
@@ -144,50 +139,60 @@ export function useChatGeneration(
     const content = draft.value.trim();
     if (!pending || pending.content !== content)
       pending = { messageId: crypto.randomUUID(), content };
+    const target = chat.value;
+    const message = {
+      id: pending.messageId,
+      role: "user" as const,
+      content,
+      status: "completed",
+      replyToId: null,
+      createdAt: new Date().toISOString(),
+    };
+    target.messages.push(message);
+    draft.value = "";
     sending.value = true;
     failure.value = "";
     try {
-      await $fetch(`/api/chats/${chat.value.id}/messages`, {
+      await $fetch(`/api/chats/${target.id}/messages`, {
         method: "POST",
         body: pending,
       });
-      await refresh();
-      draft.value = "";
       pending = undefined;
     } catch {
+      target.messages = target.messages.filter((m) => m.id !== message.id);
+      if (!disposed && !draft.value) draft.value = content;
       failure.value = "Could not save your message. Please try again.";
       return;
     } finally {
       sending.value = false;
     }
-    await generate();
+    if (!disposed && chat.value?.id === target.id) await generate();
   }
   async function stop() {
-    if (!chat.value || !busy.value) return;
+    const attempt = activeGeneration.value;
+    if (!chat.value || !stoppable.value || !attempt) return;
+    const target = chat.value;
+    stopping.value = true;
     try {
-      await $fetch(`/api/chats/${chat.value.id}/stop`, {
+      await $fetch(`/api/chats/${target.id}/stop`, {
         method: "POST",
-        body: { attemptId: chat.value.generationId || attemptId },
+        body: { attemptId: attempt.id },
       });
-      controller?.abort();
+      attempt.controller.abort();
       await refresh();
     } catch {
       failure.value = "Could not stop the response. Please try again.";
+    } finally {
+      stopping.value = false;
     }
   }
-  // A different tab can own generation. Refresh its persisted state without opening another stream.
-  let poll: ReturnType<typeof setInterval> | undefined;
   onMounted(() => {
-    poll = setInterval(() => {
-      if (chat.value?.generationId && !sending.value) void refresh();
-    }, 2000);
     if (lastQuestion.value && !lastReply.value && !chat.value?.generationId)
       void generate();
   });
   onBeforeUnmount(() => {
     disposed = true;
-    controller?.abort();
-    clearInterval(poll);
+    activeGeneration.value?.controller.abort();
   });
   return {
     draft,

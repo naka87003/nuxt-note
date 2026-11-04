@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { renderChatMarkdown } from "../../app/utils/chat-markdown";
+import { renderMarkdown } from "../../app/utils/markdown";
 describe("Chat Markdown", () => {
   it("renders code, tables, lists and safe links", () => {
-    const html = renderChatMarkdown(
+    const html = renderMarkdown(
       "## Example\n\n- item\n\n```js\nconst a = 1;\n```\n\n[Nuxt](https://nuxt.com)\n\n| A | B |\n| - | - |\n| 1 | 2 |",
     );
     expect(html).toContain("<h2>Example</h2>");
@@ -24,7 +24,7 @@ describe("Chat Markdown", () => {
     "<NuxtLink to=javascript:alert(1)>x</NuxtLink>",
     "![tracking](https://example.com/track)",
   ])("does not render unsafe HTML or images: %s", (source) => {
-    const html = renderChatMarkdown(source);
+    const html = renderMarkdown(source);
     expect(html).not.toMatch(
       /<script|<img|<iframe|<NuxtLink|href="(?:javascript|data|vbscript|file|ftp):/i,
     );
@@ -39,11 +39,11 @@ it("preserves safe links, relative links and anchors", () => {
     "/notes",
     "#example",
   ]) {
-    expect(renderChatMarkdown(`[link](${url})`)).toContain(`href="${url}"`);
+    expect(renderMarkdown(`[link](${url})`)).toContain(`href="${url}"`);
   }
 });
 it("renders code as escaped text, including HTML and component-like tags", () => {
-  const html = renderChatMarkdown(
+  const html = renderMarkdown(
     "```html\n<script>alert(1)</script>\n<NoteEditor />\n```",
   );
   expect(html.replace(/<\/?span[^>]*>/g, "")).toContain("&lt;script&gt;");

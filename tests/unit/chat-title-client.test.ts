@@ -53,12 +53,7 @@ it("allows the next message while a title is pending and updates the refreshed c
       resolveTitle = resolve;
     }),
   );
-  const refresh = vi.fn(async () => {
-    chat.value = {
-      ...chat.value,
-      messages: chat.value.messages.map((message) => ({ ...message })),
-    };
-  });
+  const refresh = vi.fn().mockResolvedValue(undefined);
   const generation = useChatGeneration(chat, refresh);
   await generation.generate();
   expect(titleRequest).toHaveBeenCalledWith("/api/chats/chat/title", {
@@ -66,6 +61,11 @@ it("allows the next message while a title is pending and updates the refreshed c
   });
   expect(generation.busy.value).toBe(false);
   expect(chat.value.title).toBeNull();
+  // A separate refresh can replace the conversation while title generation runs.
+  chat.value = {
+    ...chat.value,
+    messages: chat.value.messages.map((message) => ({ ...message })),
+  };
   resolveTitle({ title: "Summary" });
   await vi.waitFor(() => expect(chat.value.title).toBe("Summary"));
 });

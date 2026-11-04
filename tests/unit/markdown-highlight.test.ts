@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { renderMarkdown } from "../../app/utils/markdown";
-import { renderChatMarkdown } from "../../app/utils/chat-markdown";
 
 const withoutSpans = (html: string) => html.replace(/<\/?span[^>]*>/g, "");
 
@@ -9,7 +8,6 @@ describe("shared GitHub Dark Markdown", () => {
     const source =
       "```ts\n// Fetch notes\nconst data = await useFetch('/api/notes')\n```";
     const html = renderMarkdown(source);
-    expect(renderChatMarkdown(source)).toBe(html);
     for (const color of ["F97583", "B392F0", "9ECBFF", "6A737D"]) {
       expect(html).toContain(`color:#${color}`);
     }

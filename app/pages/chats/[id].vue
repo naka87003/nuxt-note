@@ -20,6 +20,7 @@ const {
 const {
   draft,
   busy: generating,
+  sending,
   stoppable,
   failure: generationFailure,
   canRetry,
@@ -217,7 +218,7 @@ async function remove() {
               {{ message.content }}
             </template>
             <template v-else>
-              <ChatMarkdown :content="message.content" />
+              <MarkdownContent :content="message.content" />
               <p
                 v-if="message.status === 'generating'"
                 class="text-sm text-dimmed"
@@ -256,6 +257,14 @@ async function remove() {
           <span v-if="hasNewMessages">New messages</span>
         </UButton>
         <div class="chat-inner space-y-3">
+          <p
+            v-if="chat.generationId && !sending"
+            class="text-sm text-dimmed"
+            role="status"
+          >
+            This conversation has an active response. Reload this page to check
+            for updates.
+          </p>
           <UAlert
             v-if="generationFailure"
             :title="generationFailure"
@@ -272,9 +281,9 @@ async function remove() {
           </UButton>
           <ChatComposer
             v-model="draft"
-            :busy="generating"
+            :busy="sending"
             :can-stop="stoppable"
-            :disabled="canRetry && !lastReply"
+            :disabled="generating || (canRetry && !lastReply)"
             @send="send"
             @stop="stop"
           />

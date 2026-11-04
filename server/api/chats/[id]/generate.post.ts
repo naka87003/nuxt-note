@@ -4,6 +4,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { streamText } from "ai";
 import { getAuthenticatedUserId } from "../../../utils/auth";
 import { getPrisma } from "../../../utils/prisma";
+import { createChatOutput } from "../../../utils/chat-output";
 import {
   GENERATION_TIMEOUT,
   lockIdleChat,
@@ -106,31 +107,13 @@ export default defineEventHandler(async (event) => {
   setResponseHeader(event, "X-Accel-Buffering", "no");
   // Consume provider events on the server, including error/incomplete terminal states.
   const run = async () => {
-    let content = "";
     let status = "failed";
-    let published = 0;
-    let savedAt = 0;
-    const publish = async () => {
-      if (content.length === published) return;
-      if (
-        !(await saveGeneration(
-          userId,
-          id,
-          attemptId,
-          reply.id,
-          content,
-          "generating",
-        ))
-      ) {
-        controller.abort();
-        return;
-      }
-      await stream.push(
-        JSON.stringify({ type: "text", text: content.slice(published) }),
-      );
-      published = content.length;
-      savedAt = Date.now();
-    };
+    const output = createChatOutput({
+      controller,
+      save: (content) =>
+        saveGeneration(userId, id, attemptId, reply.id, content, "generating"),
+      publish: (text) => stream.push(JSON.stringify({ type: "text", text })),
+    });
     try {
       await stream.push(JSON.stringify({ type: "start", messageId: reply.id }));
       const response = streamText({
@@ -147,28 +130,33 @@ export default defineEventHandler(async (event) => {
       });
       for await (const part of response.fullStream) {
         if (part.type === "text-delta") {
-          content += part.text;
-          // Batch database writes, then publish only checkpointed text.
-          if (Date.now() - savedAt >= 100 || content.length - published >= 256)
-            await publish();
+          output.append(part.text);
           if (controller.signal.aborted) break;
         } else if (part.type === "error") throw part.error;
         else if (part.type === "finish")
           status =
-            part.finishReason === "stop" && content.trim()
+            part.finishReason === "stop" && output.content.trim()
               ? "completed"
               : "failed";
       }
-      if (!controller.signal.aborted) await publish();
     } catch {
-      status = controller.signal.aborted && !timedOut ? "stopped" : "failed";
+      status = "failed";
     } finally {
+      await output.flush();
       clearTimeout(timer);
-      if (controller.signal.aborted) status = timedOut ? "failed" : "stopped";
+      if (controller.signal.aborted)
+        status = timedOut || output.failed ? "failed" : "stopped";
       try {
-        await saveGeneration(userId, id, attemptId, reply.id, content, status);
+        const saved = await saveGeneration(
+          userId,
+          id,
+          attemptId,
+          reply.id,
+          output.content,
+          status,
+        );
         finished = true;
-        if (!controller.signal.aborted)
+        if (saved && !controller.signal.aborted)
           await stream.push(JSON.stringify({ type: "done", status }));
       } finally {
         finished = true;

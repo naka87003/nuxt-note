@@ -1,0 +1,24 @@
+import type { ChatStreamEvent } from "../../shared/types/chat";
+
+// The chat endpoint sends one JSON event per SSE data line. Network chunks
+// can split a line or contain several events, independently of token boundaries.
+export async function* readChatStream(body: ReadableStream<Uint8Array>) {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (line.startsWith("data:"))
+          yield JSON.parse(line.slice(5).trim()) as ChatStreamEvent;
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
