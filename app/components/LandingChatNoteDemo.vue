@@ -5,15 +5,28 @@ const confirmingDiscard = ref(false);
 const keepEditingButton = useTemplateRef("keepEditingButton");
 let cancelTrigger: HTMLElement | null = null;
 const initialTitle = "Nuxt data fetching";
+const fetchExample = `\`\`\`ts
+const { data } = await useFetch('/api/notes')
+\`\`\``;
+const categoryFetchExample = `\`\`\`ts
+const selectedCategory = ref('Nuxt')
+const { data } = await useFetch('/api/notes', {
+  query: { category: selectedCategory }
+})
+\`\`\``;
 const initialMarkdown = `## Overview
 
 Use useFetch for URL-based requests and useAsyncData for custom async logic.
 
 ## useFetch
 
-\`\`\`ts
-const { data } = await useFetch('/api/notes')
-\`\`\`
+${fetchExample}
+
+## Reactive category filters
+
+Pass the selected category as a reactive query parameter. useFetch fetches again when the category changes.
+
+${categoryFetchExample}
 
 ## Checklist
 
@@ -184,10 +197,33 @@ async function go(next: Step) {
                 It combines fetching with Nuxt’s async data handling. For custom
                 async logic, use useAsyncData.
               </p>
-              <pre><code>const { data } =
-  await useFetch('/api/notes')</code></pre>
+              <MarkdownContent class="demo-code" :content="fetchExample" />
+              <p class="demo-question">
+                What if the request depends on a selected category?
+              </p>
+              <p>
+                Pass the selected category as a reactive query parameter.
+                useFetch will fetch again when it changes.
+              </p>
+              <MarkdownContent
+                class="demo-code"
+                :content="categoryFetchExample"
+              />
               <div class="demo-composer" aria-hidden="true">
-                Ask a follow-up…
+                <span>Ask a follow-up…</span>
+                <UButton
+                  type="button"
+                  class="chat-send"
+                  aria-label="Send message"
+                  disabled
+                >
+                  <img
+                    src="/icons/chat-send.svg"
+                    alt=""
+                    width="20"
+                    height="20"
+                  />
+                </UButton>
               </div>
             </div>
           </div>
@@ -486,7 +522,7 @@ h3 {
   border-radius: 8px;
   background: var(--ui-bg-muted);
 }
-pre {
+.demo-code :deep(pre) {
   padding: 16px;
   background: var(--ui-bg-muted);
   border-radius: 6px;
@@ -494,9 +530,18 @@ pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.demo-code :deep(code) {
+  font-size: inherit;
+}
 .demo-composer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  gap: 12px;
+  min-height: 56px;
   margin-top: auto;
-  padding: 14px;
+  padding: 12px 12px 12px 19.2px;
   border: 1px solid var(--ui-border);
   border-radius: 28px;
   color: var(--ui-text-dimmed);
