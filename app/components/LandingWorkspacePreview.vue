@@ -1,8 +1,16 @@
 <script setup lang="ts">
 const props = withDefaults(
-  defineProps<{ mode: "notes" | "chat"; noteDraft?: boolean }>(),
-  { noteDraft: false },
+  defineProps<{
+    mode: "notes" | "chat";
+    noteDraft?: boolean;
+    previewTitle?: string;
+    savedCategory?: string;
+  }>(),
+  { noteDraft: false, previewTitle: "", savedCategory: "" },
 );
+
+const slots = useSlots();
+const interactive = computed(() => !!slots.content);
 
 const isChat = computed(() => props.mode === "chat");
 
@@ -47,21 +55,21 @@ const summaries = computed(() =>
       'is-compact': isChat && !noteDraft,
       'is-note-draft': noteDraft,
     }"
-    role="img"
+    :role="interactive ? 'group' : 'img'"
     :aria-label="
-      noteDraft
-        ? 'Example Chat workspace with a Create note confirmation: AI organizes the conversation into a draft to review and edit before saving'
+      interactive
+        ? 'Interactive demo: turn a conversation into a note'
         : isChat
           ? 'Example Chat workspace with shared categories and a conversation about useFetch'
           : 'Example Notes workspace with categories, recent notes, and a Markdown note about Nuxt data fetching'
     "
   >
     <!-- Static sample UI is kept out of the tab order; the landing CTA opens the real workspace. -->
-    <div class="browser-bar" aria-hidden="true">
+    <div v-if="!noteDraft" class="browser-bar" aria-hidden="true">
       ● &nbsp;● &nbsp;● &nbsp;&nbsp;&nbsp; Nuxt Note / Notes
     </div>
-    <div class="sample-app" aria-hidden="true">
-      <div class="sample-header">
+    <div class="sample-app" :aria-hidden="interactive ? undefined : true">
+      <div class="sample-header" aria-hidden="true">
         <div class="header-actions">
           <UIcon
             name="i-lucide-panel-left-close"
@@ -82,8 +90,8 @@ const summaries = computed(() =>
         />
       </div>
       <div class="sample-body">
-        <div class="sample-sidebar">
-          <div class="category-link">
+        <div class="sample-sidebar" aria-hidden="true">
+          <div class="category-link" :class="{ selected: !!savedCategory }">
             <UIcon name="i-lucide-files" />
             All {{ isChat ? "chats" : "notes" }}
             <small>{{ isChat ? 12 : 24 }}</small>
@@ -98,7 +106,7 @@ const summaries = computed(() =>
             v-for="(category, i) in ['English', 'Nuxt', 'TypeScript']"
             :key="category"
             class="category-link"
-            :class="{ selected: i === 1 }"
+            :class="{ selected: !savedCategory && i === 1 }"
           >
             <UIcon name="i-lucide-folder" />
             {{ category }}
@@ -116,16 +124,19 @@ const summaries = computed(() =>
             </span>
           </div>
         </div>
-        <div class="sample-list">
+        <div class="sample-list" aria-hidden="true">
           <div class="list-top">
             <strong>
-              Nuxt
+              {{ savedCategory ? "All notes" : "Nuxt" }}
               <small>
-                {{ isChat ? 4 : 7 }} {{ isChat ? "chats" : "notes" }}
+                {{ savedCategory ? 24 : isChat ? 4 : 7 }}
+                {{ isChat ? "chats" : "notes" }}
               </small>
               <span v-if="isChat" class="sample-hide-list">Hide list</span>
             </strong>
-            <div class="sample-search">Search in Nuxt…</div>
+            <div class="sample-search">
+              {{ savedCategory ? "Search notes…" : "Search in Nuxt…" }}
+            </div>
             <small>Grouped by last updated</small>
           </div>
           <div
@@ -135,82 +146,101 @@ const summaries = computed(() =>
           >
             <p>{{ group }}</p>
             <div class="sample-list-card" :class="{ selected: index === 0 }">
-              <strong>{{ (isChat ? chatTitles : noteTitles)[index] }}</strong>
-              <p>{{ summaries[index] }}</p>
+              <strong>{{
+                index === 0 && previewTitle
+                  ? previewTitle
+                  : (isChat ? chatTitles : noteTitles)[index]
+              }}</strong>
+              <p v-if="index !== 0 || !savedCategory">{{ summaries[index] }}</p>
               <small>
-                Nuxt ·
-                {{ ["Nov 3, 10:24", "Nov 2", "Oct 18", "Sep 14"][index] }}
+                <template v-if="index === 0 && savedCategory"
+                  >{{ savedCategory }} · Just now</template
+                >
+                <template v-else
+                  >Nuxt ·
+                  {{
+                    ["Nov 3, 10:24", "Nov 2", "Oct 18", "Sep 14"][index]
+                  }}</template
+                >
               </small>
             </div>
           </div>
         </div>
-        <div class="sample-content">
-          <div class="sample-toolbar">
-            <span class="back-label">← Back</span>
-            <small v-if="!isChat" class="sample-note-meta">
-              Nuxt · Created Nov 1 · Updated Nov 3, 10:24
-            </small>
-            <div class="sample-actions">
-              <span v-if="isChat" class="sample-primary">Create note</span>
-              <div class="sample-secondary-actions">
-                <span :class="isChat ? 'sample-soft' : 'sample-primary'">
-                  <template v-if="isChat">
-                    <span class="sample-category-prefix">Category:&nbsp;</span
-                    >Nuxt
-                  </template>
-                  <template v-else>Edit</template>
+        <slot name="content">
+          <div class="sample-content">
+            <div class="sample-toolbar">
+              <span class="back-label">← Back</span>
+              <small v-if="!isChat" class="sample-note-meta">
+                Nuxt · Created Nov 1 · Updated Nov 3, 10:24
+              </small>
+              <div class="sample-actions">
+                <span v-if="isChat" class="sample-primary">Create note</span>
+                <div class="sample-secondary-actions">
+                  <span :class="isChat ? 'sample-soft' : 'sample-primary'">
+                    <template v-if="isChat">
+                      <span class="sample-category-prefix">Category:&nbsp;</span
+                      >Nuxt
+                    </template>
+                    <template v-else>Edit</template>
+                  </span>
+                  <span class="sample-soft">Delete</span>
+                </div>
+              </div>
+            </div>
+            <div v-if="!isChat" class="sample-note">
+              <h3>Nuxt data fetching</h3>
+              <h4>Overview</h4>
+              <p>
+                Use useFetch for URL-based requests and useAsyncData for custom
+                async logic. Keep these patterns handy while building your
+                application.
+              </p>
+              <h4>useFetch</h4>
+              <p>
+                Fetch data from a URL with built-in support for SSR and
+                hydration.
+              </p>
+              <pre><code><span class="syntax-keyword">const</span> { data } = <span class="syntax-keyword">await</span> <span class="syntax-function">useFetch</span>(<span class="syntax-string">'/api/notes'</span>)
+<span class="syntax-comment">// Keep the response in your note</span></code></pre>
+              <h4>Checklist</h4>
+              <ul>
+                <li>Define the response type</li>
+                <li>Handle loading and errors</li>
+                <li>Refresh when filters change</li>
+              </ul>
+              <blockquote>
+                Keep each note focused so it is easy to revisit.
+              </blockquote>
+            </div>
+            <div v-else class="sample-conversation">
+              <h3>Understanding useFetch</h3>
+              <p class="sample-question">
+                When should I use useFetch instead of useAsyncData?
+              </p>
+              <p>Use useFetch when your data comes from a URL.</p>
+              <p>
+                It combines fetching with Nuxt’s async data handling. For custom
+                async logic, use useAsyncData.
+              </p>
+              <pre><code><span class="syntax-keyword">const</span> { data } =
+  <span class="syntax-keyword">await</span> <span class="syntax-function">useFetch</span>(<span class="syntax-string">'/api/notes'</span>)</code></pre>
+              <div class="sample-composer">
+                <span />
+                <span class="sample-send">
+                  <img
+                    src="/icons/chat-send.svg"
+                    width="20"
+                    height="20"
+                    alt=""
+                  />
                 </span>
-                <span class="sample-soft">Delete</span>
               </div>
             </div>
           </div>
-          <div v-if="!isChat" class="sample-note">
-            <h3>Nuxt data fetching</h3>
-            <h4>Overview</h4>
-            <p>
-              Use useFetch for URL-based requests and useAsyncData for custom
-              async logic. Keep these patterns handy while building your
-              application.
-            </p>
-            <h4>useFetch</h4>
-            <p>
-              Fetch data from a URL with built-in support for SSR and hydration.
-            </p>
-            <pre><code><span class="syntax-keyword">const</span> { data } = <span class="syntax-keyword">await</span> <span class="syntax-function">useFetch</span>(<span class="syntax-string">'/api/notes'</span>)
-<span class="syntax-comment">// Keep the response in your note</span></code></pre>
-            <h4>Checklist</h4>
-            <ul>
-              <li>Define the response type</li>
-              <li>Handle loading and errors</li>
-              <li>Refresh when filters change</li>
-            </ul>
-            <blockquote>
-              Keep each note focused so it is easy to revisit.
-            </blockquote>
-          </div>
-          <div v-else class="sample-conversation">
-            <h3>Understanding useFetch</h3>
-            <p class="sample-question">
-              When should I use useFetch instead of useAsyncData?
-            </p>
-            <p>Use useFetch when your data comes from a URL.</p>
-            <p>
-              It combines fetching with Nuxt’s async data handling. For custom
-              async logic, use useAsyncData.
-            </p>
-            <pre><code><span class="syntax-keyword">const</span> { data } =
-  <span class="syntax-keyword">await</span> <span class="syntax-function">useFetch</span>(<span class="syntax-string">'/api/notes'</span>)</code></pre>
-            <div class="sample-composer">
-              <span />
-              <span class="sample-send">
-                <img src="/icons/chat-send.svg" width="20" height="20" alt="" />
-              </span>
-            </div>
-          </div>
-        </div>
+        </slot>
       </div>
     </div>
-    <LandingNoteDraftConfirmation v-if="noteDraft" />
+    <slot name="overlay" />
   </div>
 </template>
 
@@ -553,11 +583,11 @@ blockquote {
 .is-compact .sample-brand {
   gap: 3px;
 }
-.is-compact .sample-primary,
-.is-compact .sample-soft {
-  border-radius: 2px;
-}
 @media (min-width: 1280px) {
+  .is-compact .sample-primary,
+  .is-compact .sample-soft {
+    border-radius: 2px;
+  }
   .is-compact {
     font-size: 6px;
   }
@@ -672,7 +702,7 @@ blockquote {
     height: 8px;
   }
   .is-note-draft .sample-app {
-    height: 586px;
+    height: 800px;
   }
 }
 @media (min-width: 768px) and (max-width: 1279px) {
