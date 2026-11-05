@@ -72,9 +72,19 @@ withDefaults(
   opacity: 0.52;
 }
 .is-interactive .sample-dialog {
+  display: flex;
+  flex-direction: column;
   max-height: 100%;
-  overflow: auto;
+  overflow: visible;
   box-shadow: 0 20px 64px rgb(0 0 0 / 25%);
+}
+.is-interactive .sample-dialog-description {
+  min-height: 0;
+  overflow: auto;
+}
+.is-interactive .sample-dialog-header,
+.is-interactive .sample-dialog-actions {
+  flex-shrink: 0;
 }
 .sample-dialog {
   position: relative;
