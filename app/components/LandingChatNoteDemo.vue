@@ -317,7 +317,7 @@ async function go(next: Step) {
   container-type: inline-size;
   --spotlight-color: #f7faff;
   --spotlight-glow:
-    0 0 0 4px rgb(32 42 55 / 20%), 0 0 12px 2px rgb(247 250 255 / 40%);
+    0 0 0 5px rgb(32 42 55 / 25%), 0 0 16px 3px rgb(247 250 255 / 55%);
 }
 /* Scale the workspace as one surface, including its editor and dialogs. */
 .note-demo :deep(.product-preview) {

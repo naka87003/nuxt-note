@@ -21,8 +21,8 @@
   z-index: 2;
   right: 3px;
   top: calc(100% - 6px);
-  width: 25px;
-  height: 28px;
+  width: 30px;
+  height: 34px;
   pointer-events: none;
   transform: rotate(-24deg);
   transform-origin: 42% 16%;
