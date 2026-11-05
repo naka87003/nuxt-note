@@ -34,7 +34,7 @@
   }
   @keyframes point-at-button {
     50% {
-      transform: translate(2px, 4px) rotate(-18deg);
+      transform: translate(3px, 6px) rotate(-18deg);
     }
   }
 }
