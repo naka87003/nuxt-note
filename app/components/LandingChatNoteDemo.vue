@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { contentPreview } from "#shared/utils/content-preview";
+
 type Step = "chat" | "confirm" | "generating" | "edit" | "saving" | "done";
 const step = ref<Step>("chat");
 const confirmingDiscard = ref(false);
@@ -161,6 +163,7 @@ async function go(next: Step) {
       :mode="editing || step === 'done' ? 'notes' : 'chat'"
       note-draft
       :saved-category="step === 'done' ? category : undefined"
+      :preview-content="step === 'done' ? contentPreview(markdown) : undefined"
       :preview-title="
         step === 'done' ? title.trim() || 'Untitled note' : undefined
       "

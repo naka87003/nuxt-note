@@ -1,6 +1,6 @@
 import { getPrisma } from "../../utils/prisma";
 import { getAuthenticatedUserId } from "../../utils/auth";
-import { contentPreview } from "../../utils/content-preview";
+import { contentPreview } from "../../../shared/utils/content-preview";
 
 import { contentQuery } from "../../utils/content-query";
 

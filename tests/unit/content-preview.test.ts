@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contentPreview } from "../../server/utils/content-preview";
+import { contentPreview } from "../../shared/utils/content-preview";
 
 describe("content previews", () => {
   it("extracts readable text from Markdown links, images, lists and code", () => {

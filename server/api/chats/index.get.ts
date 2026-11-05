@@ -1,7 +1,7 @@
 import { getPrisma } from "../../utils/prisma";
 import { getAuthenticatedUserId } from "../../utils/auth";
 import { contentQuery } from "../../utils/content-query";
-import { contentPreview } from "../../utils/content-preview";
+import { contentPreview } from "../../../shared/utils/content-preview";
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);
   const chats = await getPrisma().chat.findMany({

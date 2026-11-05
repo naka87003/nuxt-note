@@ -4,9 +4,10 @@ const props = withDefaults(
     mode: "notes" | "chat";
     noteDraft?: boolean;
     previewTitle?: string;
+    previewContent?: string;
     savedCategory?: string;
   }>(),
-  { noteDraft: false, previewTitle: "", savedCategory: "" },
+  { noteDraft: false, previewTitle: "", previewContent: "", savedCategory: "" },
 );
 
 const slots = useSlots();
@@ -15,6 +16,22 @@ const interactive = computed(() => !!slots.content);
 const isChat = computed(() => props.mode === "chat");
 
 const groups = ["Today", "Last 7 Days", "Last Month", "Older"];
+const noteCount = computed(() =>
+  interactive.value ? 23 + Number(!!props.savedCategory) : 24,
+);
+const listCount = computed(() =>
+  props.savedCategory
+    ? noteCount.value
+    : isChat.value
+      ? 4
+      : categoryCount("Nuxt", 1),
+);
+
+function categoryCount(category: string, index: number): number {
+  if (isChat.value) return [3, 4, 3][index]!;
+  if (!interactive.value) return [8, 7, 6][index]!;
+  return [8, 6, 6][index]! + Number(props.savedCategory === category);
+}
 
 const noteTitles = [
   "Nuxt data fetching",
@@ -44,6 +61,28 @@ const summaries = computed(() =>
         "Configuration and runtime settings.",
         "Choosing the right UI components.",
       ],
+);
+
+const visibleGroups = computed(() =>
+  groups.flatMap((group, index) => {
+    const saved = index === 0 && !!props.savedCategory;
+    if (index === 0 && !isChat.value && interactive.value && !saved) return [];
+    return [
+      {
+        group,
+        selected: index === 0,
+        title:
+          index === 0 && props.previewTitle
+            ? props.previewTitle
+            : (isChat.value ? chatTitles : noteTitles)[index],
+        summary: saved ? props.previewContent : summaries.value[index],
+        category: saved ? props.savedCategory : "Nuxt",
+        updated: saved
+          ? "Just now"
+          : ["Nov 3, 10:24", "Nov 2", "Oct 18", "Sep 14"][index],
+      },
+    ];
+  }),
 );
 </script>
 
@@ -96,12 +135,14 @@ const summaries = computed(() =>
           <div class="category-link" :class="{ selected: !!savedCategory }">
             <UIcon name="i-lucide-files" />
             All {{ isChat ? "chats" : "notes" }}
-            <small>{{ isChat ? 12 : 24 }}</small>
+            <small>{{ isChat ? 12 : noteCount }}</small>
           </div>
           <div class="category-link">
             <UIcon name="i-lucide-folder" />
             Uncategorized
-            <small> {{ isChat ? 2 : 3 }} </small>
+            <small>
+              {{ isChat ? 2 : 3 + Number(savedCategory === "Uncategorized") }}
+            </small>
           </div>
           <p class="category-heading">Categories</p>
           <div
@@ -112,7 +153,7 @@ const summaries = computed(() =>
           >
             <UIcon name="i-lucide-folder" />
             {{ category }}
-            <small>{{ (isChat ? [3, 4, 3] : [8, 7, 6])[i] }}</small>
+            <small>{{ categoryCount(category, i) }}</small>
           </div>
           <div class="new-category">+ New category</div>
           <div class="sample-tabs">
@@ -131,7 +172,7 @@ const summaries = computed(() =>
             <strong>
               {{ savedCategory ? "All notes" : "Nuxt" }}
               <small>
-                {{ savedCategory ? 24 : isChat ? 4 : 7 }}
+                {{ listCount }}
                 {{ isChat ? "chats" : "notes" }}
               </small>
               <span v-if="isChat" class="sample-hide-list">Hide list</span>
@@ -142,29 +183,15 @@ const summaries = computed(() =>
             <small>Grouped by last updated</small>
           </div>
           <div
-            v-for="(group, index) in groups"
-            :key="group"
+            v-for="item in visibleGroups"
+            :key="item.group"
             class="sample-group"
           >
-            <p>{{ group }}</p>
-            <div class="sample-list-card" :class="{ selected: index === 0 }">
-              <strong>{{
-                index === 0 && previewTitle
-                  ? previewTitle
-                  : (isChat ? chatTitles : noteTitles)[index]
-              }}</strong>
-              <p v-if="index !== 0 || !savedCategory">{{ summaries[index] }}</p>
-              <small>
-                <template v-if="index === 0 && savedCategory"
-                  >{{ savedCategory }} · Just now</template
-                >
-                <template v-else
-                  >Nuxt ·
-                  {{
-                    ["Nov 3, 10:24", "Nov 2", "Oct 18", "Sep 14"][index]
-                  }}</template
-                >
-              </small>
+            <p>{{ item.group }}</p>
+            <div class="sample-list-card" :class="{ selected: item.selected }">
+              <strong class="break-words">{{ item.title }}</strong>
+              <p v-if="item.summary" class="line-clamp-2">{{ item.summary }}</p>
+              <small>{{ item.category }} · {{ item.updated }}</small>
             </div>
           </div>
         </div>
