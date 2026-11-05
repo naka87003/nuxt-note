@@ -80,6 +80,7 @@ useSeoMeta({
             >Features</UButton
           >
         </div>
+        <ThemePicker />
         <UButton
           :to="startTo"
           :loading="opening === 'header'"
@@ -122,14 +123,7 @@ useSeoMeta({
           </div>
           <p class="small-copy">Sign in with GitHub · Your own workspace</p>
         </div>
-        <img
-          class="hero-art"
-          src="/images/nuxt-note-hero.png"
-          alt=""
-          width="1536"
-          height="1024"
-          fetchpriority="high"
-        />
+        <LandingNoteIllustration class="hero-art" />
       </section>
       <ul class="capabilities" aria-label="Notebook capabilities">
         <li>Markdown <span>notes</span></li>
@@ -176,13 +170,7 @@ useSeoMeta({
       </section>
       <section id="ai-chat" class="ai-section" aria-labelledby="ai-title">
         <div class="ai-copy">
-          <img
-            src="/images/nuxt-chat-ai-conversations.png"
-            alt=""
-            width="144"
-            height="144"
-            loading="lazy"
-          />
+          <LandingAiIllustration class="ai-art" width="144" height="144" />
           <p class="eyebrow">A CONVERSATION CAN OPEN A DOOR</p>
           <h2 id="ai-title">Go a little deeper.</h2>
           <p class="description">
@@ -467,7 +455,7 @@ h2 {
   align-items: flex-start;
   gap: 16px;
 }
-.ai-copy img {
+.ai-copy .ai-art {
   width: 144px;
   height: 144px;
   object-fit: contain;
@@ -685,7 +673,7 @@ h2 {
     align-items: flex-start;
     text-align: left;
   }
-  .ai-copy img {
+  .ai-copy .ai-art {
     width: 112px;
     height: 112px;
   }

@@ -1,7 +1,7 @@
 @import "tailwindcss" theme(static);
 @import "@nuxt/ui";
 
-@theme {
+@theme static {
   --font-sans: "Inter Variable", Inter, system-ui, sans-serif;
   --color-green-50: #effdf5;
   --color-green-100: #d9fbe8;
@@ -19,19 +19,19 @@
 :root,
 .dark {
   color-scheme: dark;
-  --ui-primary: var(--color-green-500);
-  --ui-bg: var(--color-gray-950);
-  --ui-bg-muted: var(--color-gray-900);
-  --ui-bg-elevated: var(--color-gray-800);
-  --ui-bg-accented: var(--color-gray-700);
+  --ui-primary: var(--ui-color-primary-500);
+  --ui-bg: var(--ui-color-neutral-950);
+  --ui-bg-muted: var(--ui-color-neutral-900);
+  --ui-bg-elevated: var(--ui-color-neutral-800);
+  --ui-bg-accented: var(--ui-color-neutral-700);
   --ui-bg-inverted: var(--color-white);
-  --ui-text: var(--color-gray-100);
-  --ui-text-muted: var(--color-gray-200);
-  --ui-text-dimmed: var(--color-gray-400);
+  --ui-text: var(--ui-color-neutral-100);
+  --ui-text-muted: var(--ui-color-neutral-200);
+  --ui-text-dimmed: var(--ui-color-neutral-400);
   --ui-text-highlighted: var(--color-white);
-  --ui-border: var(--color-gray-800);
-  --ui-border-muted: var(--color-gray-800);
-  --ui-border-accented: var(--color-gray-700);
+  --ui-border: var(--ui-color-neutral-800);
+  --ui-border-muted: var(--ui-color-neutral-800);
+  --ui-border-accented: var(--ui-color-neutral-700);
   --ui-border-inverted: var(--color-white);
   --ui-container: var(--container-6xl);
 }
@@ -45,16 +45,11 @@ body {
 .brand {
   display: inline-flex;
   align-items: flex-end;
-  gap: 0.5rem;
+  gap: 0.2em;
   font-weight: 600;
   line-height: 1;
   color: var(--ui-text-highlighted);
   white-space: nowrap;
-}
-
-.brand-title {
-  text-box-trim: trim-end;
-  text-box-edge: cap alphabetic;
 }
 
 .workspace-root {

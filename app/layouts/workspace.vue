@@ -216,7 +216,10 @@ async function saveCategory() {
       <NuxtLink to="/" aria-label="Nuxt Note home" class="workspace-brand"
         ><AppBrand
       /></NuxtLink>
-      <div class="workspace-header-side justify-end"><ProfileMenu /></div>
+      <div class="workspace-header-side justify-end">
+        <ThemePicker />
+        <ProfileMenu />
+      </div>
     </header>
     <div
       class="workspace-body"

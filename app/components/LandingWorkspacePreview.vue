@@ -278,7 +278,7 @@ const summaries = computed(() =>
 .sample-brand :deep(.brand-title) {
   font-size: 19px;
 }
-.sample-brand :deep(img) {
+.sample-brand :deep(.brand-symbol) {
   width: 27px;
   height: auto;
 }
@@ -582,7 +582,7 @@ blockquote {
   .is-compact .sample-brand :deep(.brand-title) {
     font-size: 9px;
   }
-  .is-compact .sample-brand :deep(img) {
+  .is-compact .sample-brand :deep(.brand-symbol) {
     width: 13px;
   }
   .is-compact .sample-primary,
@@ -702,7 +702,7 @@ blockquote {
   .is-chat .sample-brand :deep(.brand-title) {
     font-size: 22px;
   }
-  .is-chat .sample-brand :deep(img) {
+  .is-chat .sample-brand :deep(.brand-symbol) {
     width: 31px;
   }
   .is-chat .sample-primary,

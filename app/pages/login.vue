@@ -27,6 +27,7 @@ onBeforeUnmount(() => window.removeEventListener("pageshow", resetSignIn));
 
 <template>
   <main class="flex min-h-dvh items-center justify-center p-6">
+    <div class="absolute top-4 right-4"><ThemePicker /></div>
     <UCard class="w-full max-w-md">
       <div class="flex flex-col items-center gap-6 py-4 text-center">
         <NuxtLink to="/" aria-label="Nuxt Note home"><AppBrand /></NuxtLink>

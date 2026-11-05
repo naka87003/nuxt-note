@@ -19,7 +19,6 @@ export default defineNuxtConfig({
           content: "Capture ideas, write in Markdown, and keep what you learn.",
         },
       ],
-      link: [{ rel: "icon", type: "image/svg+xml", href: "/nuxt.svg" }],
     },
   },
 });

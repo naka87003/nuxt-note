@@ -14,6 +14,7 @@
       <AppBrand />
     </NuxtLink>
     <div class="header-side header-right">
+      <ThemePicker />
       <ProfileMenu />
     </div>
   </header>
