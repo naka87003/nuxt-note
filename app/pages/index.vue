@@ -203,7 +203,7 @@ useSeoMeta({
           Turn the useful parts of a conversation into a Markdown draft. Review
           and edit it before saving to Notes.
         </p>
-        <LandingChatNoteDemo />
+        <LandingChatNotePreview />
       </section>
       <section class="workflow" aria-labelledby="workflow-title">
         <h2 id="workflow-title">

@@ -59,9 +59,11 @@ const summaries = computed(() =>
     :aria-label="
       interactive
         ? 'Interactive demo: turn a conversation into a note'
-        : isChat
-          ? 'Example Chat workspace with shared categories and a conversation about useFetch'
-          : 'Example Notes workspace with categories, recent notes, and a Markdown note about Nuxt data fetching'
+        : noteDraft
+          ? 'Example Chat workspace with a Create note confirmation: AI organizes the conversation into a draft to review and edit before saving'
+          : isChat
+            ? 'Example Chat workspace with shared categories and a conversation about useFetch'
+            : 'Example Notes workspace with categories, recent notes, and a Markdown note about Nuxt data fetching'
     "
   >
     <!-- Static sample UI is kept out of the tab order; the landing CTA opens the real workspace. -->
@@ -240,7 +242,9 @@ const summaries = computed(() =>
         </slot>
       </div>
     </div>
-    <slot name="overlay" />
+    <slot name="overlay">
+      <LandingNoteDraftConfirmation v-if="noteDraft && !interactive" />
+    </slot>
   </div>
 </template>
 

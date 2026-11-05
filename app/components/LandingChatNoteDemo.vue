@@ -241,49 +241,37 @@ async function go(next: Step) {
         </div>
       </template>
       <template #overlay>
-        <div
+        <LandingNoteDraftConfirmation
           v-if="showingDialog"
-          class="dialog-overlay"
+          interactive
+          :title="dialogTitle"
+          :title-id="dialogTitleId"
+          :focus-title="step === 'generating'"
           @click.self="dismissDialog"
           @keydown.esc.stop="dismissDialog"
         >
-          <section
-            role="dialog"
-            :aria-labelledby="dialogTitleId"
-            class="demo-dialog"
-          >
-            <h3
-              :id="dialogTitleId"
-              tabindex="-1"
-              :data-demo-focus="step === 'generating' ? '' : undefined"
-            >
-              {{ dialogTitle }}
-            </h3>
-            <div class="dialog-body">
-              <p v-if="confirmingDiscard">
-                Your note has changes that have not been saved.
+          <template v-if="confirmingDiscard || step === 'generating'" #default>
+            <p v-if="confirmingDiscard">
+              Your note has changes that have not been saved.
+            </p>
+            <template v-else-if="step === 'generating'">
+              <p>
+                AI is organizing this conversation into a draft. You can review,
+                edit or discard it when ready.
               </p>
-              <template v-else-if="step === 'generating'">
-                <p>
-                  AI is organizing this conversation into a draft. You can
-                  review, edit or discard it when ready.
-                </p>
-                <p
-                  class="mt-4 flex items-center gap-2 text-primary"
-                  role="status"
-                >
-                  <UIcon
-                    name="i-lucide-loader-circle"
-                    class="motion-safe:animate-spin"
-                  />Organizing conversation…
-                </p>
-              </template>
-              <p v-else>
-                AI will organize this conversation into a draft. You can review
-                and edit it before saving.
+              <p
+                class="mt-4 flex items-center gap-2 text-primary"
+                role="status"
+              >
+                <UIcon
+                  name="i-lucide-loader-circle"
+                  class="motion-safe:animate-spin"
+                />Organizing conversation…
               </p>
-            </div>
-            <div v-if="confirmingDiscard" class="dialog-actions">
+            </template>
+          </template>
+          <template v-if="confirmingDiscard || step === 'confirm'" #actions>
+            <template v-if="confirmingDiscard">
               <button
                 ref="keepEditingButton"
                 type="button"
@@ -295,8 +283,8 @@ async function go(next: Step) {
               <UButton color="error" class="min-h-11" @click="go('chat')">
                 Discard changes
               </UButton>
-            </div>
-            <div v-else-if="step === 'confirm'" class="dialog-actions">
+            </template>
+            <template v-else>
               <UButton
                 color="neutral"
                 variant="outline"
@@ -311,9 +299,9 @@ async function go(next: Step) {
                 @click="generateDraft"
                 >Create note<LandingClickCue
               /></UButton>
-            </div>
-          </section>
-        </div>
+            </template>
+          </template>
+        </LandingNoteDraftConfirmation>
       </template>
     </LandingWorkspacePreview>
     <p class="demo-disclaimer">
@@ -340,26 +328,6 @@ async function go(next: Step) {
 @container (max-width: 900px) {
   .note-demo :deep(.product-preview) {
     zoom: 0.8;
-  }
-}
-@container (max-width: 540px) {
-  /* 59 logical pixels retain a 44px touch target after 75% scaling. */
-  .note-demo :deep(.product-preview button),
-  .note-demo :deep(.product-preview input) {
-    min-height: 59px;
-  }
-  .note-demo :deep(.note-view-tab-list) {
-    height: 59px;
-  }
-  .note-demo :deep(.note-view-tab-trigger) {
-    height: 59px;
-  }
-  .note-demo :deep(.note-view-tab-indicator) {
-    height: 43px;
-    top: 8px;
-  }
-  .note-demo :deep(.product-preview) {
-    zoom: 0.75;
   }
 }
 .demo-guide {
@@ -461,39 +429,6 @@ async function go(next: Step) {
     var(--spotlight-glow),
     0 0 0 200vmax rgb(8 14 20 / 28%);
 }
-.dialog-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  background: rgb(8 14 20 / 52%);
-}
-.demo-dialog {
-  width: min(100%, 28rem);
-  max-height: 100%;
-  overflow: auto;
-  background: var(--ui-bg);
-  border: 1px solid var(--ui-border);
-  border-radius: 12px;
-  font-size: 14px;
-  box-shadow: 0 20px 64px rgb(0 0 0 / 25%);
-}
-.demo-dialog h3,
-.dialog-body,
-.dialog-actions {
-  padding: 18px 20px;
-}
-.demo-dialog h3 {
-  font-size: 16px;
-  border-bottom: 1px solid var(--ui-border);
-}
-.dialog-actions {
-  display: flex;
-  gap: 10px;
-  border-top: 1px solid var(--ui-border);
-}
 .demo-soft {
   align-self: center;
   background: var(--ui-bg-elevated);
@@ -589,26 +524,5 @@ pre {
   color: var(--ui-text-muted);
   font-size: 12px;
   margin-top: 12px;
-}
-@media (max-width: 767px) {
-  .demo-guide {
-    align-items: flex-start;
-    padding: 16px;
-    gap: 12px;
-  }
-  .demo-progress {
-    gap: 3px;
-    margin-top: 6px;
-  }
-  .demo-progress span {
-    width: 10px;
-  }
-  .demo-toolbar {
-    padding: 12px 14px;
-  }
-  .demo-conversation,
-  .demo-note {
-    padding: 18px 14px;
-  }
 }
 </style>
