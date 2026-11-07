@@ -81,9 +81,11 @@ Note remains the main workspace. Chat integration can proceed before all note fe
 
 ## Search and lists
 
-- Match substrings in titles and raw Markdown bodies, ignoring case.
+- Match substrings in note titles and raw Markdown bodies, or chat titles and message bodies, ignoring case.
 - Treat SQL pattern characters such as `%` and `_` as literal characters.
 - Notes and Chat always search within the selected category (including Uncategorized); selecting All notes / All chats in the sidebar searches across all categories. There are no separate search-scope buttons. Changing the category preserves the search text. The search placeholder identifies the selected category when searching within it.
+- Keep search text separately for Notes and Chat. Re-run the current search when the category changes.
+- Use `Search notes…` / `Search chats…` for All, `Search in Nuxt…` for a category named Nuxt, and `Search in Uncategorized…` for Uncategorized. Apply the same search-scope rules on desktop, medium and mobile layouts, including landing-page previews.
 - Clearly show whether the search covers all notes or the current category. Do not display date groups in search results.
 - Sort by updatedAt descending. Break timestamp ties by id to keep ordering deterministic.
 - Group lists outside search as follows, omitting empty groups.
