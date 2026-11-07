@@ -16,6 +16,14 @@ const { data } = await useFetch('/api/notes', {
   query: { category: selectedCategory }
 })
 \`\`\``;
+const fetchAnswer = `Use useFetch when your data comes from a URL.
+
+It combines fetching with Nuxt’s async data handling. For custom async logic, use useAsyncData.
+
+${fetchExample}`;
+const categoryAnswer = `Pass the selected category as a reactive query parameter. useFetch will fetch again when it changes.
+
+${categoryFetchExample}`;
 const initialMarkdown = `## Overview
 
 Use useFetch for URL-based requests and useAsyncData for custom async logic.
@@ -40,6 +48,7 @@ const categoryOptions = ["Uncategorized", "English", "Nuxt", "TypeScript"].map(
   (value) => ({ label: value, value }),
 );
 const title = ref(initialTitle);
+const displayTitle = computed(() => title.value.trim() || "Untitled note");
 const markdown = ref(initialMarkdown);
 const root = useTemplateRef("root");
 const editor = useTemplateRef("editor");
@@ -61,6 +70,11 @@ const steps: Record<Step, { progress: number; guidance: string }> = {
 };
 const totalSteps = steps.done.progress;
 const currentStep = computed(() => steps[step.value]);
+const guidance = computed(() =>
+  confirmingDiscard.value
+    ? "Keep editing or discard your draft."
+    : currentStep.value.guidance,
+);
 const showingChat = computed(() => !editing.value && step.value !== "done");
 const showingDialog = computed(
   () =>
@@ -142,14 +156,12 @@ async function go(next: Step) {
       <div role="status" aria-live="polite" aria-atomic="true">
         <p class="demo-label">
           Interactive demo ·
-          {{ `Step ${currentStep.progress} of ${totalSteps}`
-          }}<template v-if="step === 'done'"> · Complete</template>
+          {{ `Step ${currentStep.progress} of ${totalSteps}` }}
+          <template v-if="step === 'done'"> · Complete</template>
         </p>
-        <strong :id="hintId">{{
-          confirmingDiscard
-            ? "Keep editing or discard your draft."
-            : currentStep.guidance
-        }}</strong>
+        <strong :id="hintId">
+          {{ guidance }}
+        </strong>
       </div>
       <div class="demo-progress" aria-hidden="true">
         <span
@@ -164,9 +176,7 @@ async function go(next: Step) {
       note-draft
       :saved-category="step === 'done' ? category : undefined"
       :preview-content="step === 'done' ? contentPreview(markdown) : undefined"
-      :preview-title="
-        step === 'done' ? title.trim() || 'Untitled note' : undefined
-      "
+      :preview-title="step === 'done' ? displayTitle : undefined"
     >
       <template #content>
         <div class="demo-content">
@@ -184,10 +194,11 @@ async function go(next: Step) {
                 <LandingClickCue v-if="step === 'chat'" />
               </button>
               <div class="chat-secondary-actions" aria-hidden="true">
-                <span class="demo-soft"
-                  ><span class="chat-category-prefix">Category: </span
-                  >Nuxt</span
-                ><span class="demo-soft">Delete</span>
+                <span class="demo-soft">
+                  <span class="chat-category-prefix">Category: </span>
+                  Nuxt
+                </span>
+                <span class="demo-soft">Delete</span>
               </div>
             </div>
             <div class="demo-conversation">
@@ -195,22 +206,13 @@ async function go(next: Step) {
               <p class="demo-question">
                 When should I use useFetch instead of useAsyncData?
               </p>
-              <p>Use useFetch when your data comes from a URL.</p>
-              <p>
-                It combines fetching with Nuxt’s async data handling. For custom
-                async logic, use useAsyncData.
-              </p>
-              <MarkdownContent class="demo-code" :content="fetchExample" />
+              <LandingMarkdownContent variant="chat" :content="fetchAnswer" />
               <p class="demo-question">
                 What if the request depends on a selected category?
               </p>
-              <p>
-                Pass the selected category as a reactive query parameter.
-                useFetch will fetch again when it changes.
-              </p>
-              <MarkdownContent
-                class="demo-code"
-                :content="categoryFetchExample"
+              <LandingMarkdownContent
+                variant="chat"
+                :content="categoryAnswer"
               />
               <div class="demo-composer" aria-hidden="true">
                 <span>Ask a follow-up…</span>
@@ -244,21 +246,25 @@ async function go(next: Step) {
             :saving="step === 'saving'"
             @save="saveDraft"
             @cancel="cancelDraft"
-            ><template #save-action="{ disabled, loading }"
-              ><UButton
+          >
+            <template #save-action="{ disabled, loading }">
+              <UButton
                 type="submit"
                 class="demo-modal-target"
                 :disabled="disabled || loading"
                 :loading="loading"
                 :aria-describedby="hintId"
-                >{{ loading ? "Saving…" : "Save"
-                }}<LandingClickCue v-if="!loading" /></UButton></template
-          ></NoteEditorForm>
+              >
+                {{ loading ? "Saving…" : "Save" }}
+                <LandingClickCue v-if="!loading" />
+              </UButton>
+            </template>
+          </NoteEditorForm>
           <div v-if="step === 'done'" class="demo-saved">
             <div class="demo-toolbar">
-              <span class="demo-saved-label"
-                ><LandingDemoSuccess /> Saved to Notes</span
-              >
+              <span class="demo-saved-label">
+                <LandingDemoSuccess /> Saved to Notes
+              </span>
               <UButton
                 type="button"
                 color="primary"
@@ -267,13 +273,14 @@ async function go(next: Step) {
                 class="min-h-11"
                 data-demo-focus
                 @click="go('chat')"
-                >Try again</UButton
               >
+                Try again
+              </UButton>
             </div>
             <div class="demo-note">
               <span class="demo-category">{{ category }}</span>
-              <h3>{{ title.trim() || "Untitled note" }}</h3>
-              <MarkdownContent v-if="markdown" :content="markdown" />
+              <h3>{{ displayTitle }}</h3>
+              <LandingMarkdownContent v-if="markdown" :content="markdown" />
               <p v-else class="demo-empty">This note is empty.</p>
             </div>
           </div>
@@ -305,7 +312,8 @@ async function go(next: Step) {
                 <UIcon
                   name="i-lucide-loader-circle"
                   class="motion-safe:animate-spin"
-                />Organizing conversation…
+                />
+                Organizing conversation…
               </p>
             </template>
           </template>
@@ -458,9 +466,6 @@ async function go(next: Step) {
 .demo-highlight {
   position: relative;
   z-index: 1;
-}
-.demo-highlight,
-.demo-modal-target {
   outline: 2px solid var(--spotlight-color);
   outline-offset: 4px;
   box-shadow: var(--spotlight-glow);
@@ -526,17 +531,6 @@ h3 {
   border: 1px solid var(--ui-border);
   border-radius: 8px;
   background: var(--ui-bg-muted);
-}
-.demo-code :deep(pre) {
-  padding: 16px;
-  background: var(--ui-bg-muted);
-  border-radius: 6px;
-  font-size: 11px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.demo-code :deep(code) {
-  font-size: inherit;
 }
 .demo-composer {
   display: flex;

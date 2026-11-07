@@ -15,71 +15,119 @@ const interactive = computed(() => !!slots.content);
 
 const isChat = computed(() => props.mode === "chat");
 
-const groups = ["Today", "Last 7 Days", "Last Month", "Older"];
+const previewAriaLabel = computed(() => {
+  if (interactive.value) {
+    return "Interactive demo: turn a conversation into a note";
+  }
+  if (props.noteDraft) {
+    return "Example Chat workspace with a Generate note confirmation: AI organizes the conversation into a draft to review and edit before saving";
+  }
+  if (isChat.value) {
+    return "Example Chat workspace with shared categories and a conversation about useFetch";
+  }
+  return "Example Notes workspace with categories, recent notes, and a Markdown note about Nuxt data fetching";
+});
+
+const noteCategories = [
+  { name: "English", count: 8 },
+  { name: "Nuxt", count: 6 },
+  { name: "TypeScript", count: 6 },
+];
+const chatCategories = [
+  { name: "English", count: 3 },
+  { name: "Nuxt", count: 4 },
+  { name: "TypeScript", count: 3 },
+];
+
+const categories = computed(() => {
+  if (isChat.value) return chatCategories;
+
+  // The static preview includes a Nuxt note; the demo adds its note after saving.
+  const addedNoteCategory = interactive.value ? props.savedCategory : "Nuxt";
+  return noteCategories.map((category) => ({
+    name: category.name,
+    count: category.count + Number(category.name === addedNoteCategory),
+  }));
+});
+
 const noteCount = computed(() =>
   interactive.value ? 23 + Number(!!props.savedCategory) : 24,
 );
-const listCount = computed(() =>
-  props.savedCategory
-    ? noteCount.value
-    : isChat.value
-      ? 4
-      : categoryCount("Nuxt", 1),
-);
+const listCount = computed(() => {
+  if (props.savedCategory) return noteCount.value;
+  return (
+    categories.value.find((category) => category.name === "Nuxt")?.count ?? 0
+  );
+});
 
-function categoryCount(category: string, index: number): number {
-  if (isChat.value) return [3, 4, 3][index]!;
-  if (!interactive.value) return [8, 7, 6][index]!;
-  return [8, 6, 6][index]! + Number(props.savedCategory === category);
-}
-
-const noteTitles = [
-  "Nuxt data fetching",
-  "Server routes and API",
-  "Runtime config",
-  "Nuxt UI components",
+const noteGroups = [
+  {
+    group: "Today",
+    title: "Nuxt data fetching",
+    summary: "When to use useFetch and useAsyncData.",
+    updated: "Nov 3, 10:24",
+  },
+  {
+    group: "Last 7 Days",
+    title: "Server routes and API",
+    summary: "Connecting APIs with typed responses.",
+    updated: "Nov 2",
+  },
+  {
+    group: "Last Month",
+    title: "Runtime config",
+    summary: "Configuration and runtime settings.",
+    updated: "Oct 18",
+  },
+  {
+    group: "Older",
+    title: "Nuxt UI components",
+    summary: "Choosing the right UI components.",
+    updated: "Sep 14",
+  },
 ];
 
-const chatTitles = [
-  "Understanding useFetch",
-  "Auth callback",
-  "Custom composables",
-  "SSR caching",
+const chatGroups = [
+  {
+    group: "Today",
+    title: "Understanding useFetch",
+    summary: "When to use useFetch and useAsyncData.",
+    updated: "Nov 3, 10:24",
+  },
+  {
+    group: "Last 7 Days",
+    title: "Auth callback",
+    summary: "Debugging a GitHub sign-in callback.",
+    updated: "Nov 2",
+  },
+  {
+    group: "Last Month",
+    title: "Custom composables",
+    summary: "Sharing reusable fetching logic.",
+    updated: "Oct 18",
+  },
+  {
+    group: "Older",
+    title: "SSR caching",
+    summary: "Keeping server responses fresh.",
+    updated: "Sep 14",
+  },
 ];
-
-const summaries = computed(() =>
-  isChat.value
-    ? [
-        "When to use useFetch and useAsyncData.",
-        "Debugging a GitHub sign-in callback.",
-        "Sharing reusable fetching logic.",
-        "Keeping server responses fresh.",
-      ]
-    : [
-        "When to use useFetch and useAsyncData.",
-        "Connecting APIs with typed responses.",
-        "Configuration and runtime settings.",
-        "Choosing the right UI components.",
-      ],
-);
 
 const visibleGroups = computed(() =>
-  groups.flatMap((group, index) => {
-    const saved = index === 0 && !!props.savedCategory;
-    if (index === 0 && !isChat.value && interactive.value && !saved) return [];
+  (isChat.value ? chatGroups : noteGroups).flatMap((item, index) => {
+    const isFirstGroup = index === 0;
+    const saved = isFirstGroup && !!props.savedCategory;
+    if (isFirstGroup && !isChat.value && interactive.value && !saved) return [];
     return [
       {
-        group,
-        selected: index === 0,
+        group: item.group,
+        selected: isFirstGroup,
         title:
-          index === 0 && props.previewTitle
-            ? props.previewTitle
-            : (isChat.value ? chatTitles : noteTitles)[index],
-        summary: saved ? props.previewContent : summaries.value[index],
+          isFirstGroup && props.previewTitle ? props.previewTitle : item.title,
+        summary: saved ? props.previewContent : item.summary,
         category: saved ? props.savedCategory : "Nuxt",
-        updated: saved
-          ? "Just now"
-          : ["Nov 3, 10:24", "Nov 2", "Oct 18", "Sep 14"][index],
+        updated: saved ? "Just now" : item.updated,
       },
     ];
   }),
@@ -95,15 +143,7 @@ const visibleGroups = computed(() =>
       'is-note-draft': noteDraft,
     }"
     :role="interactive ? 'group' : 'img'"
-    :aria-label="
-      interactive
-        ? 'Interactive demo: turn a conversation into a note'
-        : noteDraft
-          ? 'Example Chat workspace with a Generate note confirmation: AI organizes the conversation into a draft to review and edit before saving'
-          : isChat
-            ? 'Example Chat workspace with shared categories and a conversation about useFetch'
-            : 'Example Notes workspace with categories, recent notes, and a Markdown note about Nuxt data fetching'
-    "
+    :aria-label="previewAriaLabel"
   >
     <!-- Static sample UI is kept out of the tab order; the landing CTA opens the real workspace. -->
     <div v-if="!noteDraft" class="browser-bar" aria-hidden="true">
@@ -146,14 +186,14 @@ const visibleGroups = computed(() =>
           </div>
           <p class="category-heading">Categories</p>
           <div
-            v-for="(category, i) in ['English', 'Nuxt', 'TypeScript']"
-            :key="category"
+            v-for="category in categories"
+            :key="category.name"
             class="category-link"
-            :class="{ selected: !savedCategory && i === 1 }"
+            :class="{ selected: !savedCategory && category.name === 'Nuxt' }"
           >
             <UIcon name="i-lucide-folder" />
-            {{ category }}
-            <small>{{ categoryCount(category, i) }}</small>
+            {{ category.name }}
+            <small>{{ category.count }}</small>
           </div>
           <div class="new-category">+ New category</div>
           <div class="sample-tabs">
@@ -196,7 +236,7 @@ const visibleGroups = computed(() =>
           >
             <p>{{ item.group }}</p>
             <div class="sample-list-card" :class="{ selected: item.selected }">
-              <strong class="break-words">{{ item.title }}</strong>
+              <strong class="wrap-break-word">{{ item.title }}</strong>
               <p v-if="item.summary" class="line-clamp-2">{{ item.summary }}</p>
               <small>{{ item.category }} · {{ item.updated }}</small>
             </div>
@@ -214,8 +254,10 @@ const visibleGroups = computed(() =>
                 <div class="sample-secondary-actions">
                   <span :class="isChat ? 'sample-soft' : 'sample-primary'">
                     <template v-if="isChat">
-                      <span class="sample-category-prefix">Category:&nbsp;</span
-                      >Nuxt
+                      <span class="sample-category-prefix">
+                        Category:&nbsp;
+                      </span>
+                      Nuxt
                     </template>
                     <template v-else>Edit</template>
                   </span>
@@ -223,55 +265,8 @@ const visibleGroups = computed(() =>
                 </div>
               </div>
             </div>
-            <div v-if="!isChat" class="sample-note">
-              <h3>Nuxt data fetching</h3>
-              <h4>Overview</h4>
-              <p>
-                Use useFetch for URL-based requests and useAsyncData for custom
-                async logic. Keep these patterns handy while building your
-                application.
-              </p>
-              <h4>useFetch</h4>
-              <p>
-                Fetch data from a URL with built-in support for SSR and
-                hydration.
-              </p>
-              <pre><code><span class="syntax-keyword">const</span> { data } = <span class="syntax-keyword">await</span> <span class="syntax-function">useFetch</span>(<span class="syntax-string">'/api/notes'</span>)
-<span class="syntax-comment">// Keep the response in your note</span></code></pre>
-              <h4>Checklist</h4>
-              <ul>
-                <li>Define the response type</li>
-                <li>Handle loading and errors</li>
-                <li>Refresh when filters change</li>
-              </ul>
-              <blockquote>
-                Keep each note focused so it is easy to revisit.
-              </blockquote>
-            </div>
-            <div v-else class="sample-conversation">
-              <h3>Understanding useFetch</h3>
-              <p class="sample-question">
-                When should I use useFetch instead of useAsyncData?
-              </p>
-              <p>Use useFetch when your data comes from a URL.</p>
-              <p>
-                It combines fetching with Nuxt’s async data handling. For custom
-                async logic, use useAsyncData.
-              </p>
-              <pre><code><span class="syntax-keyword">const</span> { data } =
-  <span class="syntax-keyword">await</span> <span class="syntax-function">useFetch</span>(<span class="syntax-string">'/api/notes'</span>)</code></pre>
-              <div class="sample-composer">
-                <span />
-                <span class="sample-send">
-                  <img
-                    src="/icons/chat-send.svg"
-                    width="20"
-                    height="20"
-                    alt=""
-                  />
-                </span>
-              </div>
-            </div>
+            <LandingSampleNote v-if="!isChat" />
+            <LandingSampleConversation v-else />
           </div>
         </slot>
       </div>
@@ -308,6 +303,7 @@ const visibleGroups = computed(() =>
   flex-direction: column;
 }
 .sample-header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -339,9 +335,6 @@ const visibleGroups = computed(() =>
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-}
-.sample-header {
-  position: relative;
 }
 .sample-brand :deep(.brand-title) {
   font-size: 19px;
@@ -552,92 +545,6 @@ small {
 .back-label {
   display: none;
 }
-.sample-note {
-  padding: 24px;
-}
-h3 {
-  font-size: 22px;
-  line-height: 1.35;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-h4 {
-  font-weight: 600;
-  font-size: 16px;
-  margin-block: 24px 10px;
-}
-pre {
-  padding: 16px;
-  background: var(--ui-bg-muted);
-  border-radius: 4px;
-  font-size: 10px;
-  margin-top: 16px;
-  overflow: auto;
-  white-space: pre;
-}
-.syntax-keyword {
-  color: #f97583;
-}
-.syntax-function {
-  color: #b392f0;
-}
-.syntax-string {
-  color: #9ecbff;
-}
-.syntax-comment {
-  color: #6a737d;
-}
-.sample-note ul {
-  list-style: disc;
-  padding-left: 16px;
-}
-blockquote {
-  background: var(--ui-bg-muted);
-  padding: 12px;
-  margin-top: 16px;
-}
-.sample-conversation {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  flex-direction: column;
-  padding: 16px 24px;
-  gap: 16px;
-}
-.sample-conversation h3 {
-  font-size: 18px;
-}
-.sample-question {
-  align-self: flex-end;
-  width: 70%;
-  padding: 16px;
-  background: var(--ui-bg-muted);
-  border: 1px solid var(--ui-border);
-  border-radius: 4px;
-}
-.sample-conversation pre {
-  margin: 0;
-}
-.sample-composer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  min-height: 48px;
-  border: 1px solid var(--ui-border);
-  border-radius: 29px;
-  padding: 8px 12px;
-  margin-top: auto;
-}
-.sample-send {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--ui-primary);
-  opacity: 0.5;
-}
 .is-note-draft {
   border-radius: 8px;
 }
@@ -761,32 +668,6 @@ blockquote {
   .is-compact .sample-toolbar > div {
     gap: 4px;
   }
-  .is-compact .sample-conversation {
-    padding: 8px 12px;
-    gap: 8px;
-  }
-  .is-compact .sample-conversation h3 {
-    font-size: 9px;
-  }
-  .is-compact .sample-question {
-    padding: 8px;
-  }
-  .is-compact pre {
-    font-size: 5px;
-    padding: 8px;
-  }
-  .is-compact .sample-composer {
-    min-height: 22px;
-    padding: 4px 5px;
-  }
-  .is-compact .sample-send {
-    width: 13px;
-    height: 13px;
-  }
-  .is-compact .sample-send img {
-    width: 8px;
-    height: 8px;
-  }
   .is-note-draft .sample-app {
     height: 800px;
   }
@@ -849,32 +730,6 @@ blockquote {
     min-height: 44px;
     padding: 6px 18px;
   }
-  .is-chat .sample-conversation {
-    padding: 18px 30px;
-    gap: 18px;
-  }
-  .is-chat .sample-conversation h3 {
-    font-size: 22px;
-  }
-  .is-chat .sample-question {
-    padding: 18px;
-  }
-  .is-chat pre {
-    font-size: 12px;
-    padding: 18px;
-  }
-  .is-chat .sample-composer {
-    min-height: 53px;
-    padding: 10px 12px;
-  }
-  .is-chat .sample-send {
-    width: 30px;
-    height: 30px;
-  }
-  .is-chat .sample-send img {
-    width: 19px;
-    height: 19px;
-  }
 }
 @media (min-width: 768px) and (max-width: 959px) {
   .sample-list {
@@ -933,47 +788,13 @@ blockquote {
     padding: 8px 14px;
     border: 0;
   }
-  .back-label {
-    display: block;
-  }
   .sample-note-meta {
     flex-basis: 100%;
     order: 1;
     font-size: 12px;
   }
-  .sample-note {
-    padding: 14px;
-  }
-  h3,
-  .is-chat .sample-conversation h3 {
-    font-size: 22px;
-  }
-  pre {
-    padding: 14px;
-    font-size: 11px;
-  }
-  .sample-note pre {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-  .is-chat .sample-conversation {
-    padding: 14px;
-    gap: 18px;
-  }
-  .is-chat .sample-question {
-    padding: 14px;
-  }
-  .is-chat .sample-composer {
-    min-height: 52px;
-    padding: 10px 12px;
-  }
-  .is-chat .sample-send {
-    width: 29px;
-    height: 29px;
-  }
-  .is-chat .sample-send img {
-    width: 18px;
-    height: 18px;
+  .back-label {
+    display: block;
   }
   .is-chat .sample-actions > .sample-primary,
   .is-chat .sample-secondary-actions > .sample-soft {

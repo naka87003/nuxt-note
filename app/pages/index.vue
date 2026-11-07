@@ -73,12 +73,12 @@ useSeoMeta({
       <nav aria-label="Main navigation">
         <div class="section-links">
           <UButton to="#notes" color="neutral" variant="ghost">Notes</UButton>
-          <UButton to="#ai-chat" color="neutral" variant="ghost"
-            >AI Chat</UButton
-          >
-          <UButton to="#features" color="neutral" variant="ghost"
-            >Features</UButton
-          >
+          <UButton to="#ai-chat" color="neutral" variant="ghost">
+            AI Chat
+          </UButton>
+          <UButton to="#features" color="neutral" variant="ghost">
+            Features
+          </UButton>
         </div>
         <ThemePicker />
         <UButton
@@ -102,9 +102,8 @@ useSeoMeta({
             Keep your ideas.<span>Grow your thinking.</span>
           </h1>
           <p class="description">
-            A focused notebook. A thoughtful AI conversation.<br
-              class="medium-break"
-            />
+            A focused notebook. A thoughtful AI conversation.
+            <br class="medium-break" />
             One place to capture what you learn and explore what comes next.
           </p>
           <div class="hero-actions">
@@ -156,9 +155,8 @@ useSeoMeta({
           >
             <div class="feature-art">
               <div>
-                <UIcon name="i-lucide-file-text" /><span>{{
-                  feature.label
-                }}</span>
+                <UIcon name="i-lucide-file-text" />
+                <span>{{ feature.label }} </span>
               </div>
               <p>{{ feature.line }}</p>
               <small>{{ feature.hint }}</small>
@@ -194,9 +192,9 @@ useSeoMeta({
           <span class="chat-note-eyebrow-desktop">
             FROM CONVERSATION TO SOMETHING WORTH KEEPING
           </span>
-          <span class="chat-note-eyebrow-mobile"
-            >FROM CONVERSATION TO NOTE</span
-          >
+          <span class="chat-note-eyebrow-mobile">
+            FROM CONVERSATION TO NOTE
+          </span>
         </p>
         <h2 id="chat-note-title">Turn a good conversation into a note.</h2>
         <p class="description">
