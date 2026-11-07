@@ -105,7 +105,7 @@ app/          Vue pages, layouts, and middleware
 server/       Server APIs, OAuth, and database access
 shared/       Types and shared logic
 prisma/       Database schema and migrations
-tests/unit/   Tests for shared logic
+tests/        Unit, Nuxt component, and database tests (see tests/README.md)
 docs/         Specification, setup, and design workflow
 scripts/      Disposable database verification
 ```

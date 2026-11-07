@@ -43,10 +43,13 @@
   "devDependencies": {
     "@iconify-json/lucide": "^1.2.151",
     "@nuxt/eslint": "^1.17.0",
+    "@nuxt/test-utils": "^4.3.4",
     "@types/markdown-it": "^14.2.0",
     "@types/node": "^26.6.6",
     "@types/pg": "^8.23.1",
+    "@vue/test-utils": "^2.5.1",
     "eslint": "^10.14.0",
+    "happy-dom": "^21.0.4",
     "prettier": "^3.9.10",
     "prisma": "^7.10.1",
     "typescript": "^6.0.3",
