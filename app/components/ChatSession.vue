@@ -260,7 +260,7 @@ async function remove() {
           :disabled="!canCreateNote"
           @click="confirmNote"
         >
-          Create note
+          Generate note
         </UButton>
         <div class="chat-secondary-actions">
           <UButton
@@ -403,10 +403,10 @@ async function remove() {
       v-model:open="noteDialog"
       :title="
         notePhase === 'generating'
-          ? 'Creating your note…'
+          ? 'Generating your note…'
           : notePhase === 'failed'
-            ? 'Could not create your note'
-            : 'Create note from this chat?'
+            ? 'Could not generate your note'
+            : 'Generate a note from this chat?'
       "
       :dismissible="!creatingNote"
       :close="false"
@@ -450,7 +450,7 @@ async function remove() {
           {{ notePhase === "failed" ? "Back to chat" : "Cancel" }}
         </UButton>
         <UButton class="min-h-11" @click="createNote">
-          {{ notePhase === "failed" ? "Try again" : "Create note" }}
+          {{ notePhase === "failed" ? "Try again" : "Generate" }}
         </UButton>
       </template>
     </UModal>

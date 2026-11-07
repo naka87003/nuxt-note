@@ -6,7 +6,7 @@ withDefaults(
     titleId?: string;
     focusTitle?: boolean;
   }>(),
-  { title: "Create note from this chat?", titleId: undefined },
+  { title: "Generate a note from this chat?", titleId: undefined },
 );
 </script>
 
@@ -40,7 +40,7 @@ withDefaults(
       <div v-if="!interactive || $slots.actions" class="sample-dialog-actions">
         <slot name="actions">
           <span class="sample-dialog-cancel">Cancel</span>
-          <span class="sample-primary">Create note</span>
+          <span class="sample-primary">Generate</span>
         </slot>
       </div>
     </section>
@@ -127,11 +127,7 @@ withDefaults(
   white-space: nowrap;
 }
 .sample-dialog-cancel {
-  width: 77px;
   border: 1px solid var(--ui-border-accented);
-}
-.sample-dialog-actions > .sample-primary {
-  width: 102px;
 }
 .sample-primary {
   color: var(--ui-bg);
@@ -168,7 +164,6 @@ withDefaults(
     line-height: 20px;
   }
   .sample-dialog-actions > .sample-primary {
-    width: 118px;
     padding: 5px 12px;
     font-size: 12px;
   }

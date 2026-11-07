@@ -99,7 +99,7 @@ const visibleGroups = computed(() =>
       interactive
         ? 'Interactive demo: turn a conversation into a note'
         : noteDraft
-          ? 'Example Chat workspace with a Create note confirmation: AI organizes the conversation into a draft to review and edit before saving'
+          ? 'Example Chat workspace with a Generate note confirmation: AI organizes the conversation into a draft to review and edit before saving'
           : isChat
             ? 'Example Chat workspace with shared categories and a conversation about useFetch'
             : 'Example Notes workspace with categories, recent notes, and a Markdown note about Nuxt data fetching'
@@ -203,7 +203,7 @@ const visibleGroups = computed(() =>
                 Nuxt · Created Nov 1 · Updated Nov 3, 10:24
               </small>
               <div class="sample-actions">
-                <span v-if="isChat" class="sample-primary">Create note</span>
+                <span v-if="isChat" class="sample-primary">Generate note</span>
                 <div class="sample-secondary-actions">
                   <span :class="isChat ? 'sample-soft' : 'sample-primary'">
                     <template v-if="isChat">

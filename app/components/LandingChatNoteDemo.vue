@@ -51,7 +51,7 @@ const editing = computed(
 const steps: Record<Step, { progress: number; guidance: string }> = {
   chat: {
     progress: 1,
-    guidance: "Create note turns this chat into an editable draft.",
+    guidance: "Generate note turns this chat into an editable draft.",
   },
   confirm: { progress: 2, guidance: "Confirm to generate your draft." },
   generating: { progress: 3, guidance: "Preparing your draft…" },
@@ -71,8 +71,8 @@ const showingDialog = computed(
 const dialogTitle = computed(() => {
   if (confirmingDiscard.value) return "Discard unsaved changes?";
   return step.value === "confirm"
-    ? "Create note from this chat?"
-    : "Creating your note…";
+    ? "Generate a note from this chat?"
+    : "Generating your note…";
 });
 
 let transitionTimer: ReturnType<typeof setTimeout>;
@@ -180,7 +180,7 @@ async function go(next: Step) {
                 :aria-describedby="hintId"
                 @click="go('confirm')"
               >
-                Create note
+                Generate note
                 <LandingClickCue v-if="step === 'chat'" />
               </button>
               <div class="chat-secondary-actions" aria-hidden="true">
@@ -336,8 +336,10 @@ async function go(next: Step) {
                 class="min-h-11 demo-modal-target"
                 data-demo-focus
                 @click="generateDraft"
-                >Create note<LandingClickCue
-              /></UButton>
+              >
+                Generate
+                <LandingClickCue />
+              </UButton>
             </template>
           </template>
         </LandingNoteDraftConfirmation>

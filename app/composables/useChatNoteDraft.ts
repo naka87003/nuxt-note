@@ -51,7 +51,7 @@ export function useChatNoteDraft(
             ? "Wait for the current response to finish, then try again."
             : code === 503
               ? "AI is not configured. Please try again later."
-              : "Could not create your note. Your conversation is still here. Please try again.";
+              : "Could not generate your note. Your conversation is still here. Please try again.";
       phase.value = "failed";
     }
   }
