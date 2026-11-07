@@ -103,6 +103,7 @@ function categoryMenuItems(
           class="category-item min-w-0 flex-1"
           :class="{ active: filter === category.id }"
           :aria-current="filter === category.id ? 'page' : undefined"
+          :title="category.name"
           @click="emit('select', category.id)"
         >
           <UIcon name="i-lucide-folder" class="size-5 shrink-0" />

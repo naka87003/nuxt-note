@@ -3,7 +3,15 @@ import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import type { WorkspaceItem } from "#shared/types/workspace";
 
 const route = useRoute();
-const { state, mode, current, filter, location } = useWorkspace();
+const {
+  state,
+  mode,
+  current,
+  filter,
+  selectedCategoryName,
+  location,
+  createLocation,
+} = useWorkspace();
 const { returnTo: draftReturnTo } = useNoteDraftHandoff();
 const backToChat = computed(
   () => route.path === "/notes/new" && !!draftReturnTo.value,
@@ -67,8 +75,7 @@ const heading = computed(() =>
       : "All chats"
     : filter.value === "uncategorized"
       ? "Uncategorized"
-      : (categories.value?.items.find((item) => item.id === filter.value)
-          ?.name ?? "Category"),
+      : (selectedCategoryName.value ?? "Category"),
 );
 
 const isContent = computed(
@@ -202,20 +209,13 @@ async function saveCategory() {
           :aria-expanded="sidebar"
           @click="sidebar = !sidebar"
         />
-        <UButton
-          v-if="route.path !== '/chats/new'"
-          :class="{
-            'mobile-chat-create': mode === 'chats' && !route.params.id,
-          }"
-          :to="location(`/${mode}/new`)"
-          icon="i-lucide-plus"
-          class="font-bold"
-          >{{ mode === "notes" ? "New note" : "New Chat" }}</UButton
-        >
+        <UButton :to="createLocation()" icon="i-lucide-plus" class="font-bold">
+          {{ mode === "notes" ? "New note" : "New Chat" }}
+        </UButton>
       </div>
-      <NuxtLink to="/" aria-label="Nuxt Note home" class="workspace-brand"
-        ><AppBrand
-      /></NuxtLink>
+      <NuxtLink to="/" aria-label="Nuxt Note home" class="workspace-brand">
+        <AppBrand />
+      </NuxtLink>
       <div class="workspace-header-side justify-end">
         <ThemePicker />
         <ProfileMenu />

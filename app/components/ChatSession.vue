@@ -9,7 +9,7 @@ const activeId = ref(props.chatId);
 const navigationFailure = ref("");
 
 const route = useRoute();
-const { state, location, categoryId } = useWorkspace();
+const { state, location, categoryId, selectedCategoryName } = useWorkspace();
 
 const chat = ref<Conversation | null>(null);
 
@@ -387,8 +387,22 @@ async function remove() {
       </div>
     </div>
     <div v-else class="new-chat">
+      <UBadge
+        v-if="selectedCategoryName"
+        color="neutral"
+        variant="outline"
+        icon="i-lucide-folder"
+        class="new-chat-category"
+        :title="selectedCategoryName"
+        :aria-label="`Category: ${selectedCategoryName}`"
+        :ui="{ leadingIcon: 'size-4 shrink-0 text-dimmed' }"
+      >
+        <span class="min-w-0 truncate">{{ selectedCategoryName }}</span>
+      </UBadge>
       <div class="new-chat-card">
-        <h1 class="mb-8 text-center text-xl">Start your chat</h1>
+        <h1 class="mb-4 text-center text-xl font-medium wrap-anywhere">
+          Start your chat
+        </h1>
         <UAlert
           v-if="generationFailure"
           :title="generationFailure"

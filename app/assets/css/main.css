@@ -176,6 +176,26 @@ body {
 .list-controls {
   padding: 16px 16px 8px;
 }
+.list-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.list-heading-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 32px;
+}
+.list-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 36px;
+}
 .list-scroll {
   flex: 1;
   min-height: 0;
@@ -223,7 +243,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 20px;
+  gap: 16px;
   padding: 32px;
   text-align: center;
 }
@@ -262,12 +282,25 @@ body {
   font-family: var(--font-mono);
 }
 .new-chat {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 16px 32px;
+}
+.new-chat-category {
+  position: absolute;
+  top: 12px;
+  right: 32px;
+  max-width: calc(100% - 64px);
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--ui-bg-muted);
+  font-size: 12px;
+  line-height: 16px;
 }
 .new-chat-card {
   width: 100%;
@@ -453,7 +486,8 @@ body {
   .workspace-header button,
   .workspace-header a:not(.workspace-brand),
   .chat-actions button,
-  .list-controls button {
+  .list-controls button,
+  .list-controls a {
     min-height: 44px;
   }
   .workspace-menu {
@@ -475,6 +509,10 @@ body {
   }
   .new-chat {
     padding: 8px;
+  }
+  .new-chat-category {
+    right: 16px;
+    max-width: calc(100% - 88px);
   }
   .new-chat-card {
     padding: 24px 12px;
@@ -553,15 +591,6 @@ body {
   }
   .chat-category-prefix {
     display: none;
-  }
-}
-
-.mobile-chat-create {
-  display: none;
-}
-@media (max-width: 767px) {
-  .mobile-chat-create {
-    display: inline-flex;
   }
 }
 

@@ -118,7 +118,7 @@ const visibleGroups = computed(() =>
           />
           <UIcon name="i-lucide-menu" class="mobile-preview-menu" />
           <span class="sample-primary">
-            + New {{ isChat ? "chat" : "note" }}
+            + New {{ isChat ? "Chat" : "note" }}
           </span>
         </div>
         <AppBrand class="sample-brand" />
@@ -169,14 +169,21 @@ const visibleGroups = computed(() =>
         </div>
         <div class="sample-list" aria-hidden="true">
           <div class="list-top">
-            <strong>
-              {{ savedCategory ? "All notes" : "Nuxt" }}
+            <div class="sample-list-heading">
+              <strong>{{ savedCategory ? "All notes" : "Nuxt" }}</strong>
+              <span class="sample-hide-list">
+                <UIcon name="i-lucide-panel-left-close" />
+              </span>
+            </div>
+            <div class="sample-list-actions">
               <small>
                 {{ listCount }}
                 {{ isChat ? "chats" : "notes" }}
               </small>
-              <span v-if="isChat" class="sample-hide-list">Hide list</span>
-            </strong>
+              <span class="sample-outline">
+                + New {{ isChat ? "Chat" : "note" }}
+              </span>
+            </div>
             <div class="sample-search">
               {{ savedCategory ? "Search notes…" : "Search in Nuxt…" }}
             </div>
@@ -344,7 +351,8 @@ const visibleGroups = computed(() =>
   height: auto;
 }
 .sample-primary,
-.sample-soft {
+.sample-soft,
+.sample-outline {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -359,6 +367,10 @@ const visibleGroups = computed(() =>
 }
 .sample-soft {
   background: var(--ui-bg-elevated);
+}
+.sample-outline {
+  border: 1px solid var(--ui-border-accented);
+  white-space: nowrap;
 }
 .sample-body {
   display: flex;
@@ -444,13 +456,37 @@ small {
   padding: 13px;
   min-width: 0;
 }
-.list-top strong {
+.sample-list-heading {
   display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 26px;
+  margin-bottom: 10px;
+}
+.sample-list-heading strong {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.sample-list-actions {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 .sample-hide-list {
-  color: var(--ui-text-dimmed);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 26px;
+  height: 26px;
+  color: color-mix(in oklab, var(--ui-text-dimmed) 80%, transparent);
+}
+.sample-hide-list .iconify {
+  width: 16px;
+  height: 16px;
 }
 .sample-search {
   border: 1px solid var(--ui-border-accented);
@@ -616,7 +652,8 @@ blockquote {
 }
 @media (min-width: 1280px) {
   .is-compact .sample-primary,
-  .is-compact .sample-soft {
+  .is-compact .sample-soft,
+  .is-compact .sample-outline {
     border-radius: 2px;
   }
   .is-compact {
@@ -647,7 +684,8 @@ blockquote {
     width: 13px;
   }
   .is-compact .sample-primary,
-  .is-compact .sample-soft {
+  .is-compact .sample-soft,
+  .is-compact .sample-outline {
     padding: 2px 4px;
     font-size: 5px;
   }
@@ -683,8 +721,25 @@ blockquote {
   .is-compact .new-category {
     padding: 1px;
   }
-  .is-compact .list-top strong {
-    margin-bottom: 6px;
+  .is-compact .sample-list-heading {
+    min-height: 13px;
+    gap: 5px;
+    margin-bottom: 5px;
+  }
+  .is-compact .sample-list-heading strong {
+    font-size: 8px;
+  }
+  .is-compact .sample-hide-list {
+    flex-basis: 13px;
+    height: 13px;
+  }
+  .is-compact .sample-hide-list .iconify {
+    width: 8px;
+    height: 8px;
+  }
+  .is-compact .sample-list-actions {
+    gap: 4px;
+    margin-bottom: 4px;
   }
   .is-compact .sample-search {
     padding: 2px 4px;
@@ -767,14 +822,15 @@ blockquote {
     width: 31px;
   }
   .is-chat .sample-primary,
-  .is-chat .sample-soft {
+  .is-chat .sample-soft,
+  .is-chat .sample-outline {
     padding: 4px 12px;
     font-size: 12px;
   }
   .is-chat .sample-list {
     padding: 15px;
   }
-  .is-chat .list-top strong {
+  .is-chat .sample-list-heading {
     margin-bottom: 14px;
   }
   .is-chat .sample-search {

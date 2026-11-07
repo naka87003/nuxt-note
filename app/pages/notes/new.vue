@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { SavedNote } from "#shared/types/note";
-definePageMeta({ middleware: "auth", layout: "workspace" });
+definePageMeta({
+  middleware: "auth",
+  layout: "workspace",
+  // A new creation destination needs a fresh editor snapshot after route guards.
+  key: (route) => route.fullPath,
+});
 const { categoryId, filter, location } = useWorkspace();
 const { consume, returnTo: draftReturnTo } = useNoteDraftHandoff();
 // Consume once. Reloading or opening another new-note screen starts a blank note.

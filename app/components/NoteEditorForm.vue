@@ -70,9 +70,9 @@ onMounted(() => {
 <template>
   <form class="note-editor" @submit.prevent="submit">
     <div class="note-editor-actions">
-      <component :is="headingTag ?? 'h1'" class="font-medium">{{
-        note ? "Edit note" : "New note"
-      }}</component>
+      <component :is="headingTag ?? 'h1'" class="font-medium">
+        {{ note ? "Edit note" : "New note" }}
+      </component>
       <span class="note-save-status text-xs text-dimmed" role="status">
         {{ dirty ? "Unsaved changes" : "" }}
       </span>
@@ -86,9 +86,9 @@ onMounted(() => {
         Cancel
       </UButton>
       <slot name="save-action" :disabled="saveDisabled" :loading="saving">
-        <UButton type="submit" :loading="saving" :disabled="saveDisabled"
-          >Save</UButton
-        >
+        <UButton type="submit" :loading="saving" :disabled="saveDisabled">
+          Save
+        </UButton>
       </slot>
     </div>
     <UAlert

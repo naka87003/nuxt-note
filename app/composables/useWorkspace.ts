@@ -1,3 +1,5 @@
+import type { CategoriesResponse } from "#shared/types/workspace";
+
 export function useWorkspace() {
   const route = useRoute();
 
@@ -38,6 +40,22 @@ export function useWorkspace() {
     return { path, query: { category } };
   }
 
+  function createLocation(category = "uncategorized") {
+    return location(
+      `/${mode.value}/new`,
+      category === "all" ? "uncategorized" : category,
+    );
+  }
+
+  const { data: categories } = useNuxtData<CategoriesResponse>(
+    "workspace-categories",
+  );
+  const selectedCategoryName = computed(
+    () =>
+      categories.value?.items.find((item) => item.id === categoryId.value)
+        ?.name,
+  );
+
   const { $unsavedChanges } = useNuxtApp();
 
   async function confirmEdits() {
@@ -45,5 +63,15 @@ export function useWorkspace() {
     return !state.value.editor.dirty || (await $unsavedChanges.confirm());
   }
 
-  return { state, mode, current, filter, categoryId, location, confirmEdits };
+  return {
+    state,
+    mode,
+    current,
+    filter,
+    categoryId,
+    selectedCategoryName,
+    location,
+    createLocation,
+    confirmEdits,
+  };
 }

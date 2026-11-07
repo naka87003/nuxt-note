@@ -14,7 +14,7 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ retry: [] }>();
 
-const { mode, current, location, filter } = useWorkspace();
+const { mode, current, location, filter, createLocation } = useWorkspace();
 const { data: categories } = useNuxtData<CategoriesResponse>(
   "workspace-categories",
 );
@@ -25,18 +25,17 @@ const now = useState("workspace-list-now", () => new Date().toISOString());
 
 const itemCountLabel = computed(() => `${props.items.length} ${mode.value}`);
 const searchLabel = computed(() => `Search ${mode.value}`);
-const searchScopeLabel = computed(() => props.heading);
 const searchPlaceholder = computed(() =>
   filter.value === "all"
     ? `${searchLabel.value}…`
     : `Search in ${props.heading}…`,
 );
 const searchAriaLabel = computed(
-  () => `${searchLabel.value}: ${searchScopeLabel.value}`,
+  () => `${searchLabel.value}: ${props.heading}`,
 );
 const listDescription = computed(() =>
   current.value.search
-    ? `Searching ${searchScopeLabel.value}`
+    ? `Searching ${props.heading}`
     : "Grouped by last updated",
 );
 const emptyMessage = computed(() =>
@@ -109,20 +108,46 @@ function date(value: string) {
 <template>
   <section class="workspace-list" aria-label="Content list">
     <div class="list-controls">
-      <div class="flex min-h-12 items-center gap-2">
-        <h1 class="min-w-0 truncate text-xl font-semibold">{{ heading }}</h1>
-        <span class="shrink-0 text-xs text-dimmed">
-          {{ itemCountLabel }}
-        </span>
-        <UButton
-          color="neutral"
-          variant="ghost"
-          size="xs"
-          class="list-toggle ml-auto shrink-0 font-bold"
-          @click="current.hidden = true"
-        >
-          Hide list
-        </UButton>
+      <div class="list-heading">
+        <div class="list-heading-title">
+          <h1
+            class="min-w-0 flex-1 line-clamp-2 text-xl font-semibold wrap-anywhere"
+            :title="heading"
+          >
+            {{ heading }}
+          </h1>
+          <UTooltip text="Hide list">
+            <UButton
+              type="button"
+              icon="i-lucide-panel-left-close"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              class="group list-toggle size-8 shrink-0 justify-center"
+              :ui="{
+                leadingIcon:
+                  'size-5 text-dimmed/80 transition-colors group-hover:text-default group-focus-visible:text-default',
+              }"
+              aria-label="Hide list"
+              @click="current.hidden = true"
+            />
+          </UTooltip>
+        </div>
+        <div class="list-heading-actions">
+          <span class="shrink-0 text-xs text-dimmed">
+            {{ itemCountLabel }}
+          </span>
+          <UButton
+            :to="createLocation(filter)"
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-plus"
+            size="sm"
+            class="shrink-0 font-bold"
+          >
+            {{ mode === "notes" ? "New note" : "New Chat" }}
+          </UButton>
+        </div>
       </div>
       <UInput
         v-model="current.search"
