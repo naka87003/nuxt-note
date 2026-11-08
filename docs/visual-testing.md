@@ -31,8 +31,10 @@ screenshots.
 
 ## Initial coverage
 
-All stories are captured at 390px and 1280px widths. The initial suite has 19
-stories (38 snapshots per browser per full build).
+The suite has 26 stories (55 snapshots per browser per full build). The original
+19 stories use 390px and 1280px widths. Landing previews use 390px, 1024px and
+1280px; the interactive landing demo uses only 1024px and 1280px, matching the
+widths where the landing page mounts it.
 
 | Area             | Stories                                                                                                       |
 | ---------------- | ------------------------------------------------------------------------------------------------------------- |
@@ -40,12 +42,23 @@ stories (38 snapshots per browser per full build).
 | Markdown         | Rich content with headings/lists/table/highlighted code, long content with Japanese text/wide table/long code |
 | Workspace list   | Grouped notes with selected/untitled/long-title items, empty, loading, failure, no search results             |
 | Chat composer    | Empty, message entered, multiline, sending, disabled                                                          |
+| Landing previews | Notes workspace, Chat workspace, responsive Chat-to-note preview                                              |
+| Landing demo     | Generation confirmation, editing, discard confirmation, saved note                                            |
 
 Editor models stay interactive in local Storybook. The Preview story clicks the
 actual tab and checks that the preview is visible before Chromatic captures it.
 Fixtures use synthetic content and a fixed reference time for list grouping.
 The preview fixes the default green/gray dark theme and disables CSS motion and
 the caret. Application components and their styles are not stubbed.
+
+Landing stories reproduce the page’s content width, mobile padding and desktop
+Chat column width. Keep `stories/fixtures/landing.css` (shared content width and
+padding) and the Chat story’s responsive width classes in
+`stories/LandingWorkspacePreview.stories.ts` aligned with `app/pages/index.vue`. The responsive preview waits for the lazy desktop demo or
+asserts the mobile static fallback. Demo stories reach each stable state through
+real controls, waiting for generation/saving to finish rather than using fixed
+screenshot delays. They also wait for local fonts and preview images. Transient
+generating/saving states are not captured.
 
 These are component/composed-view checks, not complete application pages.
 Authenticated layouts, routing, ChatSession/streaming, portalled dialogs and

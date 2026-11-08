@@ -1,0 +1,12 @@
+/* Keep these dimensions aligned with the landing page in app/pages/index.vue. */
+.landing-story {
+  max-width: 1216px;
+  margin-inline: auto;
+  padding: 0 32px 32px;
+}
+
+@media (max-width: 767px) {
+  .landing-story {
+    padding: 0 16px 24px;
+  }
+}
