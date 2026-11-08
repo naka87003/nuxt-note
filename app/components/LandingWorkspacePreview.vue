@@ -324,7 +324,7 @@ const visibleGroups = computed(() =>
   gap: 13px;
 }
 .header-actions > .iconify {
-  color: var(--ui-primary);
+  color: var(--ui-text);
   width: 20px;
   height: 20px;
 }

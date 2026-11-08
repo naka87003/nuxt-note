@@ -193,8 +193,8 @@ async function saveCategory() {
       <div class="workspace-header-side gap-2 sm:gap-4">
         <UButton
           icon="i-lucide-panel-left-open"
-          color="primary"
-          variant="soft"
+          color="neutral"
+          variant="ghost"
           class="workspace-menu"
           aria-label="Toggle categories"
           :aria-expanded="drawer"
@@ -203,8 +203,8 @@ async function saveCategory() {
         <UTooltip text="Toggle categories">
           <UButton
             :icon="sidebarToggleIcon"
-            color="primary"
-            variant="soft"
+            color="neutral"
+            variant="ghost"
             class="desktop-menu"
             aria-label="Toggle categories"
             :aria-expanded="sidebar"
