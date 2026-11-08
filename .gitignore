@@ -1,5 +1,8 @@
 node_modules/
 .nuxt/
+storybook-static/
+chromatic-diagnostics.json
+chromatic-build-*.xml
 .output/
 .nitro/
 .data/

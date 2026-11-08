@@ -3,8 +3,10 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ["@nuxt/ui", "@nuxt/eslint", "nuxt-auth-utils"],
   css: ["@fontsource-variable/inter/index.css", "~/assets/css/main.css"],
-  ui: { fonts: false },
-  colorMode: { preference: "dark", fallback: "dark" },
+  ui: {
+    fonts: false,
+    colorMode: false,
+  },
   runtimeConfig: {
     openaiApiKey: "",
     openaiModel: "gpt-6.1-sol",

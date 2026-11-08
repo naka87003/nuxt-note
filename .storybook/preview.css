@@ -1,0 +1,9 @@
+/* Scope animation suppression to the preview; application styles stay intact. */
+*,
+*::before,
+*::after {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  transition-duration: 0s !important;
+  caret-color: transparent !important;
+}

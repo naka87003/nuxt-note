@@ -58,6 +58,14 @@ See the [development guide](docs/development.md) for authentication and database
 
 ## Validation
 
+Visual regression tests use Storybook + Chromatic. Run `pnpm storybook` to view
+the initial editor, Markdown, workspace list and chat composer stories, or
+`pnpm build-storybook` to verify the static build. After pushing changes, run VRT
+manually from **Actions → Storybook VRT → Run workflow** using the
+`CHROMATIC_PROJECT_TOKEN` repository Actions secret. Pushes do not automatically
+run VRT. See the
+[visual testing guide](docs/visual-testing.md) for coverage and setup.
+
 Chat-to-Note validation: 259 unit tests, lint, formatting, typecheck and production build pass. Disposable HTTP checks cover owner isolation, Markdown draft generation, inherited category and no implicit Note save or conversation edits. Browser checks at desktop and 390px cover confirmation, non-dismissible generation, draft handoff, preview, unchanged-draft discard confirmation, return to Chat, keeping edits and explicit Save. AI responses were mocked; no live provider requests or production data were used. Self-review added regression checks for failed/redirected navigation cleanup, one-use draft delivery, late-navigation isolation, a shared shortening timeout, and manual Note bodies exceeding the AI-only limit. Draft handoff state is centralized; AI requests use JSON output mode with explicit shortening instructions.
 
 ```bash
