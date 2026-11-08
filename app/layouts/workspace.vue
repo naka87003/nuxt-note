@@ -245,6 +245,24 @@ async function saveCategory() {
         :failed="!!listError"
         @retry="refreshList()"
       />
+      <div v-if="listHidden && !isEditor" class="workspace-list-rail">
+        <UTooltip text="Show list" :content="{ side: 'right' }">
+          <UButton
+            type="button"
+            icon="i-lucide-panel-left-open"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            class="group list-toggle size-8 shrink-0 justify-center"
+            :ui="{
+              leadingIcon:
+                'size-5 text-dimmed/80 transition-colors group-hover:text-default group-focus-visible:text-default',
+            }"
+            aria-label="Show list"
+            @click="current.hidden = false"
+          />
+        </UTooltip>
+      </div>
       <main class="workspace-content">
         <div class="pane-navigation">
           <UButton
@@ -257,16 +275,6 @@ async function saveCategory() {
             class="mobile-back"
             :aria-label="backToChat ? 'Back to chat' : 'Back to list'"
             >Back</UButton
-          >
-          <UButton
-            v-if="listHidden && !isEditor"
-            icon="i-lucide-panel-left-open"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            class="list-toggle"
-            @click="current.hidden = false"
-            >Show list</UButton
           >
         </div>
         <slot />
