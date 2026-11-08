@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/* eslint-disable vue/no-v-html -- The shared Markdown renderer disables raw HTML. */
 import { renderMarkdown } from "~/utils/markdown";
 
 const props = withDefaults(
@@ -13,14 +14,11 @@ const rendered = computed(() => renderMarkdown(props.content));
 </script>
 
 <template>
-  <!-- Use the shared, HTML-disabled renderer with landing-specific typography. -->
-  <!-- eslint-disable vue/no-v-html -->
   <div
     class="landing-markdown"
     :class="`landing-markdown--${variant}`"
     v-html="rendered"
   />
-  <!-- eslint-enable vue/no-v-html -->
 </template>
 
 <style scoped>
