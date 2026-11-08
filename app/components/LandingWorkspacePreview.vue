@@ -156,7 +156,7 @@ const visibleGroups = computed(() =>
             name="i-lucide-panel-left-close"
             class="desktop-preview-menu"
           />
-          <UIcon name="i-lucide-menu" class="mobile-preview-menu" />
+          <UIcon name="i-lucide-panel-left-open" class="mobile-preview-menu" />
           <span class="sample-primary">
             + New {{ isChat ? "Chat" : "note" }}
           </span>

@@ -18,6 +18,10 @@ const workspaceRoot = useTemplateRef("workspaceRoot");
 const drawer = ref(false);
 const sidebar = ref(true);
 
+const sidebarToggleIcon = computed(() =>
+  sidebar.value ? "i-lucide-panel-left-close" : "i-lucide-panel-left-open",
+);
+
 onMounted(() => {
   const viewport = window.visualViewport;
   const fitKeyboard = () => {
@@ -188,7 +192,7 @@ async function saveCategory() {
     <header class="workspace-header">
       <div class="workspace-header-side gap-2 sm:gap-4">
         <UButton
-          icon="i-lucide-panel-left"
+          icon="i-lucide-panel-left-open"
           color="primary"
           variant="soft"
           class="workspace-menu"
@@ -196,15 +200,17 @@ async function saveCategory() {
           :aria-expanded="drawer"
           @click="drawer = true"
         />
-        <UButton
-          icon="i-lucide-panel-left"
-          color="primary"
-          variant="soft"
-          class="desktop-menu"
-          aria-label="Toggle categories"
-          :aria-expanded="sidebar"
-          @click="sidebar = !sidebar"
-        />
+        <UTooltip text="Toggle categories">
+          <UButton
+            :icon="sidebarToggleIcon"
+            color="primary"
+            variant="soft"
+            class="desktop-menu"
+            aria-label="Toggle categories"
+            :aria-expanded="sidebar"
+            @click="sidebar = !sidebar"
+          />
+        </UTooltip>
         <UButton :to="createLocation()" icon="i-lucide-plus" class="font-bold">
           {{ mode === "notes" ? "New note" : "New Chat" }}
         </UButton>
