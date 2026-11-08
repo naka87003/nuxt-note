@@ -33,19 +33,12 @@ const { data } = await useFetch('/api/notes')
 
 <style scoped>
 .sample-note {
-  padding: 24px;
+  min-height: 0;
+  overflow: auto;
+  padding: 32px;
   --landing-code-radius: 4px;
-  --landing-code-size: 10px;
+  --landing-code-size: 14px;
   --landing-code-white-space: pre;
   --landing-code-wrap: normal;
-}
-@media (max-width: 767px) {
-  .sample-note {
-    padding: 14px;
-    --landing-code-padding: 14px;
-    --landing-code-size: 11px;
-    --landing-code-white-space: pre-wrap;
-    --landing-code-wrap: anywhere;
-  }
 }
 </style>

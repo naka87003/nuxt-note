@@ -414,47 +414,12 @@ async function go(next: Step) {
   min-width: 0;
   flex-shrink: 1;
 }
-@media (max-width: 767px) {
-  .chat-actions :deep(button) {
-    min-height: 44px;
-  }
-  .note-reader-toolbar,
-  .chat-actions {
-    padding: 8px 16px;
-  }
-  .chat-actions {
-    padding-left: 72px;
-  }
-  .chat-actions :deep(> button) {
-    flex-shrink: 0;
-  }
-  .chat-category-prefix {
-    display: none;
-  }
-  .chat-send {
-    width: 44px;
-    height: 44px;
-  }
-}
-
 .note-demo {
   width: 100%;
   text-align: left;
-  container-type: inline-size;
   --spotlight-color: #f7faff;
   --spotlight-glow:
     0 0 0 5px rgb(32 42 55 / 25%), 0 0 16px 3px rgb(247 250 255 / 55%);
-}
-/* Scale the workspace as one surface, including its editor and dialogs. */
-.note-demo :deep(.product-preview) {
-  width: auto;
-  isolation: isolate;
-  zoom: 0.86;
-}
-@container (max-width: 900px) {
-  .note-demo :deep(.product-preview) {
-    zoom: 0.8;
-  }
 }
 .demo-guide {
   display: flex;
@@ -499,7 +464,8 @@ async function go(next: Step) {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  font-size: 13px;
+  font-size: 16px;
+  line-height: 1.6;
 }
 .demo-chat,
 .demo-saved {
@@ -566,20 +532,20 @@ async function go(next: Step) {
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  gap: 18px;
-  padding: 24px;
+  gap: 16px;
+  padding: 16px 32px;
   overflow: auto;
 }
 h3 {
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 600;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
 .demo-question {
   align-self: flex-end;
-  max-width: 85%;
-  padding: 14px;
+  width: 70%;
+  padding: 16px;
   border: 1px solid var(--ui-border);
   border-radius: 8px;
   background: var(--ui-bg-muted);
@@ -608,7 +574,7 @@ h3 {
   color: var(--ui-primary);
 }
 .demo-note {
-  padding: 24px;
+  padding: 32px;
   overflow: auto;
   overflow-wrap: anywhere;
 }
@@ -620,10 +586,5 @@ h3 {
   color: var(--ui-text-muted);
   font-size: 12px;
   margin-top: 12px;
-}
-@media (max-width: 767px) {
-  .chat-secondary-actions > span {
-    min-height: 44px;
-  }
 }
 </style>
