@@ -88,9 +88,11 @@ Each run installs locked dependencies and typechecks stories, then invokes the
 Chromatic CLI. The CLI builds Storybook with the default `build-storybook` script,
 uploads it and runs cloud visual tests. A missing or invalid project token causes
 failure. Application/database/OAuth/OpenAI secrets are not needed in Actions.
-Changes are not automatically accepted and `--exit-zero-on-changes` is not enabled.
-An intentional visual change can therefore make the Actions run fail until it is
-reviewed in Chromatic; accepting a change does not rewrite a completed Actions run.
+The workflow uses `--exit-zero-on-changes`: visual differences, including new
+stories awaiting baselines, do not fail the Actions run. Build failures and story
+execution errors still fail it. A successful Actions run confirms execution, not
+visual approval. Review and accept intended changes in Chromatic; changes are not
+automatically accepted. No Actions rerun is needed just to record that approval.
 
 Chromatic can skip a rebuild for the same commit if the last build on that branch
 already passed or was accepted. This is expected when rerunning an unchanged commit.
@@ -106,6 +108,8 @@ If needed, `pnpm chromatic` can also be run with `CHROMATIC_PROJECT_TOKEN` set i
 your shell. The CLI script does not load `.env` automatically. For uncommitted
 changes on an already accepted commit, use `pnpm chromatic --force-rebuild`.
 This still uploads to Chromatic and consumes its snapshot allowance.
+Local execution still exits with code `1` for visual differences by default;
+add `--exit-zero-on-changes` to match the Actions behavior.
 
 ## Configuration and dependencies
 

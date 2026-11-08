@@ -22,6 +22,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck:storybook
       - name: Run Chromatic
-        run: pnpm chromatic --ci
+        run: pnpm chromatic --ci --exit-zero-on-changes
         env:
           CHROMATIC_PROJECT_TOKEN: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
