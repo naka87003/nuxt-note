@@ -3,11 +3,18 @@ const props = withDefaults(
   defineProps<{
     mode: "notes" | "chat";
     noteDraft?: boolean;
+    hideList?: boolean;
     previewTitle?: string;
     previewContent?: string;
     savedCategory?: string;
   }>(),
-  { noteDraft: false, previewTitle: "", previewContent: "", savedCategory: "" },
+  {
+    noteDraft: false,
+    hideList: false,
+    previewTitle: "",
+    previewContent: "",
+    savedCategory: "",
+  },
 );
 
 const slots = useSlots();
@@ -214,7 +221,7 @@ const visibleGroups = computed(() =>
               </span>
             </div>
           </div>
-          <div class="sample-list" aria-hidden="true">
+          <div v-if="!hideList" class="sample-list" aria-hidden="true">
             <div class="list-top">
               <div class="sample-list-heading">
                 <strong>{{ savedCategory ? "All notes" : "Nuxt" }}</strong>

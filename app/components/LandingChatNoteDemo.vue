@@ -174,6 +174,7 @@ async function go(next: Step) {
     <LandingWorkspacePreview
       :mode="editing || step === 'done' ? 'notes' : 'chat'"
       note-draft
+      :hide-list="editing"
       :saved-category="step === 'done' ? category : undefined"
       :preview-content="step === 'done' ? contentPreview(markdown) : undefined"
       :preview-title="step === 'done' ? displayTitle : undefined"
