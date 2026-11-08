@@ -64,3 +64,50 @@ function keydown(event: KeyboardEvent) {
     </UButton>
   </form>
 </template>
+
+<style scoped>
+.chat-composer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 56px;
+  padding: 12px 12px 12px 19.2px;
+  gap: 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 28.8px;
+  background: var(--ui-bg);
+}
+.chat-composer textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 24px;
+  line-height: 24px;
+  resize: none;
+  outline: none;
+  background: transparent;
+  max-height: 160px;
+  overflow-y: auto;
+  font-size: 16px;
+}
+.chat-send {
+  flex-shrink: 0;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 6px;
+  border-radius: 999px;
+}
+@media (max-width: 767px) {
+  .chat-send {
+    width: 44px;
+    height: 44px;
+  }
+  .chat-composer {
+    padding-block: 6px;
+  }
+  .chat-composer textarea {
+    min-height: 44px;
+    padding-block: 10px;
+  }
+}
+</style>

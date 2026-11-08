@@ -21,3 +21,16 @@ const { filter, createLocation } = useWorkspace();
     </UButton>
   </div>
 </template>
+
+<style scoped>
+.workspace-empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px;
+  text-align: center;
+}
+</style>

@@ -157,3 +157,120 @@ function categoryMenuItems(
     </footer>
   </div>
 </template>
+
+<style scoped>
+.category-navigation {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+.category-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.category-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--ui-text-muted);
+  cursor: pointer;
+}
+.category-item:hover,
+.category-item.active {
+  background: var(--ui-bg-elevated);
+}
+.category-item.active {
+  color: var(--ui-primary);
+}
+.category-count {
+  color: var(--ui-text-dimmed);
+  font-size: 12px;
+  font-weight: 400;
+}
+.category-row {
+  display: flex;
+  align-items: center;
+}
+.category-menu {
+  width: 28px;
+  height: 32px;
+  flex-shrink: 0;
+}
+.category-footer {
+  flex-shrink: 0;
+  padding-top: 16px;
+}
+.category-navigation :deep(.workspace-tabs) {
+  width: 100%;
+}
+.category-navigation :deep(.workspace-tab-list) {
+  height: 36px;
+  padding: 4px;
+  gap: 0;
+}
+.category-navigation :deep(.workspace-tab-trigger) {
+  height: 28px;
+  gap: 6px;
+  padding-block: 0;
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  justify-content: center;
+}
+.category-navigation :deep(.workspace-tab-trigger [data-slot="leadingIcon"]),
+.category-navigation :deep(.workspace-tab-trigger svg) {
+  width: 16px;
+  height: 16px;
+}
+.category-navigation :deep(.workspace-tab-indicator) {
+  height: 28px;
+}
+.in-drawer {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+.in-drawer .category-item,
+.in-drawer .category-menu {
+  min-height: 44px;
+}
+.in-drawer :deep(.workspace-tab-list) {
+  height: 44px;
+  padding-block: 0;
+  background: transparent;
+  isolation: isolate;
+}
+.in-drawer :deep(.workspace-tab-list::before) {
+  content: "";
+  position: absolute;
+  inset: 4px 0;
+  z-index: -1;
+  border-radius: 8px;
+  background: var(--ui-bg-elevated);
+}
+.in-drawer :deep(.workspace-tab-trigger) {
+  height: 44px;
+}
+.in-drawer :deep(.workspace-tab-indicator) {
+  top: 8px;
+  height: 28px;
+}
+.category-item:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: -2px;
+}
+.in-drawer .category-menu {
+  min-width: 44px;
+}
+.in-drawer .category-scroll > button {
+  min-height: 44px;
+}
+</style>

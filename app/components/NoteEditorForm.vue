@@ -193,6 +193,137 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.note-editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: auto;
+}
+.note-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--ui-border);
+}
+.note-save-status {
+  margin-left: auto;
+}
+.note-editor-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: end;
+  gap: 12px;
+  padding: 24px 32px;
+}
+.note-view-tabs {
+  flex-shrink: 0;
+  padding: 4px 12px;
+  background: var(--ui-bg-muted);
+}
+.note-view-tabs :deep(.note-view-tab-list) {
+  height: 36px;
+}
+.note-view-tabs :deep(.note-view-tab-trigger) {
+  height: 28px;
+  padding-block: 0;
+}
+.note-view-tabs :deep(.note-view-tab-indicator) {
+  height: 28px;
+}
+.note-editor-panes {
+  display: flex;
+  flex: 1 0 360px;
+  min-height: 360px;
+  height: 360px;
+}
+.note-source-pane,
+.note-preview-pane {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 24px;
+}
+.note-editor-panes[data-view="split"] > * {
+  width: 50%;
+}
+.note-source-pane {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--ui-bg-muted);
+  border: 1px solid var(--ui-border);
+}
+.note-markdown-input {
+  min-width: 0;
+  min-height: 0;
+  align-items: stretch;
+  display: flex;
+  flex: 1;
+  width: 100%;
+}
+.note-editor-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  background: var(--ui-bg-muted);
+}
+.note-preview-pane {
+  overflow: auto;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+@media (min-width: 768px) {
+  .note-editor-fields {
+    grid-template-columns: minmax(0, 1fr) 16rem;
+    gap: 16px;
+  }
+}
+@media (max-width: 767px) {
+  .note-view-tabs :deep(.note-view-tab-list) {
+    height: 44px;
+    padding-block: 0;
+    background: transparent;
+    isolation: isolate;
+  }
+  .note-view-tabs :deep(.note-view-tab-list::before) {
+    content: "";
+    position: absolute;
+    inset: 4px 0;
+    z-index: -1;
+    border-radius: 8px;
+    background: var(--ui-bg-elevated);
+  }
+  .note-view-tabs :deep(.note-view-tab-trigger) {
+    height: 44px;
+  }
+  .note-view-tabs :deep(.note-view-tab-indicator) {
+    top: 8px;
+  }
+  .note-editor-actions,
+  .note-editor-fields,
+  .note-source-pane,
+  .note-preview-pane {
+    padding: 16px;
+  }
+  .note-editor-actions :deep(button) {
+    min-height: 44px;
+  }
+  .note-editor-panes[data-view="split"] > * {
+    width: 100%;
+  }
+  .note-editor-panes[data-view="split"] .note-preview-pane {
+    display: none;
+  }
+}
+
 /* Inline menus must stack above the tab indicator that follows the fields. */
 .inline-category-fields {
   position: relative;

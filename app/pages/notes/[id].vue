@@ -186,3 +186,57 @@ async function remove() {
     </UModal>
   </div>
 </template>
+
+<style scoped>
+.note-reader {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.note-reader-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--ui-border);
+  justify-content: space-between;
+}
+.note-reader-meta {
+  flex: 1 1 240px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.note-reader-body {
+  padding: 32px;
+}
+.note-reader-error {
+  width: auto;
+  margin: 32px;
+}
+@media (max-width: 767px) {
+  .note-reader-actions :deep(button) {
+    min-height: 44px;
+  }
+  .note-reader-body {
+    padding: 16px;
+  }
+  .note-reader-error {
+    margin: 60px 16px 16px;
+  }
+  .note-reader-toolbar {
+    padding: 8px 16px;
+  }
+  .note-reader-meta {
+    flex-basis: 100%;
+    order: 1;
+  }
+}
+.note-page {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+</style>

@@ -359,3 +359,144 @@ async function saveCategory() {
     </UModal>
   </div>
 </template>
+
+<style scoped>
+.workspace-root {
+  position: fixed;
+  inset: 0 0 auto;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.workspace-header {
+  height: 64px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 16px;
+  background: var(--ui-bg-muted);
+  border-bottom: 1px solid var(--ui-border);
+}
+.workspace-header-side {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+.workspace-brand {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+.workspace-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.desktop-categories {
+  flex: 0 0 288px;
+  min-height: 0;
+  box-shadow: inset -1px 0 var(--ui-border);
+  background: var(--ui-bg-muted);
+}
+.workspace-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.pane-navigation {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.list-hidden .workspace-list {
+  display: none;
+}
+.workspace-list-rail {
+  display: flex;
+  flex: 0 0 40px;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 4px;
+  box-shadow: inset -1px 0 var(--ui-border);
+}
+/* Slideover content is teleported outside the layout DOM. */
+:global(.category-drawer) {
+  top: 64px;
+  height: calc(100dvh - 64px);
+  width: min(320px, calc(100vw - 44px));
+  background: var(--ui-bg-muted);
+}
+.workspace-menu,
+.mobile-back {
+  display: none;
+}
+@media (max-width: 1279px) {
+  .desktop-categories,
+  .desktop-menu {
+    display: none !important;
+  }
+  .workspace-menu {
+    display: inline-flex;
+  }
+}
+@media (max-width: 767px) {
+  .workspace-content,
+  .workspace-list-rail,
+  .list-toggle {
+    display: none;
+  }
+  .has-content .workspace-list {
+    display: none;
+  }
+  .has-content .workspace-content {
+    display: flex;
+  }
+  .list-hidden:not(.has-content) .workspace-list {
+    display: flex;
+  }
+  .mobile-back {
+    display: inline-flex;
+    min-height: 44px;
+  }
+  .pane-navigation {
+    min-height: 44px;
+  }
+  .workspace-header :deep(button),
+  .workspace-header :deep(a:not(.workspace-brand)) {
+    min-height: 44px;
+  }
+  .workspace-menu {
+    min-width: 44px;
+  }
+  .has-content .pane-navigation {
+    position: absolute;
+    z-index: 10;
+    top: 0;
+    left: 0;
+  }
+  .has-content
+    .workspace-content:has(.note-reader, .chat-session)
+    > .pane-navigation {
+    top: 8px;
+  }
+}
+@media (max-width: 639px) {
+  .workspace-brand {
+    display: none;
+  }
+  .workspace-header {
+    padding-inline: 12px;
+  }
+  .workspace-header-side:first-child {
+    flex: auto;
+  }
+}
+</style>

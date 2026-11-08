@@ -57,6 +57,16 @@ withDefaults(defineProps<{ hero?: boolean }>(), { hero: false });
 </template>
 
 <style scoped>
+.brand {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 0.2em;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ui-text-highlighted);
+  white-space: nowrap;
+}
+
 .brand-header {
   font-size: 1.5rem;
 }

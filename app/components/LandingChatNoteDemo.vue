@@ -375,6 +375,68 @@ async function go(next: Step) {
 </template>
 
 <style scoped>
+.note-reader-toolbar,
+.chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--ui-border);
+}
+.note-reader-toolbar {
+  justify-content: space-between;
+}
+.chat-send {
+  flex-shrink: 0;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 6px;
+  border-radius: 999px;
+}
+.chat-actions {
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.chat-secondary-actions {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+.chat-secondary-actions :deep(> button) {
+  flex-shrink: 0;
+}
+.chat-secondary-actions :deep(> .chat-category-action) {
+  min-width: 0;
+  flex-shrink: 1;
+}
+@media (max-width: 767px) {
+  .chat-actions :deep(button) {
+    min-height: 44px;
+  }
+  .note-reader-toolbar,
+  .chat-actions {
+    padding: 8px 16px;
+  }
+  .chat-actions {
+    padding-left: 72px;
+  }
+  .chat-actions :deep(> button) {
+    flex-shrink: 0;
+  }
+  .chat-category-prefix {
+    display: none;
+  }
+  .chat-send {
+    width: 44px;
+    height: 44px;
+  }
+}
+
 .note-demo {
   width: 100%;
   text-align: left;

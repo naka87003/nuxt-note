@@ -28,3 +28,12 @@ watch(
     />
   </div>
 </template>
+
+<style scoped>
+.chat-page {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+</style>

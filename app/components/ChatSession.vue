@@ -523,3 +523,140 @@ async function remove() {
     </UModal>
   </div>
 </template>
+
+<style scoped>
+.chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 64px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--ui-border);
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+.new-chat {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 32px;
+}
+.new-chat-category {
+  position: absolute;
+  top: 12px;
+  right: 32px;
+  max-width: calc(100% - 64px);
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--ui-bg-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+.new-chat-card {
+  width: 100%;
+  max-width: 800px;
+  padding: 24px;
+  background: var(--ui-bg-elevated);
+}
+.chat-session {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+.chat-secondary-actions {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+.chat-secondary-actions :deep(> button) {
+  flex-shrink: 0;
+}
+.chat-secondary-actions :deep(> .chat-category-action) {
+  min-width: 0;
+  flex-shrink: 1;
+}
+.chat-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.chat-inner {
+  width: 100%;
+  max-width: 800px;
+  margin-inline: auto;
+  padding: 16px 32px;
+}
+.chat-user-message {
+  width: 70%;
+  margin-left: auto;
+  padding: 16px;
+  background: var(--ui-bg-muted);
+  border: 1px solid var(--ui-border);
+  border-radius: 4px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.chat-assistant-message {
+  padding-block: 16px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.chat-composer-container {
+  position: relative;
+  flex-shrink: 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.chat-scroll-bottom {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 44px;
+  min-height: 44px;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--ui-bg);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 15%);
+}
+@media (max-width: 767px) {
+  .chat-actions :deep(button) {
+    min-height: 44px;
+  }
+  .chat-actions {
+    padding: 8px 16px 8px 72px;
+  }
+  .chat-actions :deep(> button) {
+    flex-shrink: 0;
+  }
+  .chat-category-prefix {
+    display: none;
+  }
+  .new-chat {
+    padding: 8px;
+  }
+  .new-chat-category {
+    right: 16px;
+    max-width: calc(100% - 88px);
+  }
+  .new-chat-card {
+    padding: 24px 12px;
+  }
+  .chat-inner {
+    padding: 16px;
+  }
+}
+.chat-page {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+</style>

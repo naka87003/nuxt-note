@@ -220,3 +220,80 @@ function date(value: string) {
     </div>
   </section>
 </template>
+
+<style scoped>
+.workspace-list {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 340px;
+  min-height: 0;
+  min-width: 0;
+  border-right: 1px solid var(--ui-border);
+}
+.list-controls {
+  padding: 16px 16px 8px;
+}
+.list-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.list-heading-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 32px;
+}
+.list-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 36px;
+}
+.list-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 16px 16px;
+}
+.content-list-item {
+  display: block;
+  min-height: 88px;
+  padding: 14px;
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+}
+.content-list-item:hover,
+.content-list-item.active {
+  background: var(--ui-bg-elevated);
+}
+.content-list-item.active h3 {
+  color: var(--ui-primary);
+}
+@media (min-width: 768px) and (max-width: 959px) {
+  .workspace-list {
+    flex-basis: 280px;
+  }
+}
+@media (max-width: 767px) {
+  .list-toggle {
+    display: none;
+  }
+  .workspace-list {
+    flex: 1;
+    border: 0;
+  }
+  .list-controls :deep(button),
+  .list-controls :deep(a) {
+    min-height: 44px;
+  }
+}
+.content-list-item:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: -2px;
+}
+</style>
