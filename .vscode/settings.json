@@ -1,0 +1,5 @@
+{
+  "files.associations": {
+    "**/app/assets/css/main.css": "tailwindcss"
+  }
+}
