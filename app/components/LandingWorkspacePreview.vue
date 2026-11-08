@@ -324,7 +324,7 @@ const visibleGroups = computed(() =>
   gap: 13px;
 }
 .header-actions > .iconify {
-  color: var(--ui-text);
+  color: color-mix(in oklab, var(--ui-text-dimmed) 80%, transparent);
   width: 20px;
   height: 20px;
 }

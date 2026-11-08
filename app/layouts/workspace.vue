@@ -195,7 +195,11 @@ async function saveCategory() {
           icon="i-lucide-panel-left-open"
           color="neutral"
           variant="ghost"
-          class="workspace-menu"
+          class="group workspace-menu"
+          :ui="{
+            leadingIcon:
+              'text-dimmed/80 transition-colors group-hover:text-default group-focus-visible:text-default',
+          }"
           aria-label="Toggle categories"
           :aria-expanded="drawer"
           @click="drawer = true"
@@ -205,7 +209,11 @@ async function saveCategory() {
             :icon="sidebarToggleIcon"
             color="neutral"
             variant="ghost"
-            class="desktop-menu"
+            class="group desktop-menu"
+            :ui="{
+              leadingIcon:
+                'text-dimmed/80 transition-colors group-hover:text-default group-focus-visible:text-default',
+            }"
             aria-label="Toggle categories"
             :aria-expanded="sidebar"
             @click="sidebar = !sidebar"
