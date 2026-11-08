@@ -20,7 +20,7 @@ const transfer = {
 };
 
 beforeEach(async () => {
-  clearNuxtState(["chat-note-transfer", "note-draft-return"]);
+  clearNuxtState("chat-note-transfer");
   navigate.mockReset();
   useUserSession().session.value = {
     id: "test-session",

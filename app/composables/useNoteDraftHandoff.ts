@@ -6,10 +6,6 @@ export function useNoteDraftHandoff() {
     "chat-note-transfer",
     () => null,
   );
-  const returnTo = useState<NoteDraftTransfer["returnTo"] | null>(
-    "note-draft-return",
-    () => null,
-  );
 
   function consume() {
     const transfer = pending.value;
@@ -40,5 +36,5 @@ export function useNoteDraftHandoff() {
     }
   }
 
-  return { open, consume, returnTo };
+  return { open, consume };
 }

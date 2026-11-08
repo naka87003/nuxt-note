@@ -12,10 +12,6 @@ const {
   location,
   createLocation,
 } = useWorkspace();
-const { returnTo: draftReturnTo } = useNoteDraftHandoff();
-const backToChat = computed(
-  () => route.path === "/notes/new" && !!draftReturnTo.value,
-);
 
 const workspaceRoot = useTemplateRef("workspaceRoot");
 
@@ -264,18 +260,17 @@ async function saveCategory() {
         </UTooltip>
       </div>
       <main class="workspace-content">
-        <div class="pane-navigation">
+        <div v-if="!isEditor" class="pane-navigation">
           <UButton
-            :to="
-              backToChat && draftReturnTo ? draftReturnTo : location(`/${mode}`)
-            "
+            :to="location(`/${mode}`)"
             icon="i-lucide-arrow-left"
             color="neutral"
             variant="ghost"
             class="mobile-back"
-            :aria-label="backToChat ? 'Back to chat' : 'Back to list'"
-            >Back</UButton
+            aria-label="Back to list"
           >
+            Back
+          </UButton>
         </div>
         <slot />
       </main>

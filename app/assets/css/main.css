@@ -231,9 +231,6 @@ body {
   align-items: center;
   flex-shrink: 0;
 }
-.pane-navigation:empty {
-  display: none;
-}
 .list-hidden .workspace-list {
   display: none;
 }
@@ -787,9 +784,6 @@ body {
   }
   .note-view-tab-indicator {
     top: 8px;
-  }
-  .has-content .note-editor {
-    padding: 44px 0 0;
   }
   .note-editor-actions,
   .note-editor-fields,

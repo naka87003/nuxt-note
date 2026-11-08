@@ -7,13 +7,9 @@ definePageMeta({
   key: (route) => route.fullPath,
 });
 const { categoryId, filter, location } = useWorkspace();
-const { consume, returnTo: draftReturnTo } = useNoteDraftHandoff();
+const { consume } = useNoteDraftHandoff();
 // Consume once. Reloading or opening another new-note screen starts a blank note.
 const transfer = consume();
-draftReturnTo.value = transfer?.returnTo ?? null;
-onBeforeUnmount(() => {
-  draftReturnTo.value = null;
-});
 async function saved(note: SavedNote) {
   await navigateTo(
     location(
