@@ -255,8 +255,7 @@ async function remove() {
         <UButton
           color="primary"
           variant="solid"
-          size="xs"
-          class="font-bold"
+          class="min-w-20 justify-center"
           :disabled="!canCreateNote"
           @click="confirmNote"
         >
@@ -266,23 +265,21 @@ async function remove() {
           <UButton
             color="neutral"
             variant="soft"
-            size="xs"
-            class="chat-category-action font-bold"
+            class="chat-category-action"
             :title="`Category: ${categoryName}`"
             :aria-label="`Category: ${categoryName}`"
             :disabled="generating || creatingNote || !persisted"
             @click="assign"
           >
-            <span class="truncate"
-              ><span class="chat-category-prefix">Category: </span
-              >{{ categoryName }}</span
-            >
+            <span class="truncate">
+              <span class="chat-category-prefix">Category: </span>
+              {{ categoryName }}
+            </span>
           </UButton>
           <UButton
             color="neutral"
             variant="soft"
-            size="xs"
-            class="font-bold"
+            class="min-w-16 justify-center"
             :disabled="generating || creatingNote || !persisted"
             @click="
               failure = '';

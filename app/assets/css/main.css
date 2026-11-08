@@ -260,15 +260,18 @@ body {
   min-height: 0;
   overflow-y: auto;
 }
-.note-reader-toolbar {
+.note-reader-toolbar,
+.chat-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   min-height: 64px;
   padding: 12px 24px;
   border-bottom: 1px solid var(--ui-border);
+}
+.note-reader-toolbar {
+  justify-content: space-between;
 }
 .note-reader-meta {
   flex: 1 1 240px;
@@ -351,10 +354,8 @@ body {
   flex-direction: column;
 }
 .chat-actions {
-  display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding: 6px 20px;
   flex-shrink: 0;
 }
 .chat-secondary-actions {
@@ -495,6 +496,7 @@ body {
   .workspace-header button,
   .workspace-header a:not(.workspace-brand),
   .chat-actions button,
+  .note-reader-actions button,
   .list-controls button,
   .list-controls a {
     min-height: 44px;
@@ -508,9 +510,29 @@ body {
   .note-reader-error {
     margin: 60px 16px 16px;
   }
-  .note-reader-toolbar {
+  .note-reader-toolbar,
+  .chat-actions {
     padding: 8px 16px;
-    border-bottom: 0;
+  }
+  .has-content .pane-navigation {
+    position: absolute;
+    z-index: 10;
+    top: 0;
+    left: 0;
+  }
+  .has-content
+    .workspace-content:has(.note-reader, .chat-session)
+    > .pane-navigation {
+    top: 8px;
+  }
+  .chat-actions {
+    padding-left: 72px;
+  }
+  .chat-actions > button {
+    flex-shrink: 0;
+  }
+  .chat-category-prefix {
+    display: none;
   }
   .note-reader-meta {
     flex-basis: 100%;
@@ -528,9 +550,6 @@ body {
   }
   .chat-inner {
     padding: 16px;
-  }
-  .chat-actions {
-    padding: 0 16px 8px;
   }
   .chat-send {
     width: 44px;
@@ -579,30 +598,6 @@ body {
 .in-drawer .category-scroll > button {
   min-height: 44px;
 }
-@media (max-width: 767px) {
-  .has-content .pane-navigation {
-    position: absolute;
-    z-index: 10;
-    top: 0;
-    left: 0;
-  }
-  .has-content .workspace-content:has(.note-reader) > .pane-navigation {
-    top: 8px;
-  }
-  .chat-actions {
-    min-height: 44px;
-    padding-left: 72px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  .chat-actions > button {
-    flex-shrink: 0;
-  }
-  .chat-category-prefix {
-    display: none;
-  }
-}
-
 .chat-composer textarea {
   max-height: 160px;
   overflow-y: auto;
@@ -802,8 +797,7 @@ body {
   .note-preview-pane {
     padding: 16px;
   }
-  .note-editor-actions button,
-  .note-reader-actions button {
+  .note-editor-actions button {
     min-height: 44px;
   }
   .note-editor-panes[data-view="split"] > * {

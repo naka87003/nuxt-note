@@ -510,26 +510,34 @@ small {
 .sample-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
   justify-content: space-between;
   align-items: center;
-  min-height: 40px;
-  padding: 6px 16px;
+  min-height: 64px;
+  padding: 12px 24px;
   border-bottom: 1px solid var(--ui-border);
 }
-.sample-toolbar > div {
+.sample-actions {
   display: flex;
   gap: 8px;
   margin-left: auto;
-}
-.sample-actions {
   flex-wrap: wrap;
   justify-content: flex-end;
   min-width: 0;
 }
 .sample-actions > .sample-primary,
 .sample-secondary-actions > span {
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 14px;
   white-space: nowrap;
+}
+.sample-actions > .sample-primary,
+.sample-secondary-actions > .sample-primary {
+  min-width: 80px;
+}
+.sample-secondary-actions > .sample-soft:last-child {
+  min-width: 64px;
 }
 .sample-secondary-actions {
   display: flex;
@@ -662,11 +670,25 @@ small {
     margin-block: 2px;
   }
   .is-compact .sample-toolbar {
-    min-height: 20px;
-    padding: 3px 8px;
+    min-height: 32px;
+    gap: 6px;
+    padding: 6px 12px;
   }
-  .is-compact .sample-toolbar > div {
+  .is-compact .sample-actions {
     gap: 4px;
+  }
+  .is-compact .sample-actions > .sample-primary,
+  .is-compact .sample-secondary-actions > span {
+    min-height: 16px;
+    padding: 3px 5px;
+    font-size: 7px;
+  }
+  .is-compact .sample-actions > .sample-primary,
+  .is-compact .sample-secondary-actions > .sample-primary {
+    min-width: 40px;
+  }
+  .is-compact .sample-secondary-actions > .sample-soft:last-child {
+    min-width: 32px;
   }
   .is-note-draft .sample-app {
     height: 800px;
@@ -702,9 +724,9 @@ small {
   .is-chat .sample-brand :deep(.brand-symbol) {
     width: 31px;
   }
-  .is-chat .sample-primary,
-  .is-chat .sample-soft,
-  .is-chat .sample-outline {
+  .sample-primary,
+  .sample-soft,
+  .sample-outline {
     padding: 4px 12px;
     font-size: 12px;
   }
@@ -725,10 +747,6 @@ small {
   }
   .is-chat .sample-list-card p {
     font-size: 12px;
-  }
-  .is-chat .sample-toolbar {
-    min-height: 44px;
-    padding: 6px 18px;
   }
 }
 @media (min-width: 768px) and (max-width: 959px) {
@@ -784,9 +802,7 @@ small {
     font-size: 12px;
   }
   .sample-toolbar {
-    min-height: 54px;
-    padding: 8px 14px;
-    border: 0;
+    padding: 8px 16px;
   }
   .sample-note-meta {
     flex-basis: 100%;
@@ -796,13 +812,9 @@ small {
   .back-label {
     display: block;
   }
-  .is-chat .sample-actions > .sample-primary,
-  .is-chat .sample-secondary-actions > .sample-soft {
+  .sample-actions > .sample-primary,
+  .sample-secondary-actions > span {
     min-height: 44px;
-    padding-inline: 6px;
-  }
-  .is-note-draft {
-    border-radius: 8px;
   }
 }
 </style>

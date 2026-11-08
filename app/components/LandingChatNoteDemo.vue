@@ -182,9 +182,11 @@ async function go(next: Step) {
         <div class="demo-content">
           <div v-if="showingChat" class="demo-chat" :inert="step !== 'chat'">
             <div class="chat-actions">
-              <button
+              <UButton
                 type="button"
-                class="demo-button demo-primary"
+                color="primary"
+                variant="solid"
+                class="min-w-20 justify-center"
                 :class="{ 'demo-highlight': step === 'chat' }"
                 data-demo-focus
                 :aria-describedby="hintId"
@@ -192,13 +194,26 @@ async function go(next: Step) {
               >
                 Generate note
                 <LandingClickCue v-if="step === 'chat'" />
-              </button>
+              </UButton>
               <div class="chat-secondary-actions" aria-hidden="true">
-                <span class="demo-soft">
-                  <span class="chat-category-prefix">Category: </span>
-                  Nuxt
-                </span>
-                <span class="demo-soft">Delete</span>
+                <UButton
+                  as="span"
+                  color="neutral"
+                  variant="soft"
+                  class="chat-category-action"
+                >
+                  <span class="truncate">
+                    <span class="chat-category-prefix">Category: </span>
+                    Nuxt
+                  </span>
+                </UButton>
+                <UButton
+                  as="span"
+                  color="neutral"
+                  variant="soft"
+                  class="min-w-16 justify-center"
+                  >Delete</UButton
+                >
               </div>
             </div>
             <div class="demo-conversation">
@@ -261,7 +276,7 @@ async function go(next: Step) {
             </template>
           </NoteEditorForm>
           <div v-if="step === 'done'" class="demo-saved">
-            <div class="demo-toolbar">
+            <div class="note-reader-toolbar shrink-0">
               <span class="demo-saved-label">
                 <LandingDemoSuccess /> Saved to Notes
               </span>
@@ -431,15 +446,6 @@ async function go(next: Step) {
   flex: 1;
   min-height: 0;
 }
-.demo-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--ui-border);
-  flex-shrink: 0;
-}
 .demo-button {
   display: inline-flex;
   align-items: center;
@@ -457,11 +463,6 @@ async function go(next: Step) {
 .demo-button:hover {
   filter: brightness(0.94);
 }
-.demo-primary {
-  color: var(--ui-bg);
-  background: var(--ui-primary);
-  border-color: var(--ui-primary);
-}
 .demo-modal-target,
 .demo-highlight {
   position: relative;
@@ -474,14 +475,6 @@ async function go(next: Step) {
   box-shadow:
     var(--spotlight-glow),
     0 0 0 200vmax rgb(8 14 20 / 28%);
-}
-.demo-soft {
-  align-self: center;
-  background: var(--ui-bg-elevated);
-  padding: 5px 9px;
-  border-radius: 4px;
-  white-space: nowrap;
-  font-weight: 600;
 }
 @media (prefers-reduced-motion: no-preference) {
   .demo-modal-target,
@@ -505,9 +498,6 @@ async function go(next: Step) {
 .demo-button:focus-visible {
   outline: 3px solid var(--ui-text);
   outline-offset: 3px;
-}
-.demo-button.demo-highlight:focus-visible {
-  outline-color: var(--spotlight-color);
 }
 .demo-conversation {
   display: flex;
@@ -568,5 +558,10 @@ h3 {
   color: var(--ui-text-muted);
   font-size: 12px;
   margin-top: 12px;
+}
+@media (max-width: 767px) {
+  .chat-secondary-actions > span {
+    min-height: 44px;
+  }
 }
 </style>
