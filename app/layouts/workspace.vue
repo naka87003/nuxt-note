@@ -282,7 +282,7 @@ async function saveCategory() {
       description="Choose a category or workspace"
       :ui="{
         content: 'category-drawer',
-        body: 'p-0 min-h-0 flex flex-col',
+        body: 'p-0 sm:p-0 min-h-0 flex flex-col',
         header: 'min-h-14',
         close: 'min-h-11 min-w-11',
       }"
