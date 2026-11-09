@@ -304,7 +304,10 @@ async function remove() {
               {{ message.content }}
             </template>
             <template v-else>
-              <MarkdownContent :content="message.content" />
+              <MarkdownContent
+                :content="message.content"
+                :streaming="message.status === 'streaming'"
+              />
               <p
                 v-if="message.status === 'stopped'"
                 class="text-sm text-dimmed"

@@ -17,8 +17,10 @@ export default defineEventHandler(async (event) => {
     },
     orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
   });
-  return notes.map(({ markdown, ...note }) => ({
-    ...note,
-    preview: contentPreview(markdown),
-  }));
+  return Promise.all(
+    notes.map(async ({ markdown, ...note }) => ({
+      ...note,
+      preview: await contentPreview(markdown),
+    })),
+  );
 });

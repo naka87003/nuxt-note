@@ -96,6 +96,7 @@ describe("ChatSession", () => {
     expect(flow.draft.value).toBe("Question");
     await wrapper.get("form").trigger("submit");
     expect(flow.send).toHaveBeenCalledTimes(1);
+    await flushPromises();
     expect(wrapper.text()).toContain("Answer");
   });
 

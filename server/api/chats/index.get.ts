@@ -20,8 +20,10 @@ export default defineEventHandler(async (event) => {
     },
     orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
   });
-  return chats.map(({ messages, ...chat }) => ({
-    ...chat,
-    preview: contentPreview(messages[0]?.content ?? ""),
-  }));
+  return Promise.all(
+    chats.map(async ({ messages, ...chat }) => ({
+      ...chat,
+      preview: await contentPreview(messages[0]?.content ?? ""),
+    })),
+  );
 });

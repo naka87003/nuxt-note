@@ -50,6 +50,7 @@ const categoryOptions = ["Uncategorized", "English", "Nuxt", "TypeScript"].map(
 const title = ref(initialTitle);
 const displayTitle = computed(() => title.value.trim() || "Untitled note");
 const markdown = ref(initialMarkdown);
+const previewContent = ref("");
 const root = useTemplateRef("root");
 const editor = useTemplateRef("editor");
 const hintId = useId();
@@ -126,6 +127,8 @@ async function dismissDialog() {
 }
 
 async function go(next: Step) {
+  if (next === "done")
+    previewContent.value = await contentPreview(markdown.value);
   clearTimeout(transitionTimer);
   if (next === "chat" && (step.value === "done" || step.value === "edit")) {
     category.value = "Nuxt";
@@ -176,7 +179,7 @@ async function go(next: Step) {
       note-draft
       :hide-list="editing"
       :saved-category="step === 'done' ? category : undefined"
-      :preview-content="step === 'done' ? contentPreview(markdown) : undefined"
+      :preview-content="step === 'done' ? previewContent : undefined"
       :preview-title="step === 'done' ? displayTitle : undefined"
     >
       <template #content>

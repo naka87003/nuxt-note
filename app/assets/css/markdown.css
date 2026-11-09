@@ -1,0 +1,61 @@
+.markdown-content {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.markdown-content :deep(:is(h1, h2, h3)) {
+  font-weight: 600;
+  line-height: 1.3;
+}
+.markdown-content :deep(h1) {
+  font-size: 1.5rem;
+}
+.markdown-content :deep(h2) {
+  font-size: 1.25rem;
+}
+.markdown-content :deep(h3) {
+  font-size: 1.125rem;
+}
+.markdown-content :deep(:is(ul, ol)) {
+  padding-left: 1.5rem;
+}
+.markdown-content :deep(ul) {
+  list-style: disc;
+}
+.markdown-content :deep(ol) {
+  list-style: decimal;
+}
+.markdown-content :deep(pre) {
+  max-width: 100%;
+  overflow-x: auto;
+  color: #e1e4e8; /* Figma syntax/github-dark/foreground */
+  white-space: pre;
+  overflow-wrap: normal;
+}
+.markdown-content :deep(code) {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+.markdown-content :deep(:not(pre) > code) {
+  background: var(--ui-bg-muted);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.markdown-content :deep(a) {
+  color: var(--ui-primary);
+  text-decoration: underline;
+}
+.markdown-content :deep(blockquote) {
+  border-left: 3px solid var(--ui-border-accented);
+  padding-left: 16px;
+  color: var(--ui-text-dimmed);
+}
+.markdown-content :deep(table) {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.markdown-content :deep(:is(th, td)) {
+  border: 1px solid var(--ui-border);
+  padding: 8px;
+}

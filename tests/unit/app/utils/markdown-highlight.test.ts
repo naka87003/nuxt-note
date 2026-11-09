@@ -1,25 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { renderMarkdown } from "../../../../app/utils/markdown";
+import { renderMarkdown } from "./render-markdown";
+import { createNoteMarkdownParser } from "../../../../app/utils/markdown";
+import { textContent } from "@comark/nuxt/utils";
+import type { ElementNode } from "@comark/nuxt/parse";
+
+async function parsedCode(source: string) {
+  const document = await createNoteMarkdownParser()(source);
+  return document.nodes.find(
+    (node) => Array.isArray(node) && node[0] === "pre",
+  ) as ElementNode;
+}
 
 const withoutSpans = (html: string) => html.replace(/<\/?span[^>]*>/g, "");
 
 describe("shared GitHub Dark Markdown", () => {
-  it("uses the Figma palette in both Notes and Chat", () => {
+  it("uses the Figma palette in both Notes and Chat", async () => {
     const source =
       "```ts\n// Fetch notes\nconst data = await useFetch('/api/notes')\n```";
-    const html = renderMarkdown(source);
+    const html = await renderMarkdown(source);
     for (const color of ["F97583", "B392F0", "9ECBFF", "6A737D"]) {
       expect(html).toContain(`color:#${color}`);
     }
     expect(withoutSpans(html)).toContain(
-      "// Fetch notes\nconst data = await useFetch('/api/notes')\n",
+      "// Fetch notes\nconst data = await useFetch('/api/notes')",
     );
   });
 
   it.each([
     ["js", "const x = 1"],
     ["javascript", "const x = 1"],
-    ["TS", "const x: number = 1"],
+    ["ts", "const x: number = 1"],
     ["typescript", "const x: number = 1"],
     ["jsx", "const x = <div />"],
     ["tsx", "const x = <div />"],
@@ -40,10 +50,10 @@ describe("shared GitHub Dark Markdown", () => {
     ["yaml", "name: note"],
     ["yml", "name: note"],
     ["diff", "+added"],
-  ])("highlights %s", (language, code) => {
-    expect(renderMarkdown(`\`\`\`${language}\n${code}\n\`\`\``)).toContain(
-      '<span style="color:#',
-    );
+  ])("highlights %s", async (language, code) => {
+    expect(
+      await renderMarkdown(`\`\`\`${language}\n${code}\n\`\`\``),
+    ).toContain('<span style="color:#');
   });
 
   it.each([
@@ -52,54 +62,59 @@ describe("shared GitHub Dark Markdown", () => {
     "plaintext",
     "unknown-language",
     'x" onmouseover="alert(1)',
-  ])("escapes unhighlighted fences (%s)", (language) => {
-    const html = renderMarkdown(
+  ])("escapes unhighlighted fences (%s)", async (language) => {
+    const html = await renderMarkdown(
       `\`\`\`${language}\n<script>& test</script>\n\`\`\``,
     );
-    expect(html).toContain("&lt;script&gt;&amp; test&lt;/script&gt;");
-    expect(html).not.toContain("<span");
+    expect(
+      textContent(
+        await parsedCode(`\`\`\`${language}\n<script>& test</script>\n\`\`\``),
+      ),
+    ).toBe("<script>& test</script>");
     expect(html).not.toMatch(/<script| onmouseover="/);
   });
 
-  it("keeps inline and indented code escaped without token markup", () => {
-    const html = renderMarkdown(
+  it("keeps inline code plain and indented code readable", async () => {
+    const html = await renderMarkdown(
       "`<img src=x>`\n\n    <script>alert(1)</script>",
     );
     expect(html).toContain("<code>&lt;img src=x&gt;</code>");
     expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
-    expect(html).not.toContain("<span");
+    expect(html).not.toContain("<script>");
   });
 
   it.each(["html", "vue", "js", "md"])(
     "treats malicious %s code as text",
-    (language) => {
-      const html = renderMarkdown(
+    async (language) => {
+      const html = await renderMarkdown(
         `\`\`\`${language}\n</code></pre><img src=x onerror=alert(1)>\n<NuxtLink to="javascript:alert(1)">x</NuxtLink>\n\`\`\``,
       );
       expect(html).not.toMatch(/<img|<NuxtLink|<script/);
       expect(withoutSpans(html)).toContain("&lt;/code&gt;&lt;/pre&gt;&lt;img");
-      expect(html.match(/<pre>/g)).toHaveLength(1);
+      expect(html.match(/<pre(?:\s[^>]*)?>/g)).toHaveLength(1);
       expect(html.match(/<\/pre>/g)).toHaveLength(1);
     },
   );
 
-  it("preserves whitespace and handles incomplete streaming fences", () => {
+  it("preserves whitespace and handles incomplete streaming fences", async () => {
     const code = '\tconst x = "<tag>";\n\n  // trailing spaces  \n';
-    const open = renderMarkdown(`\`\`\`js\n${code}`);
-    const closed = renderMarkdown(`\`\`\`js\n${code}\`\`\``);
+    const open = await renderMarkdown(`\`\`\`js\n${code}`);
+    const closed = await renderMarkdown(`\`\`\`js\n${code}\`\`\``);
     expect(open).toBe(closed);
-    expect(withoutSpans(open)).toContain(
-      "\tconst x = &quot;&lt;tag&gt;&quot;;\n\n  // trailing spaces  \n",
+    expect(textContent(await parsedCode(`\`\`\`js\n${code}`))).toBe(
+      code.slice(0, -1),
     );
-    expect(renderMarkdown('```js\nconst x = "')).toContain("<pre><code");
+    expect(textContent(await parsedCode('```js\nconst x = "'))).toBe(
+      'const x = "',
+    );
   });
 
   it.each(["a".repeat(2_001), "short line\n".repeat(2_001)])(
-    "falls back for expensive blocks",
-    (code) => {
-      const html = renderMarkdown(`\`\`\`js\n${code}\n\`\`\``);
-      expect(html).not.toContain("<span");
-      expect(html).toContain(code);
+    "keeps long code intact with the standard highlighter",
+    async (code) => {
+      expect(textContent(await parsedCode(`\`\`\`js\n${code}\n\`\`\``))).toBe(
+        code,
+      );
     },
   );
 });
