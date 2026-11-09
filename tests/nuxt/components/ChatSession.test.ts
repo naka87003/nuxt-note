@@ -90,6 +90,72 @@ async function mountSession() {
 }
 
 describe("ChatSession", () => {
+  it("keeps following when asynchronous Markdown grows after the stream update", async () => {
+    let notify!: ResizeObserverCallback;
+    const observed = new Set<Element>();
+    const observer = {
+      observe: (element: Element) => observed.add(element),
+      disconnect: () => observed.clear(),
+      unobserve: (element: Element) => observed.delete(element),
+    };
+    vi.stubGlobal(
+      "ResizeObserver",
+      vi.fn(function (callback: ResizeObserverCallback) {
+        notify = callback;
+        return observer;
+      }),
+    );
+    const wrapper = await mountSession();
+    await flushPromises();
+    const pane = wrapper.get(".chat-messages").element as HTMLElement;
+    const content = pane.firstElementChild!;
+    let height = 1000;
+    let top = 0;
+    Object.defineProperties(pane, {
+      scrollHeight: { get: () => height, configurable: true },
+      clientHeight: { get: () => 300, configurable: true },
+      scrollTop: {
+        get: () => top,
+        set: (value: number) => {
+          top = Math.max(0, Math.min(value, height - 300));
+        },
+        configurable: true,
+      },
+    });
+    notify([], observer as ResizeObserver);
+    expect(top).toBe(700);
+
+    // A scroll event queued by the previous automatic scroll can arrive after
+    // Comark has increased the content height. No user has scrolled upward.
+    height = 1400;
+    await wrapper.get(".chat-messages").trigger("scroll");
+    expect(observed.has(content)).toBe(true);
+    notify([], observer as ResizeObserver);
+    await nextTick();
+    expect(top).toBe(1100);
+    expect(
+      wrapper.find('[aria-label="Scroll to latest message"]').exists(),
+    ).toBe(false);
+
+    top = 800;
+    await wrapper.get(".chat-messages").trigger("scroll");
+    expect(
+      wrapper.find('[aria-label="Scroll to latest message"]').exists(),
+    ).toBe(true);
+    height = 1800;
+    notify([], observer as ResizeObserver);
+    await nextTick();
+    expect(top).toBe(800);
+
+    await wrapper
+      .get('[aria-label="Scroll to latest message"]')
+      .trigger("click");
+    expect(top).toBe(1500);
+    height = 2000;
+    notify([], observer as ResizeObserver);
+    expect(top).toBe(1700);
+  });
+
   it("connects the composer draft and send action to generation", async () => {
     const wrapper = await mountSession();
     await wrapper.get("textarea").setValue("Question");

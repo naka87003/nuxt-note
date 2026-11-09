@@ -77,8 +77,10 @@ function messageClass(role: string) {
 }
 
 const messagePane = ref<HTMLElement>();
+const messageContent = ref<HTMLElement>();
 const followBottom = ref(true);
 const hasNewMessages = ref(false);
+let lastScrollTop = 0;
 
 function scrollToBottom() {
   const pane = messagePane.value;
@@ -86,19 +88,26 @@ function scrollToBottom() {
   followBottom.value = true;
   hasNewMessages.value = false;
   pane.scrollTop = pane.scrollHeight;
+  lastScrollTop = pane.scrollTop;
 }
 
 let paneObserver: ResizeObserver | undefined;
-watch(messagePane, (pane) => {
-  paneObserver?.disconnect();
-  if (!pane) return;
-  scrollToBottom();
-  paneObserver = new ResizeObserver(() => {
-    if (followBottom.value) scrollToBottom();
-    else onScroll();
-  });
-  paneObserver.observe(pane);
-});
+watch(
+  [messagePane, messageContent],
+  ([pane, content]) => {
+    paneObserver?.disconnect();
+    if (!pane || !content) return;
+    scrollToBottom();
+    paneObserver = new ResizeObserver(() => {
+      if (followBottom.value) scrollToBottom();
+      else onScroll();
+    });
+    paneObserver.observe(pane);
+    // Comark can change the content height after the message's nextTick.
+    paneObserver.observe(content);
+  },
+  { flush: "post" },
+);
 onBeforeUnmount(() => paneObserver?.disconnect());
 
 watch(
@@ -116,8 +125,11 @@ watch(
 function onScroll() {
   const pane = messagePane.value;
   if (pane) {
-    followBottom.value =
+    const atBottom =
       pane.scrollHeight - pane.scrollTop - pane.clientHeight < 80;
+    if (atBottom) followBottom.value = true;
+    else if (pane.scrollTop < lastScrollTop) followBottom.value = false;
+    lastScrollTop = pane.scrollTop;
     if (followBottom.value) hasNewMessages.value = false;
   }
 }
@@ -291,7 +303,7 @@ async function remove() {
         </div>
       </div>
       <div ref="messagePane" class="chat-messages" @scroll="onScroll">
-        <div class="chat-inner space-y-6">
+        <div ref="messageContent" class="chat-inner space-y-6">
           <h1 class="text-2xl font-semibold wrap-break-word">
             <TypewriterText :text="chat.title || 'Untitled chat'" />
           </h1>
