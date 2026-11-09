@@ -1,9 +1,6 @@
 export default defineNuxtConfig({
   compatibilityDate: "2026-11-03",
   devtools: { enabled: true },
-  routeRules: {
-    "/": { prerender: true },
-  },
   modules: ["@comark/nuxt", "@nuxt/ui", "@nuxt/eslint", "nuxt-auth-utils"],
   css: ["@fontsource-variable/inter/index.css", "~/assets/css/main.css"],
   ui: {
