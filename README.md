@@ -52,6 +52,12 @@ cp .env.example .env
 
 Configure `.env` before starting the app. The landing page can be viewed without a database connection.
 
+The landing page (`/`) is prerendered at build time; authenticated workspaces,
+OAuth and APIs continue to run on the server. Keep using `pnpm build` for this
+hybrid deployment. On the landing page, `nuxt-auth-utils` fetches the session in
+the browser to update the calls to action. Saved theme colors are restored after
+mounting so hydration matches the default colors in the static HTML.
+
 ```bash
 pnpm dev
 ```

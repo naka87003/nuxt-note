@@ -2,7 +2,7 @@ import colors from "tailwindcss/colors";
 import { nuxtSymbolPath } from "~/utils/brand";
 import { neutralColors, primaryColors, resolveThemeColor } from "~/utils/theme";
 
-export default defineNuxtPlugin(() => {
+export default defineNuxtPlugin((nuxtApp) => {
   const appConfig = useAppConfig();
   const options = {
     maxAge: 60 * 60 * 24 * 365,
@@ -12,16 +12,25 @@ export default defineNuxtPlugin(() => {
   const primary = useCookie<string>("nuxt-note-primary", options);
   const neutral = useCookie<string>("nuxt-note-neutral", options);
 
-  appConfig.ui.colors.primary = resolveThemeColor(
-    primary.value,
-    primaryColors,
-    "green",
-  );
-  appConfig.ui.colors.neutral = resolveThemeColor(
-    neutral.value,
-    neutralColors,
-    "gray",
-  );
+  function restoreTheme() {
+    appConfig.ui.colors.primary = resolveThemeColor(
+      primary.value,
+      primaryColors,
+      "green",
+    );
+    appConfig.ui.colors.neutral = resolveThemeColor(
+      neutral.value,
+      neutralColors,
+      "gray",
+    );
+  }
+
+  if (import.meta.client && nuxtApp.payload.prerenderedAt) {
+    // Match the static HTML before restoring this browser's saved colors.
+    nuxtApp.hook("app:mounted", restoreTheme);
+  } else {
+    restoreTheme();
+  }
 
   useHead(() => {
     const name = resolveThemeColor(
