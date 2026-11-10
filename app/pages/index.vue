@@ -67,6 +67,7 @@ useSeoMeta({
 
 <template>
   <div class="landing">
+    <LandingBackgroundDots />
     <a href="#main-content" class="skip-link">Skip to content</a>
     <header class="public-header">
       <NuxtLink to="/" aria-label="Nuxt Note home"><AppBrand /></NuxtLink>
@@ -277,6 +278,8 @@ useSeoMeta({
   gap: inherit;
 }
 .landing {
+  position: relative;
+  isolation: isolate;
   max-width: 1216px;
   margin-inline: auto;
   padding: 0 32px 32px;
