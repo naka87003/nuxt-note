@@ -130,28 +130,34 @@ useSeoMeta({
         <li>AI <span>conversations</span></li>
       </ul>
       <section id="notes" class="notes-section" aria-labelledby="notes-title">
-        <p class="eyebrow">YOUR NOTEBOOK, AT A GLANCE</p>
-        <h2 id="notes-title">A clear place for every idea.</h2>
-        <p class="description">
-          Collect the useful things. Give them a home. Find them when you need
-          them.
-        </p>
-        <LandingWorkspacePreview mode="notes" />
+        <div class="section-copy reveal">
+          <p class="eyebrow">YOUR NOTEBOOK, AT A GLANCE</p>
+          <h2 id="notes-title">A clear place for every idea.</h2>
+          <p class="description">
+            Collect the useful things. Give them a home. Find them when you need
+            them.
+          </p>
+        </div>
+        <div class="reveal reveal-preview">
+          <LandingWorkspacePreview mode="notes" />
+        </div>
       </section>
       <section
         id="features"
         class="features-section"
         aria-labelledby="features-title"
       >
-        <h2 id="features-title">Small tools. More room to think.</h2>
-        <p class="description">
+        <h2 id="features-title" class="reveal">
+          Small tools. More room to think.
+        </h2>
+        <p class="description reveal">
           Writing, organizing, and asking better questions — together.
         </p>
         <div class="feature-grid">
           <article
             v-for="feature in features"
             :key="feature.title"
-            class="feature-card"
+            class="feature-card reveal"
           >
             <div class="feature-art">
               <div>
@@ -167,7 +173,7 @@ useSeoMeta({
         </div>
       </section>
       <section id="ai-chat" class="ai-section" aria-labelledby="ai-title">
-        <div class="ai-copy">
+        <div class="ai-copy reveal">
           <LandingAiIllustration class="ai-art" width="144" height="144" />
           <p class="eyebrow">A CONVERSATION CAN OPEN A DOOR</p>
           <h2 id="ai-title">Go a little deeper.</h2>
@@ -176,7 +182,7 @@ useSeoMeta({
             Organize notes and conversations with shared categories.
           </p>
         </div>
-        <figure class="chat-preview">
+        <figure class="chat-preview reveal reveal-preview">
           <LandingWorkspacePreview mode="chat" />
           <figcaption class="small-copy">
             The familiar Nuxt Chat experience, inside your notebook.
@@ -188,34 +194,38 @@ useSeoMeta({
         class="chat-note-section"
         aria-labelledby="chat-note-title"
       >
-        <p class="eyebrow">
-          <span class="chat-note-eyebrow-desktop">
-            FROM CONVERSATION TO SOMETHING WORTH KEEPING
-          </span>
-          <span class="chat-note-eyebrow-mobile">
-            FROM CONVERSATION TO NOTE
-          </span>
-        </p>
-        <h2 id="chat-note-title">Turn a good conversation into a note.</h2>
-        <p class="description">
-          Turn the useful parts of a conversation into a Markdown draft. Review
-          and edit it before saving to Notes.
-        </p>
-        <LandingChatNotePreview />
+        <div class="section-copy reveal">
+          <p class="eyebrow">
+            <span class="chat-note-eyebrow-desktop">
+              FROM CONVERSATION TO SOMETHING WORTH KEEPING
+            </span>
+            <span class="chat-note-eyebrow-mobile">
+              FROM CONVERSATION TO NOTE
+            </span>
+          </p>
+          <h2 id="chat-note-title">Turn a good conversation into a note.</h2>
+          <p class="description">
+            Turn the useful parts of a conversation into a Markdown draft.
+            Review and edit it before saving to Notes.
+          </p>
+        </div>
+        <div class="reveal reveal-preview">
+          <LandingChatNotePreview />
+        </div>
       </section>
       <section class="workflow" aria-labelledby="workflow-title">
-        <h2 id="workflow-title">
+        <h2 id="workflow-title" class="reveal">
           From a passing thought to something worth keeping.
         </h2>
         <ol>
-          <li v-for="(step, index) in steps" :key="step.title">
+          <li v-for="(step, index) in steps" :key="step.title" class="reveal">
             <span class="eyebrow">0{{ index + 1 }}</span>
             <h3>{{ step.title }}</h3>
             <p>{{ step.description }}</p>
           </li>
         </ol>
       </section>
-      <section class="closing-cta" aria-labelledby="cta-title">
+      <section class="closing-cta reveal" aria-labelledby="cta-title">
         <h2 id="cta-title">Make space for your next idea.</h2>
         <p class="description">Start with a note. Follow your curiosity.</p>
         <UButton
@@ -237,6 +247,35 @@ useSeoMeta({
 </template>
 
 <style scoped>
+/* Unsupported browsers and reduced-motion preferences keep content visible. */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal {
+    animation: landing-reveal auto ease-out both;
+    animation-timeline: view();
+    animation-range: entry 0px entry 180px;
+  }
+  .reveal-preview {
+    animation-range: entry 40px entry 260px;
+  }
+  .reveal:focus-within {
+    animation: none;
+  }
+}
+@keyframes landing-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.section-copy {
+  display: flex;
+  flex-direction: column;
+  gap: inherit;
+}
 .landing {
   max-width: 1216px;
   margin-inline: auto;
