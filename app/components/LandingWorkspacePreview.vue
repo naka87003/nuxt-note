@@ -617,7 +617,7 @@ small {
   .browser-bar,
   .sample-sidebar,
   .sample-list,
-  .sample-brand,
+  .sample-header > .sample-brand,
   .sample-category-prefix,
   .header-actions > .desktop-preview-menu {
     display: none;
