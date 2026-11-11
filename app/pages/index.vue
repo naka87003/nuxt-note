@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { siteDescription, siteTitle } from "~/utils/seo";
+
 definePageMeta({ layout: false });
 const { loggedIn } = useUserSession();
 const startTo = computed(() => (loggedIn.value ? "/notes" : "/login"));
@@ -59,9 +61,8 @@ const steps = [
   { title: "Keep", description: "Save useful ideas in your own notes." },
 ];
 useSeoMeta({
-  title: "Nuxt Note — Keep your ideas. Grow your thinking.",
-  description:
-    "A focused notebook. A thoughtful AI conversation. Capture ideas in Markdown and organize notes and conversations with shared categories.",
+  title: siteTitle,
+  description: siteDescription,
 });
 </script>
 

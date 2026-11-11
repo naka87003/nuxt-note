@@ -60,6 +60,23 @@ Development URL: [http://localhost:3001](http://localhost:3001). This uses a sep
 
 See the [development guide](docs/development.md) for authentication and database setup, and the [specification](docs/specification.md) for features and interaction rules.
 
+## Social sharing image
+
+All pages use `public/images/og-image.png` (1200 × 630) for Open Graph and
+large-image Twitter/X cards. The shared artwork uses the application logo and
+landing-page copy, with visual references from [Nuxt](https://nuxt.com/) and
+[Nuxt UI](https://ui.nuxt.com/). No private note or chat content is included.
+
+`NUXT_PUBLIC_SITE_URL` sets the public origin for the absolute image URL and
+defaults to `https://nuxt-note-ivory.vercel.app`. No additional environment
+configuration is required for that domain. Set it when changing the production
+domain. The PNG is committed, so builds need no image-generation
+dependency. The editable source is the [OG Image frame in Figma](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=420-4057),
+under `10 / Resources / Social Sharing`. To change the artwork, edit that frame,
+export PNG at 1× (1200 × 630), and replace `public/images/og-image.png`.
+Shared social titles and descriptions live in `app/utils/seo.ts` and are also
+used by the landing page.
+
 ## Validation
 
 Visual regression tests use Storybook + Chromatic. Run `pnpm storybook` to view
