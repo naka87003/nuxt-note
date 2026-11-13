@@ -34,7 +34,6 @@ let app;
 let owner;
 let remote;
 let remoteOther;
-let remoteWriter;
 const createdNotes = [];
 let failed = false;
 try {
@@ -110,7 +109,6 @@ try {
   assert.match(issue.headers.get("cache-control"), /no-store/);
   const issued = await issue.json();
   assert(!("tokenHash" in issued));
-  assert.deepEqual(issued.scopes, ["notes:read"]);
   const stored = await db.query(
     'SELECT "tokenHash","userId" FROM "AgentToken" WHERE id=$1',
     [issued.id],
@@ -238,6 +236,7 @@ try {
     }),
   );
   assert.deepEqual((await remote.listTools()).tools.map((t) => t.name).sort(), [
+    "create_note",
     "get_note",
     "list_notes",
   ]);
@@ -303,42 +302,14 @@ try {
       .isError,
     true,
   );
-  await assert.rejects(
-    remote.callTool({
-      name: "create_note",
-      arguments: { title: marker, markdown: "must not save" },
-    }),
-  );
-  const writerIssue = await api("/api/agent-tokens", {
-    method: "POST",
-    headers: { Cookie: cookie, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: marker,
-      scopes: ["notes:read", "notes:create"],
-    }),
-  });
-  assert.equal(writerIssue.status, 201);
-  const writerToken = await writerIssue.json();
-  remoteWriter = new Client({ name: "writer-verification", version: "0.1.0" });
-  await remoteWriter.connect(
-    new StreamableHTTPClientTransport(new URL("/mcp", base), {
-      requestInit: {
-        headers: { Authorization: `Bearer ${writerToken.token}` },
-      },
-    }),
-  );
-  assert.deepEqual(
-    (await remoteWriter.listTools()).tools.map((t) => t.name).sort(),
-    ["create_note", "get_note", "list_notes"],
-  );
-  const created = await remoteWriter.callTool({
+  const created = await remote.callTool({
     name: "create_note",
     arguments: { title: marker, markdown: "# Created through MCP" },
   });
   assert(!created.isError);
   createdNotes.push(created.structuredContent.id);
   assert.equal(created.structuredContent.categoryId, null);
-  const saved = await remoteWriter.callTool({
+  const saved = await remote.callTool({
     name: "get_note",
     arguments: { id: createdNotes[0] },
   });
@@ -354,7 +325,7 @@ try {
     'INSERT INTO "Category" (id,name,"nameKey","userId","updatedAt") VALUES ($1,$2,$2,$3,now())',
     [foreignCategory, "mcp-verification", other],
   );
-  const deniedCategory = await remoteWriter.callTool({
+  const deniedCategory = await remote.callTool({
     name: "create_note",
     arguments: { title: marker, markdown: "", categoryId: foreignCategory },
   });
@@ -368,22 +339,6 @@ try {
     ).rows[0].count,
     3,
   );
-  assert.equal(
-    (
-      await api(`/api/agent-tokens/${writerToken.id}`, {
-        method: "DELETE",
-        headers: { Cookie: cookie },
-      })
-    ).status,
-    204,
-  );
-  await assert.rejects(
-    remoteWriter.callTool({
-      name: "create_note",
-      arguments: { title: marker, markdown: "must not save" },
-    }),
-  );
-
   const otherIssue = await api("/api/agent-tokens", {
     method: "POST",
     headers: {
@@ -409,6 +364,15 @@ try {
   ]);
   assert(!owned.isError);
   assert.equal(foreign.isError, true);
+  assert.equal(
+    (
+      await remoteOther.callTool({
+        name: "get_note",
+        arguments: { id: createdNotes[0] },
+      })
+    ).isError,
+    true,
+  );
   assert(
     !(
       await remoteOther.callTool({
@@ -446,8 +410,14 @@ try {
     204,
   );
   await assert.rejects(remote.callTool({ name: "list_notes", arguments: {} }));
+  await assert.rejects(
+    remote.callTool({
+      name: "create_note",
+      arguments: { title: marker, markdown: "must not save" },
+    }),
+  );
   console.log(
-    "Passed: session-only issuance, hash storage, pagination/search, owner isolation, expiry, revocation, and scoped MCP reads/creation. No existing Note content was printed or edited.",
+    "Passed: session-only issuance, hash storage, pagination/search, owner isolation, expiry, revocation, and MCP reads/creation. No existing Note content was printed or edited.",
   );
 } catch (error) {
   failed = true;
@@ -459,7 +429,6 @@ try {
       : (error.code ?? error.name),
   );
 } finally {
-  await remoteWriter?.close();
   await remoteOther?.close();
   await remote?.close();
   app?.kill("SIGTERM");

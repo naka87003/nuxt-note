@@ -1,7 +1,7 @@
 # Read and create Notes through MCP
 
 Saved Notes are available through a remote **Streamable HTTP** MCP endpoint at
-`/mcp`. Users register the URL and their scoped token in a compatible agent;
+`/mcp`. Users register the URL and their token in a compatible agent;
 no repository clone, Node.js installation, or local MCP program is required.
 
 ```text
@@ -13,8 +13,8 @@ The remote endpoint calls the shared server-side Note operations directly.
 ## Connect remotely
 
 1. Sign in to Nuxt Note and open **Profile menu → Agent access**.
-2. Create a token. Reading is enabled by default; select **Allow creating new Notes**
-   only for agents that should save new Notes. Use the copy button beside its value.
+2. Create a token. Every token allows searching, reading, and creating Notes.
+   Use the copy button beside its value.
    You can copy it repeatedly while visible; save it before hiding it or leaving
    the page because it cannot be displayed again.
 3. Add the MCP URL shown on the page to an agent that supports **Streamable HTTP
@@ -34,7 +34,7 @@ version control. The following example has placeholders:
 ```toml
 [mcp_servers.nuxt-note]
 url = "https://<your-domain>/mcp"
-http_headers = { Authorization = "Bearer <YOUR_READ_ONLY_TOKEN>" }
+http_headers = { Authorization = "Bearer <YOUR_TOKEN>" }
 ```
 
 Alternatively use `bearer_token_env_var = "NUXT_NOTE_TOKEN"` if that environment
@@ -51,8 +51,8 @@ explicitly allowed origin configured in `NUXT_MCP_ALLOWED_ORIGINS`.
 ## Deploy the endpoint
 
 Deploy the Nuxt application with the SDK and Zod runtime dependencies and the
-existing database/session configuration. Apply both additive AgentToken migrations
-to the target database before deploying this version. `NUXT_PUBLIC_SITE_URL` defaults to
+existing database/session configuration. Apply the committed migrations to the
+target database before deploying if not applied already. `NUXT_PUBLIC_SITE_URL` defaults to
 `https://nuxt-note-ivory.vercel.app`; no extra setting is needed when using that
 domain. Override it only when changing the canonical origin. The Vercel deployment host (`VERCEL_URL`) and
 loopback development hosts are also accepted; unrelated Host and Origin headers
@@ -102,7 +102,7 @@ same 50-character search limit as the UI. `%`, `_`, and backslashes are literal.
 20, maximum 50. Pass `nextOffset` back as `offset` until it is null. Concurrent
 edits may move Notes between pages; this is a bounded offset listing, not a snapshot.
 
-`create_note` is available only with `notes:create`. It accepts a title of at
+`create_note` is available to every valid token. It accepts a title of at
 most 50 UTF-16 code units and a Markdown body of at most 5,000, matching the UI.
 Both strings are required; empty content is allowed. Titles are trimmed and a
 blank title becomes `Untitled note`. Omit `categoryId` or pass null for an
@@ -119,20 +119,16 @@ ID to verify it. Editing, deleting, and category creation are not exposed.
 ## Authentication and revocation
 
 Each token has 256 bits of randomness, a fixed 90-day lifetime, and access to only
-its issuing user's Notes within its stored scopes. The database stores its SHA-256 hash and metadata,
+its issuing user's Notes for searching, reading, and creation. The database stores its SHA-256 hash and metadata,
 not the raw token. Token lists never return either the secret or hash. Creation
 and revocation require the browser login session. Bearer tokens do not authorize
-those operations, browser Note API routes, or Chat endpoints. MCP creation
-requires the separate `notes:create` scope.
+those operations, browser Note API routes, or Chat endpoints.
 
-`AgentToken.scopes` defaults to `["notes:read"]`, including all existing records
-when the additive `20261113010000_agent_token_scopes` migration is applied.
-Existing tokens keep their secret, expiry, and read-only access. There is no
-in-place permission upgrade: issue a new token with creation enabled and update
-the agent configuration to grant creation. Token metadata lists show scopes.
-`POST /api/agent-tokens` accepts optional `scopes`: `["notes:read"]` (default) or
-`["notes:read", "notes:create"]`; unknown, duplicate, or missing read scopes are
-rejected. This route still requires the browser session.
+There are no per-token scopes or permission choices. All valid tokens, including
+previously issued read-only tokens, can now create new Notes. Their secret,
+expiry, and revocation state remain unchanged; no token replacement or client
+configuration change is required. Reconnect the agent to refresh its tool list.
+Editing and deleting existing Notes remain unavailable through MCP.
 
 Every MCP request checks the hash, expiry, and revocation state and derives
 the owner ID from the token record. Caller-supplied user IDs are ignored. Reading
@@ -175,13 +171,13 @@ The real database integration check is explicitly opt-in:
 pnpm test:agent --live
 ```
 
-It loads `.env` and uses the configured database. Build first and apply the
-migration first. It starts a separate local app process with a temporary session
+It loads `.env` and uses the configured database. Build and apply any pending
+migrations before running it. It starts a separate local app process with a temporary session
 secret, uses the existing user with the most Notes, and creates two verification
-Notes, one temporary second user/Note, and scoped tokens. It tests session-only token
+Notes, one temporary second user/Note, and tokens. It tests session-only token
 management, stored hashes, searching/pagination, owner isolation, expiry,
-revocation, remote HTTP MCP calls, read-only creation denial, scoped creation/readback,
-category ownership, writer revocation, concurrent user isolation,
+revocation, remote HTTP MCP calls, creation/readback,
+category ownership, creation denial after revocation, concurrent user isolation,
 legacy initialization, malformed/oversized requests, and HTTP boundary checks. It removes only records identified by that
 run's random marker/IDs in `finally`. Existing Note content is neither edited nor
 printed. An interrupted process may require cleaning up its verification records.

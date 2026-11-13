@@ -6,7 +6,6 @@ import { getPrisma } from "./prisma";
 export const agentTokenSelect = {
   id: true,
   name: true,
-  scopes: true,
   createdAt: true,
   expiresAt: true,
   revokedAt: true,
@@ -29,8 +28,8 @@ export function privateAgentResponse(event: H3Event) {
   setHeader(event, "Cache-Control", "private, no-store");
 }
 
-// Bearer tokens authorize only scoped MCP tools, never browser sessions.
-export async function getAgentAccess(event: H3Event) {
+// Bearer tokens authorize MCP reads and creation, never browser sessions.
+export async function getAgentUserId(event: H3Event) {
   privateAgentResponse(event);
   const match = /^Bearer (nnr_[A-Za-z0-9_-]{43})$/i.exec(
     getHeader(event, "authorization") ?? "",
@@ -40,7 +39,6 @@ export async function getAgentAccess(event: H3Event) {
         where: { tokenHash: hashAgentToken(match[1]!) },
         select: {
           userId: true,
-          scopes: true,
           expiresAt: true,
           revokedAt: true,
         },
@@ -53,5 +51,5 @@ export async function getAgentAccess(event: H3Event) {
       statusMessage: "Invalid or expired token",
     });
   }
-  return { userId: record.userId, scopes: record.scopes };
+  return record.userId;
 }

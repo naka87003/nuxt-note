@@ -8,7 +8,7 @@ import issue from "../../../../server/api/agent-tokens/index.post";
 import tokens from "../../../../server/api/agent-tokens/index.get";
 import revoke from "../../../../server/api/agent-tokens/[id].delete";
 import {
-  getAgentAccess,
+  getAgentUserId,
   newAgentToken,
 } from "../../../../server/utils/agent-auth";
 
@@ -43,13 +43,12 @@ vi.hoisted(() => {
 const owner = "11111111-1111-4111-8111-111111111111";
 const other = "22222222-2222-4222-8222-222222222222";
 const token = `nnr_${"a".repeat(43)}`;
-const event = {} as Parameters<typeof getAgentAccess>[0];
+const event = {} as Parameters<typeof getAgentUserId>[0];
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.header.mockReturnValue(`Bearer ${token}`);
   mocks.agentToken.findUnique.mockResolvedValue({
     userId: owner,
-    scopes: ["notes:read"],
     revokedAt: null,
     expiresAt: new Date(Date.now() + 60_000),
   });
@@ -64,15 +63,12 @@ beforeEach(() => {
   mocks.agentToken.updateMany.mockResolvedValue({ count: 1 });
 });
 
-describe("scoped bearer authentication", () => {
-  it("looks up a SHA-256 hash and returns the token owner and scopes", async () => {
-    await expect(getAgentAccess(event)).resolves.toEqual({
-      userId: owner,
-      scopes: ["notes:read"],
-    });
+describe("bearer authentication", () => {
+  it("looks up a SHA-256 hash and returns only the token owner", async () => {
+    await expect(getAgentUserId(event)).resolves.toBe(owner);
     expect(mocks.agentToken.findUnique).toHaveBeenCalledWith({
       where: { tokenHash: createHash("sha256").update(token).digest("hex") },
-      select: { userId: true, scopes: true, expiresAt: true, revokedAt: true },
+      select: { userId: true, expiresAt: true, revokedAt: true },
     });
     expect(mocks.session).not.toHaveBeenCalled();
     expect(mocks.setHeader).toHaveBeenCalledWith(
@@ -81,23 +77,11 @@ describe("scoped bearer authentication", () => {
       "private, no-store",
     );
   });
-  it("derives creation permission only from the stored token", async () => {
-    mocks.agentToken.findUnique.mockResolvedValue({
-      userId: owner,
-      scopes: ["notes:read", "notes:create"],
-      revokedAt: null,
-      expiresAt: new Date(Date.now() + 60_000),
-    });
-    await expect(getAgentAccess(event)).resolves.toEqual({
-      userId: owner,
-      scopes: ["notes:read", "notes:create"],
-    });
-  });
   it.each([undefined, "", "Basic abc", "Bearer bad", `Bearer ${token} extra`])(
     "rejects malformed credentials without using a session: %s",
     async (value) => {
       mocks.header.mockReturnValue(value);
-      await expect(getAgentAccess(event)).rejects.toMatchObject({
+      await expect(getAgentUserId(event)).rejects.toMatchObject({
         statusCode: 401,
       });
       expect(mocks.agentToken.findUnique).not.toHaveBeenCalled();
@@ -115,7 +99,7 @@ describe("scoped bearer authentication", () => {
     { userId: owner, revokedAt: null, expiresAt: new Date(Date.now() - 1) },
   ])("rejects unknown, revoked, and expired credentials", async (record) => {
     mocks.agentToken.findUnique.mockResolvedValue(record);
-    await expect(getAgentAccess(event)).rejects.toMatchObject({
+    await expect(getAgentUserId(event)).rejects.toMatchObject({
       statusCode: 401,
     });
     expect(mocks.note.findFirst).not.toHaveBeenCalled();
@@ -190,39 +174,10 @@ describe("session-only token management", () => {
     expect(data).toMatchObject({
       userId: owner,
       name: "Local agent",
-      scopes: ["notes:read"],
       tokenHash: createHash("sha256").update(result.token).digest("hex"),
     });
     expect(data).not.toHaveProperty("token");
     expect(result).not.toHaveProperty("tokenHash");
-  });
-  it("issues explicitly requested creation permission", async () => {
-    mocks.body.mockResolvedValue({
-      name: "Writer",
-      scopes: ["notes:read", "notes:create"],
-      userId: other,
-    });
-    await issue(event);
-    expect(mocks.agentToken.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          userId: owner,
-          scopes: ["notes:read", "notes:create"],
-        }),
-      }),
-    );
-  });
-  it.each([
-    null,
-    [],
-    "notes:create",
-    ["notes:create"],
-    ["notes:read", "notes:write"],
-    ["notes:read", "notes:read"],
-  ])("rejects invalid scopes %j", async (scopes) => {
-    mocks.body.mockResolvedValue({ name: "Writer", scopes });
-    await expect(issue(event)).rejects.toMatchObject({ statusCode: 400 });
-    expect(mocks.agentToken.create).not.toHaveBeenCalled();
   });
   it.each([null, {}, [], { name: " " }, { name: "x".repeat(51) }])(
     "rejects invalid token names %j",

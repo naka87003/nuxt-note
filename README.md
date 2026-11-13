@@ -79,13 +79,13 @@ used by the landing page.
 
 ## MCP
 
-Authenticated saved-Note search and reading is available through the remote
-Streamable HTTP endpoint at `/mcp`. Create a read-only token in
+Authenticated Note search, reading, and creation are available through the remote
+Streamable HTTP endpoint at `/mcp`. Create a token in
 **Profile menu → Agent access**, then register the displayed URL and Bearer header
 in your agent. No project clone or local MCP process is required for remote use.
 See the [saved Notes MCP guide](docs/mcp-notes.md) for setup and compatibility.
-Tokens expire after 90 days, can be revoked, and authorize only the owner's Note
-reads.
+Tokens expire after 90 days, can be revoked, and authorize searching, reading,
+and creating only the owner's Notes. Editing and deletion are not available through MCP.
 
 ## Validation
 

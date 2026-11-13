@@ -37,14 +37,11 @@ afterEach(async () => {
   for (const client of clients.splice(0)) await client.close();
   for (const handler of handlers.splice(0)) await handler.close();
 });
-async function connect(owner: string, scopes?: string[]) {
-  const handler = createMcpHandler(
-    () => createRemoteNotesServer(owner, scopes),
-    {
-      responseMode: "json",
-      maxSubscriptions: 0,
-    },
-  );
+async function connect(owner: string) {
+  const handler = createMcpHandler(() => createRemoteNotesServer(owner), {
+    responseMode: "json",
+    maxSubscriptions: 0,
+  });
   handlers.push(handler);
   const client = new Client({ name: "remote-test", version: "0.1.0" });
   clients.push(client);
@@ -57,11 +54,19 @@ async function connect(owner: string, scopes?: string[]) {
 }
 
 describe("remote MCP tools", () => {
-  it("discovers only read-only tools and supplies bounded search defaults", async () => {
+  it("discovers read and create tools and supplies bounded search defaults", async () => {
     const client = await connect("owner");
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(["get_note", "list_notes"]);
-    expect(tools.every((t) => t.annotations?.readOnlyHint)).toBe(true);
+    expect(tools.map((t) => t.name).sort()).toEqual([
+      "create_note",
+      "get_note",
+      "list_notes",
+    ]);
+    expect(
+      tools
+        .filter((t) => t.name !== "create_note")
+        .every((t) => t.annotations?.readOnlyHint),
+    ).toBe(true);
     await client.callTool({ name: "list_notes", arguments: { q: "Nuxt" } });
     expect(reads.searchOwnedNotes).toHaveBeenCalledWith("owner", {
       q: "Nuxt",
@@ -69,24 +74,9 @@ describe("remote MCP tools", () => {
       offset: 0,
     });
   });
-  it("rejects direct create calls for read-only tokens", async () => {
+  it("exposes create for every token and stores content for the token owner", async () => {
     const client = await connect("owner");
-    await expect(
-      client.callTool({
-        name: "create_note",
-        arguments: { title: "New", markdown: "" },
-      }),
-    ).rejects.toThrow();
-    expect(writes.note.create).not.toHaveBeenCalled();
-  });
-  it("exposes create only with permission and stores content for the token owner", async () => {
-    const client = await connect("owner", ["notes:read", "notes:create"]);
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual([
-      "create_note",
-      "get_note",
-      "list_notes",
-    ]);
     expect(
       tools.find((t) => t.name === "create_note")?.annotations,
     ).toMatchObject({
@@ -132,14 +122,14 @@ describe("remote MCP tools", () => {
     { title: "New", markdown: "", userId: "other" },
     { title: "New", markdown: "", id: "existing" },
   ])("rejects invalid create arguments %j", async (args) => {
-    const client = await connect("owner", ["notes:read", "notes:create"]);
+    const client = await connect("owner");
     expect(
       (await client.callTool({ name: "create_note", arguments: args })).isError,
     ).toBe(true);
     expect(writes.note.create).not.toHaveBeenCalled();
   });
   it("validates category ownership before creating and hides storage errors", async () => {
-    const client = await connect("owner", ["notes:read", "notes:create"]);
+    const client = await connect("owner");
     const call = () =>
       client.callTool({
         name: "create_note",
@@ -177,10 +167,7 @@ describe("remote MCP tools", () => {
     expect(JSON.stringify(result)).not.toContain("private database details");
   });
   it("keeps concurrent creation owners separate", async () => {
-    const [a, b] = await Promise.all([
-      connect("a", ["notes:read", "notes:create"]),
-      connect("b", ["notes:read", "notes:create"]),
-    ]);
+    const [a, b] = await Promise.all([connect("a"), connect("b")]);
     writes.note.create.mockResolvedValue({ id: "new" });
     await Promise.all(
       [a, b].map((c) =>
