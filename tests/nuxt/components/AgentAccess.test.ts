@@ -18,7 +18,7 @@ mockNuxtImport("useFetch", () => () => ({
 
 const token = `nnr_${"a".repeat(43)}`;
 beforeEach(() => {
-  request.mockReset().mockResolvedValue({ token });
+  request.mockReset().mockResolvedValue({ id: "token-id", token });
   refresh.mockReset().mockResolvedValue(undefined);
 });
 
@@ -31,10 +31,18 @@ describe("Agent access token display", () => {
       "Only agents that support Streamable HTTP and manually configured Bearer tokens can connect.",
     );
     expect(wrapper.text()).not.toContain("Download Codex config");
-    expect(wrapper.find(".copyable-value code").exists()).toBe(false);
+    const endpoint = wrapper.get(".copyable-value code").text();
+    await wrapper.get('button[aria-label="Copy URL"]').trigger("click");
+    await flushPromises();
+    expect(writeText).toHaveBeenLastCalledWith(endpoint);
+    expect(wrapper.text()).toContain("URL copied to clipboard.");
+    writeText.mockClear();
+    expect(wrapper.find('button[aria-label="Copy token"]').exists()).toBe(
+      false,
+    );
     await wrapper.get("form").trigger("submit");
     await flushPromises();
-    expect(wrapper.get(".copyable-value code").text()).toBe(token);
+    expect(wrapper.text()).toContain(token);
     expect(wrapper.text()).toContain(
       "You can copy it as many times as needed while it is visible.",
     );
@@ -52,7 +60,9 @@ describe("Agent access token display", () => {
       .findAll("button")
       .find((button) => button.text() === "Hide token")!;
     await hide.trigger("click");
-    expect(wrapper.find(".copyable-value code").exists()).toBe(false);
+    expect(wrapper.find('button[aria-label="Copy token"]').exists()).toBe(
+      false,
+    );
     expect(wrapper.text()).not.toContain(token);
   });
 
@@ -66,7 +76,7 @@ describe("Agent access token display", () => {
     await copy.trigger("click");
     await flushPromises();
     expect(copy.attributes("data-state")).toBe("failed");
-    expect(wrapper.get(".copyable-value code").text()).toBe(token);
+    expect(wrapper.text()).toContain(token);
     writeText.mockResolvedValue(undefined);
     await copy.trigger("click");
     await flushPromises();

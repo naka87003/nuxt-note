@@ -59,6 +59,10 @@ loopback development hosts are also accepted; unrelated Host and Origin headers
 are rejected. `NUXT_MCP_ALLOWED_ORIGINS` is an optional comma-separated list of
 exact extra browser origins, not a wildcard CORS setting.
 
+AgentToken is included in the unified `20261103000000_init` migration, with no
+scopes, expiration, or revocation columns. See [database initialization](development.md#database-initialization)
+for new-database setup and routine migration commands.
+
 The handler creates a fresh MCP instance per authenticated request and stores no
 user sessions in memory. It serves current SDK requests and a stateless fallback
 for 2025-era MCP clients. Modern responses are JSON; legacy responses may use a
@@ -66,10 +70,10 @@ finite SSE exchange. There is no persistent GET stream, HTTP session ID, or tool
 subscription support. GET and DELETE return 405. Every POST, including discovery,
 requires a valid token; a browser session cookie alone is not sufficient.
 Requests are limited to 64 KiB and responses use `private, no-store` even for legacy
-SSE. Invalid/expired/revoked tokens receive HTTP 401. Tool errors hide database
+SSE. Invalid or deleted tokens receive HTTP 401. Tool errors hide database
 details. Editing and deleting existing Notes remain unavailable.
 
-Verify URL/authentication, owner isolation, search/reading, and revocation on the
+Verify URL/authentication, owner isolation, search/reading, and token deletion on the
 hosted deployment before treating it as validated in production. Local checks do
 not establish hosting behavior. This implementation does not deploy itself.
 
@@ -123,35 +127,36 @@ The tool is annotated as a non-read-only, non-destructive, non-idempotent action
 Ask the agent to save a new Note explicitly, then use `get_note` on the returned
 ID to verify it. Editing, deleting, and category creation are not exposed.
 
-## Authentication and revocation
+## Authentication and deletion
 
-Each token has 256 bits of randomness, a fixed 90-day lifetime, and access to only
+Each token has 256 bits of randomness, no expiration date, and access to only
 its issuing user's Notes for searching, reading, and creation. The database stores its SHA-256 hash and metadata,
 not the raw token. Token lists never return either the secret or hash. Creation
-and revocation require the browser login session. Bearer tokens do not authorize
+and deletion require the browser login session. Bearer tokens do not authorize
 those operations, browser Note API routes, or Chat endpoints.
 
 There are no per-token scopes or permission choices. All valid tokens, including
-previously issued read-only tokens, can now create new Notes. Their secret,
-expiry, and revocation state remain unchanged; no token replacement or client
+previously issued read-only tokens, can now create new Notes. Their secret remains unchanged; no token replacement or client
 configuration change is required. Reconnect the agent to refresh its tool list.
 Editing and deleting existing Notes remain unavailable through MCP.
 
-Every MCP request checks the hash, expiry, and revocation state and derives
+Every MCP request checks that the token hash exists and derives
 the owner ID from the token record. Caller-supplied user IDs are ignored. Reading
 another user's Note returns the same 404 as reading a missing Note. Responses use
 `Cache-Control: private, no-store`.
 
-Revoke a token from **Agent access → Revoke** to reject subsequent requests, even
-without reconnecting the agent. An operation already in flight may finish. Already
-retrieved text remains in the agent's context. Issue a replacement token and update
-the agent's private connection settings when a token expires or is revoked. Revoked metadata
-remains visible in the management page.
+Delete a token from **Agent access → Delete** to permanently remove its database
+record and reject subsequent requests, even without reconnecting the agent.
+The confirmation dialog explains that deletion cannot be undone. After deletion,
+the token disappears from the list and a completion notification is shown.
+An operation already in flight may finish. Already retrieved text remains in the
+agent's context. Issue a new token and update the agent's private connection
+settings when replacing a deleted token. No deleted-token history is retained.
 
 ## Code map
 
 - [`server/utils/agent-auth.ts`](../server/utils/agent-auth.ts): generation,
-  hashing, expiry/revocation checks, and token metadata selection.
+  hashing, token lookup, and token metadata selection.
 - [`server/utils/note-reads.ts`](../server/utils/note-reads.ts): owner-scoped
   reads shared by browser routes and MCP tools.
 - [`server/utils/note-writes.ts`](../server/utils/note-writes.ts): validated,
@@ -161,7 +166,7 @@ remains visible in the management page.
 - [`server/utils/mcp-http.ts`](../server/utils/mcp-http.ts): Host and Origin checks.
 - `server/api/agent-tokens/`: browser-session token management.
 - [`app/pages/settings/agent-access.vue`](../app/pages/settings/agent-access.vue):
-  one-time secret display, repeatable value copying, and confirmed revocation.
+  one-time secret display, repeatable value copying, and confirmed deletion.
 
 ## Verification
 
@@ -182,9 +187,9 @@ It loads `.env` and uses the configured database. Build and apply any pending
 migrations before running it. It starts a separate local app process with a temporary session
 secret, uses the existing user with the most Notes, and creates two verification
 Notes, one temporary second user/Note, and tokens. It tests session-only token
-management, stored hashes, searching/pagination, owner isolation, expiry,
-revocation, remote HTTP MCP calls, creation/readback,
-category ownership, creation denial after revocation, concurrent user isolation,
+management, stored hashes, searching/pagination, owner isolation,
+physical token deletion, remote HTTP MCP calls, creation/readback,
+category ownership, creation denial after deletion, concurrent user isolation,
 legacy initialization, malformed/oversized requests, and HTTP boundary checks. It removes only records identified by that
 run's random marker/IDs in `finally`. Existing Note content is neither edited nor
 printed. An interrupted process may require cleaning up its verification records.
@@ -192,4 +197,4 @@ printed. An interrupted process may require cleaning up its verification records
 This check runs no AI requests and does not register an agent host or deploy the
 application. Local development may use a hosted database: choosing localhost as
 the app URL does not make the database local. Production deployment remains a
-separate release step, including applying the additive migration to that target.
+separate release step, including applying any pending migrations to that target.

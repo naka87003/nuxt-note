@@ -85,7 +85,11 @@ Current connection URIs have no explicit `sslmode`; actual TLS was not inspected
 
 Use Vercel environment settings; never upload `.env` or expose secrets in public runtime config. Production runtime does not read the workstation's `.env`. Scope Production secrets to Production and redeploy after changing them. Installation/build must continue to avoid automatic migrations.
 
-For a separately approved fresh empty DB, apply the init once through a controlled release step. For the inspected matching target, do not reset, drop schemas, replay init, or rewrite history using `migrate resolve`. If drift is discovered, design a new forward migration that preserves data, validate it on an isolated copy, and review backup/restore before applying it. Use new migrations for all future schema changes.
+For a fresh empty DB, apply the init once through a controlled release step.
+For an existing database, check `pnpm exec prisma migrate status` and apply any
+pending migrations with `pnpm db:migrate`. Do not reset, drop schemas, replay the
+init, or delete migration history. Use new migrations for subsequent schema
+changes. See [database initialization](development.md#database-initialization).
 
 ## Domain and OAuth
 

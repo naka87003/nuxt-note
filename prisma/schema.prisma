@@ -28,8 +28,6 @@ model AgentToken {
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime  @default(now())
-  expiresAt DateTime
-  revokedAt DateTime?
 
   @@index([userId, createdAt])
 }

@@ -20,9 +20,9 @@ export default defineEventHandler(async (event) => {
       statusCode: 400,
       statusMessage: "Use a name of 1 to 50 characters",
     });
-  const { token, tokenHash, expiresAt } = newAgentToken();
+  const { token, tokenHash } = newAgentToken();
   const record = await getPrisma().agentToken.create({
-    data: { userId, name: name.trim(), tokenHash, expiresAt },
+    data: { userId, name: name.trim(), tokenHash },
     select: agentTokenSelect,
   });
   setResponseStatus(event, 201);

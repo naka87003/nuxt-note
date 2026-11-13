@@ -12,24 +12,17 @@ const {
 const requestUrl = useRequestURL();
 const endpoint = new URL("/mcp", requestUrl.origin).href;
 const name = ref("My agent");
-const issued = ref("");
+const issued = ref<{ id: string; token: string } | null>(null);
+const toast = useToast();
 const busy = ref(false);
 const failure = ref("");
-const endpointCopied = ref(false);
-const revokeId = ref("");
-const revokeOpen = computed({
-  get: () => Boolean(revokeId.value),
+const deleteId = ref("");
+const deleteOpen = computed({
+  get: () => Boolean(deleteId.value),
   set: (open) => {
-    if (!open) revokeId.value = "";
+    if (!open) deleteId.value = "";
   },
 });
-
-function tokenStatus(token: { revokedAt: string | null; expiresAt: string }) {
-  if (token.revokedAt) return "Revoked";
-  return new Date(token.expiresAt).getTime() <= Date.now()
-    ? "Expired"
-    : "Active";
-}
 
 async function issue() {
   if (busy.value || issued.value) return;
@@ -40,8 +33,7 @@ async function issue() {
       method: "POST",
       body: { name: name.value },
     });
-    issued.value = result.token;
-    endpointCopied.value = false;
+    issued.value = { id: result.id, token: result.token };
     await refresh();
   } catch {
     failure.value = "Could not create the token. Please try again.";
@@ -50,25 +42,18 @@ async function issue() {
   }
 }
 
-async function copyEndpoint() {
-  try {
-    await navigator.clipboard.writeText(endpoint);
-    endpointCopied.value = true;
-  } catch {
-    failure.value = "Could not copy. Select and copy the URL manually.";
-  }
-}
-
-async function revoke() {
-  if (busy.value || !revokeId.value) return;
+async function deleteToken() {
+  if (busy.value || !deleteId.value) return;
   busy.value = true;
   failure.value = "";
   try {
-    await $fetch(`/api/agent-tokens/${revokeId.value}`, { method: "DELETE" });
-    revokeId.value = "";
+    await $fetch(`/api/agent-tokens/${deleteId.value}`, { method: "DELETE" });
+    if (deleteId.value === issued.value?.id) issued.value = null;
+    deleteId.value = "";
+    toast.add({ title: "Token deleted", color: "success" });
     await refresh();
   } catch {
-    failure.value = "Could not revoke the token. Please try again.";
+    failure.value = "Could not delete the token. Please try again.";
   } finally {
     busy.value = false;
   }
@@ -81,8 +66,8 @@ async function revoke() {
       <h1 class="text-2xl font-semibold">Agent access</h1>
       <p class="text-muted">
         Let an agent search, read, and create your Notes. Tokens cannot edit or
-        delete content, or access Chat. Tokens expire after 90 days and can be
-        revoked at any time.
+        delete content, or access Chat. Tokens have no expiration date and can
+        be deleted at any time.
       </p>
     </div>
 
@@ -97,12 +82,11 @@ async function revoke() {
         Only agents that support Streamable HTTP and manually configured Bearer
         tokens can connect. No project download or local MCP program is needed.
       </p>
-      <div class="flex flex-wrap items-center gap-3">
-        <code class="min-w-0 select-all break-all text-sm">{{ endpoint }}</code>
-        <UButton variant="outline" @click="copyEndpoint">
-          {{ endpointCopied ? "Copied" : "Copy URL" }}
-        </UButton>
-      </div>
+      <CopyableValue
+        :value="endpoint"
+        copy-label="Copy URL"
+        copied-message="URL copied to clipboard."
+      />
       <ol class="list-decimal space-y-2 pl-5 text-sm">
         <li>Create a token below.</li>
         <li>
@@ -168,7 +152,7 @@ async function revoke() {
           settings, never in a chat or version control.
         </p>
         <CopyableValue
-          :value="issued"
+          :value="issued.token"
           copy-label="Copy token"
           copied-message="Token copied to clipboard."
         />
@@ -178,7 +162,7 @@ async function revoke() {
             variant="outline"
             icon="i-lucide-eye-off"
             class="min-h-11"
-            @click="issued = ''"
+            @click="issued = null"
           >
             Hide token
           </UButton>
@@ -204,28 +188,26 @@ async function revoke() {
           <div class="min-w-0">
             <p class="font-medium wrap-anywhere">{{ token.name }}</p>
             <p class="text-sm text-muted">
-              {{ tokenStatus(token) }} · Expires
-              {{ new Date(token.expiresAt).toLocaleDateString() }}
+              Created {{ new Date(token.createdAt).toLocaleDateString() }}
             </p>
           </div>
           <UButton
-            v-if="tokenStatus(token) === 'Active'"
             color="error"
             variant="outline"
             :disabled="busy"
-            :aria-label="`Revoke ${token.name}`"
-            @click="revokeId = token.id"
+            :aria-label="`Delete ${token.name}`"
+            @click="deleteId = token.id"
           >
-            Revoke
+            Delete
           </UButton>
         </li>
       </ul>
     </section>
 
     <UModal
-      v-model:open="revokeOpen"
-      title="Revoke token?"
-      description="Any agent using this token will lose access to your Notes."
+      v-model:open="deleteOpen"
+      title="Delete token?"
+      description="This permanently deletes the token. Any agent using it will lose access to your Notes. This cannot be undone."
       :dismissible="!busy"
     >
       <template #footer>
@@ -233,12 +215,12 @@ async function revoke() {
           color="neutral"
           variant="ghost"
           :disabled="busy"
-          @click="revokeId = ''"
+          @click="deleteId = ''"
         >
           Cancel
         </UButton>
-        <UButton color="error" :loading="busy" @click="revoke">
-          Revoke token
+        <UButton color="error" :loading="busy" @click="deleteToken">
+          Delete token
         </UButton>
       </template>
     </UModal>

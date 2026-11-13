@@ -7,8 +7,6 @@ export const agentTokenSelect = {
   id: true,
   name: true,
   createdAt: true,
-  expiresAt: true,
-  revokedAt: true,
 } as const;
 
 export function hashAgentToken(token: string) {
@@ -20,7 +18,6 @@ export function newAgentToken() {
   return {
     token,
     tokenHash: hashAgentToken(token),
-    expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
   };
 }
 
@@ -39,16 +36,14 @@ export async function getAgentUserId(event: H3Event) {
         where: { tokenHash: hashAgentToken(match[1]!) },
         select: {
           userId: true,
-          expiresAt: true,
-          revokedAt: true,
         },
       })
     : null;
-  if (!record || record.revokedAt || record.expiresAt.getTime() <= Date.now()) {
+  if (!record) {
     setHeader(event, "WWW-Authenticate", 'Bearer realm="nuxt-note"');
     throw createError({
       statusCode: 401,
-      statusMessage: "Invalid or expired token",
+      statusMessage: "Invalid token",
     });
   }
   return record.userId;

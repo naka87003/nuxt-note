@@ -35,7 +35,7 @@ The shared workspace foundation follows the agreed Figma structure. Note readers
 
 Workspace API coverage includes category name validation/conflicts, per-owner lists/counts/mutations, foreign-category rejection on note creation and Chat reassignment, and parent-owned message reads. Validation uses mocked sessions/database calls and a temporary fixture app for browser checks; no live database or OAuth account is modified. Browser checks covered 1440px, 1024px, 768px and 390px layouts, workspace filter/count changes, list collapse/restore, drawer dismissal, shared category creation, and unsaved-edit cancellation/confirmation. The database must already use the shared-category init described in the integration plan.
 
-Chat runtime validation includes unit tests and disposable HTTP checks for streaming, disconnect/partial save, failure/retry, duplicate sends, concurrent generation and owner isolation. The shared OpenAI key/default model was checked with one short successful request. Schema changes are consolidated into the prerelease init at the user’s request; no existing database was reset or migrated. See the development guide before adopting the rewritten init.
+Chat runtime validation includes unit tests and disposable HTTP checks for streaming, disconnect/partial save, failure/retry, duplicate sends, concurrent generation and owner isolation. The shared OpenAI key/default model was checked with one short successful request. The unified init defines the current schema. See the development guide for database initialization and subsequent migrations.
 
 ## Getting started
 
@@ -84,7 +84,7 @@ Streamable HTTP endpoint at `/mcp`. Create a token in
 **Profile menu → Agent access**, then register the displayed URL and Bearer header
 in your agent. No project clone or local MCP process is required for remote use.
 See the [saved Notes MCP guide](docs/mcp-notes.md) for setup and compatibility.
-Tokens expire after 90 days, can be revoked, and authorize searching, reading,
+Tokens have no expiration date, can be deleted, and authorize searching, reading,
 and creating only the owner's Notes. Editing and deletion are not available through MCP.
 
 ## Validation

@@ -389,24 +389,6 @@ try {
     ).isError,
   );
 
-  await db.query(
-    'UPDATE "AgentToken" SET "expiresAt"=now()-interval \'1 second\' WHERE id=$1',
-    [issued.id],
-  );
-  assert.equal(
-    (
-      await api("/mcp", {
-        method: "POST",
-        headers: rpcHeaders,
-        body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
-      })
-    ).status,
-    401,
-  );
-  await db.query(
-    'UPDATE "AgentToken" SET "expiresAt"=now()+interval \'1 day\' WHERE id=$1',
-    [issued.id],
-  );
   assert.equal(
     (
       await api(`/api/agent-tokens/${issued.id}`, {
@@ -416,6 +398,19 @@ try {
     ).status,
     204,
   );
+  assert.equal(
+    (
+      await db.query(
+        'SELECT count(*)::int AS count FROM "AgentToken" WHERE id=$1',
+        [issued.id],
+      )
+    ).rows[0].count,
+    0,
+  );
+  const remainingTokens = await (
+    await api("/api/agent-tokens", { headers: { Cookie: cookie } })
+  ).json();
+  assert(!remainingTokens.some((t) => t.id === issued.id));
   await assert.rejects(remote.callTool({ name: "list_notes", arguments: {} }));
   await assert.rejects(
     remote.callTool({
@@ -424,7 +419,7 @@ try {
     }),
   );
   console.log(
-    "Passed: session-only issuance, hash storage, pagination/search, owner isolation, expiry, revocation, and MCP reads/creation. No existing Note content was printed or edited.",
+    "Passed: session-only issuance, hash storage, pagination/search, owner isolation, deletion, and MCP reads/creation. No existing Note content was printed or edited.",
   );
 } catch (error) {
   failed = true;

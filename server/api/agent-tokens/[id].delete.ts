@@ -9,9 +9,8 @@ export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, "id");
   if (!id)
     throw createError({ statusCode: 404, statusMessage: "Token not found" });
-  const result = await getPrisma().agentToken.updateMany({
-    where: { id, userId, revokedAt: null },
-    data: { revokedAt: new Date() },
+  const result = await getPrisma().agentToken.deleteMany({
+    where: { id, userId },
   });
   if (!result.count)
     throw createError({ statusCode: 404, statusMessage: "Token not found" });

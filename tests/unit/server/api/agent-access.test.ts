@@ -6,7 +6,7 @@ import {
 } from "../../../../server/utils/note-reads";
 import issue from "../../../../server/api/agent-tokens/index.post";
 import tokens from "../../../../server/api/agent-tokens/index.get";
-import revoke from "../../../../server/api/agent-tokens/[id].delete";
+import remove from "../../../../server/api/agent-tokens/[id].delete";
 import {
   getAgentUserId,
   newAgentToken,
@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
     findUnique: vi.fn(),
     findMany: vi.fn(),
     create: vi.fn(),
-    updateMany: vi.fn(),
+    deleteMany: vi.fn(),
   },
   note: { findMany: vi.fn(), findFirst: vi.fn() },
   session: vi.fn(),
@@ -49,8 +49,6 @@ beforeEach(() => {
   mocks.header.mockReturnValue(`Bearer ${token}`);
   mocks.agentToken.findUnique.mockResolvedValue({
     userId: owner,
-    revokedAt: null,
-    expiresAt: new Date(Date.now() + 60_000),
   });
   mocks.note.findMany.mockResolvedValue([]);
   mocks.param.mockReturnValue("note");
@@ -60,7 +58,7 @@ beforeEach(() => {
     id: "token-id",
     name: "Local agent",
   });
-  mocks.agentToken.updateMany.mockResolvedValue({ count: 1 });
+  mocks.agentToken.deleteMany.mockResolvedValue({ count: 1 });
 });
 
 describe("bearer authentication", () => {
@@ -68,7 +66,7 @@ describe("bearer authentication", () => {
     await expect(getAgentUserId(event)).resolves.toBe(owner);
     expect(mocks.agentToken.findUnique).toHaveBeenCalledWith({
       where: { tokenHash: createHash("sha256").update(token).digest("hex") },
-      select: { userId: true, expiresAt: true, revokedAt: true },
+      select: { userId: true },
     });
     expect(mocks.session).not.toHaveBeenCalled();
     expect(mocks.setHeader).toHaveBeenCalledWith(
@@ -89,16 +87,8 @@ describe("bearer authentication", () => {
       expect(mocks.session).not.toHaveBeenCalled();
     },
   );
-  it.each([
-    null,
-    {
-      userId: owner,
-      revokedAt: new Date(),
-      expiresAt: new Date(Date.now() + 60_000),
-    },
-    { userId: owner, revokedAt: null, expiresAt: new Date(Date.now() - 1) },
-  ])("rejects unknown, revoked, and expired credentials", async (record) => {
-    mocks.agentToken.findUnique.mockResolvedValue(record);
+  it("rejects unknown or deleted credentials", async () => {
+    mocks.agentToken.findUnique.mockResolvedValue(null);
     await expect(getAgentUserId(event)).rejects.toMatchObject({
       statusCode: 401,
     });
@@ -157,7 +147,7 @@ describe("owner-scoped Note reads", () => {
 });
 
 describe("session-only token management", () => {
-  it("generates unique tokens with a 90-day expiry", () => {
+  it("generates unique tokens without an expiration date", () => {
     const a = newAgentToken();
     const b = newAgentToken();
     expect(a.token).toMatch(/^nnr_[A-Za-z0-9_-]{43}$/);
@@ -165,7 +155,7 @@ describe("session-only token management", () => {
     expect(a.tokenHash).toBe(
       createHash("sha256").update(a.token).digest("hex"),
     );
-    expect(a.expiresAt.getTime() - Date.now()).toBeGreaterThan(89 * 86400_000);
+    expect(a).not.toHaveProperty("expiresAt");
   });
   it("stores only the hash and assigns the session owner", async () => {
     const result = await issue(event);
@@ -178,6 +168,8 @@ describe("session-only token management", () => {
     });
     expect(data).not.toHaveProperty("token");
     expect(result).not.toHaveProperty("tokenHash");
+    expect(data).not.toHaveProperty("expiresAt");
+    expect(data).not.toHaveProperty("revokedAt");
   });
   it.each([null, {}, [], { name: " " }, { name: "x".repeat(51) }])(
     "rejects invalid token names %j",
@@ -187,7 +179,7 @@ describe("session-only token management", () => {
       expect(mocks.agentToken.create).not.toHaveBeenCalled();
     },
   );
-  it.each([issue, tokens, revoke])(
+  it.each([issue, tokens, remove])(
     "does not accept a bearer token as a browser session",
     async (handler) => {
       mocks.session.mockRejectedValue(
@@ -196,7 +188,7 @@ describe("session-only token management", () => {
       await expect(handler(event)).rejects.toMatchObject({ statusCode: 401 });
       expect(mocks.agentToken.create).not.toHaveBeenCalled();
       expect(mocks.agentToken.findMany).not.toHaveBeenCalled();
-      expect(mocks.agentToken.updateMany).not.toHaveBeenCalled();
+      expect(mocks.agentToken.deleteMany).not.toHaveBeenCalled();
     },
   );
   it("lists only metadata for the session owner", async () => {
@@ -206,13 +198,15 @@ describe("session-only token management", () => {
     expect(args.select).not.toHaveProperty("tokenHash");
     expect(args.select).not.toHaveProperty("token");
   });
-  it("revokes only the session owner's active token", async () => {
-    await revoke(event);
-    expect(mocks.agentToken.updateMany).toHaveBeenCalledWith({
-      where: { id: "note", userId: owner, revokedAt: null },
-      data: { revokedAt: expect.any(Date) },
+  it("permanently deletes only the session owner's token", async () => {
+    await remove(event);
+    expect(mocks.agentToken.deleteMany).toHaveBeenCalledWith({
+      where: { id: "note", userId: owner },
     });
-    mocks.agentToken.updateMany.mockResolvedValue({ count: 0 });
-    await expect(revoke(event)).rejects.toMatchObject({ statusCode: 404 });
+    expect(mocks.status).toHaveBeenCalledWith(event, 204);
+  });
+  it("returns 404 for a missing or another owner's token", async () => {
+    mocks.agentToken.deleteMany.mockResolvedValue({ count: 0 });
+    await expect(remove(event)).rejects.toMatchObject({ statusCode: 404 });
   });
 });

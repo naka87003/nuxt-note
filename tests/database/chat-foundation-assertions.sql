@@ -1,7 +1,7 @@
 DO $$ BEGIN
   IF (SELECT count(*) FROM pg_class WHERE relnamespace = 'public'::regnamespace
-    AND relname IN ('User', 'Category', 'Note', 'Chat', 'Message') AND relrowsecurity) <> 5 THEN
-    RAISE EXCEPTION 'All five application tables must have RLS';
+    AND relname IN ('User', 'Category', 'Note', 'Chat', 'Message', 'AgentToken') AND relrowsecurity) <> 6 THEN
+    RAISE EXCEPTION 'All six application tables must have RLS';
   END IF;
   IF to_regclass('public."Project"') IS NOT NULL THEN
     RAISE EXCEPTION 'Project must be replaced by the shared Category';
@@ -9,6 +9,23 @@ DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM "Chat") OR EXISTS (SELECT 1 FROM "Message") THEN
     RAISE EXCEPTION 'Migration must not import or seed Chat records';
   END IF;
+END $$;
+
+-- Tokens have no lifecycle columns and are removed with their owner.
+INSERT INTO "AgentToken" (id, name, "tokenHash", "userId") VALUES
+  ('owner-token', 'Agent', repeat('a', 64), '11111111-1111-4111-8111-111111111111'),
+  ('other-token', 'Agent', repeat('b', 64), '22222222-2222-4222-8222-222222222222');
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public'
+    AND table_name = 'AgentToken' AND column_name IN ('scopes', 'expiresAt', 'revokedAt')) THEN
+    RAISE EXCEPTION 'AgentToken must not have scopes, expiration, or revocation columns';
+  END IF;
+  BEGIN
+    INSERT INTO "AgentToken" (id, name, "tokenHash", "userId") VALUES
+      ('duplicate-token', 'Agent', repeat('a', 64), '22222222-2222-4222-8222-222222222222');
+    RAISE EXCEPTION 'Duplicate token hashes accepted';
+  EXCEPTION WHEN unique_violation THEN NULL;
+  END;
 END $$;
 
 -- Notes and conversations share exactly the same category record.
@@ -37,11 +54,12 @@ INSERT INTO "Category" (id, name, "nameKey", "userId", "updatedAt") VALUES
 
 CREATE ROLE foundation_anon NOLOGIN;
 GRANT USAGE ON SCHEMA public TO foundation_anon;
-GRANT SELECT, INSERT ON "Category", "Note", "Chat", "Message" TO foundation_anon;
+GRANT SELECT, INSERT ON "Category", "Note", "Chat", "Message", "AgentToken" TO foundation_anon;
 SET ROLE foundation_anon;
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM "Category") OR EXISTS (SELECT 1 FROM "Note")
-    OR EXISTS (SELECT 1 FROM "Chat") OR EXISTS (SELECT 1 FROM "Message") THEN
+    OR EXISTS (SELECT 1 FROM "Chat") OR EXISTS (SELECT 1 FROM "Message")
+    OR EXISTS (SELECT 1 FROM "AgentToken") THEN
     RAISE EXCEPTION 'RLS exposed private content';
   END IF;
   BEGIN
@@ -129,12 +147,14 @@ INSERT INTO "Message" (id, content, role, "chatId", "updatedAt") VALUES
 DELETE FROM "User" WHERE id = '11111111-1111-4111-8111-111111111111';
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM "Chat") OR EXISTS (SELECT 1 FROM "Message")
+    OR EXISTS (SELECT 1 FROM "AgentToken" WHERE id = 'owner-token')
     OR EXISTS (SELECT 1 FROM "Note" WHERE id = 'note') OR EXISTS (SELECT 1 FROM "Category" WHERE id = 'category') THEN
     RAISE EXCEPTION 'User deletion did not cascade through owned content';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM "Note" WHERE id = 'uncategorized'
     AND "userId" = '22222222-2222-4222-8222-222222222222')
-    OR NOT EXISTS (SELECT 1 FROM "Category" WHERE id = 'other-category') THEN
+    OR NOT EXISTS (SELECT 1 FROM "Category" WHERE id = 'other-category')
+    OR NOT EXISTS (SELECT 1 FROM "AgentToken" WHERE id = 'other-token') THEN
     RAISE EXCEPTION 'User deletion changed another owners content';
   END IF;
 END $$;

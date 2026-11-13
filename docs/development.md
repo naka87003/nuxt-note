@@ -47,9 +47,12 @@ node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 
 ## Database initialization
 
-For an existing configured database, first consult the [deployment audit](deployment.md#status-and-scope). The 2026-11-03 read-only inspection found the current init applied with a matching checksum on the local environment's target. The older-init guidance below applies only to targets with an older schema/history; it is not an instruction to reset this inspected database.
+The single `20261103000000_init` migration creates User, Category, Note, Chat,
+Message, AgentToken, the MessageRole enum, indexes, foreign keys, the Message
+status CHECK constraint, and RLS on all six application tables. Tokens have no
+scopes, expiration, or revocation columns. No data is imported or seeded.
 
-Before running these commands, verify that `.env` points to an empty Nuxt Note database. The unified initial migration creates the complete Note and Chat foundation.
+For a new empty database:
 
 ```bash
 pnpm db:generate
@@ -57,11 +60,14 @@ pnpm db:validate
 pnpm db:migrate
 ```
 
-`db:migrate` applies the SQL committed to this repository. It does not create a shadow database on Supabase. RLS is enabled on User, Category, Note, Chat and Message to prevent anonymous access through the Data API. The database role used by the Prisma server connection must have the required database permissions.
+`db:migrate` applies committed SQL without a shadow database. Installation and
+builds do not apply migrations automatically. The database role used by Prisma
+must have the required permissions; RLS does not replace server ownership checks.
 
-The rewritten `20261103000000_init` creates User, Category, Note, Chat, Message, MessageRole, and RLS on all five tables. Notes and conversations share Category; there is no Project table. It imports no data. This version has not been applied to Supabase by this change.
-
-Current Note data is disposable, so the initial schema has been consolidated before further development. A database that applied the old Note-only or six-table Project init must be reset or replaced with a fresh empty database, including a fresh Prisma migration history, before deploying this init. Simply running `pnpm db:migrate` against the old database will not replay an already-applied init. Resetting removes existing users, notes, and categories; sign in again afterward to create a user. No reset is performed by this change. Do not copy Chat migration records, manually mark the new init as applied to an old schema, or reset a shared Supabase database schema. Verify that the target is dedicated and obtain explicit authorization before resetting it. Future schema changes should use new migrations once this init has been adopted. Installation and builds never apply migrations automatically.
+For an existing database, use `pnpm exec prisma migrate status` to check the
+applied history, then `pnpm db:migrate` to apply any new migrations. Do not replay
+the init or reset a populated database. Add new migrations for subsequent schema
+changes rather than editing the applied init or deleting migration history.
 
 The unified session uses `user.id` for the Note database User.id. The GitHub identity is stored as User.githubId in the database. Imported Chat code must use the database ID from `session.user.id`, replacing the original Chat session's `databaseUserId` convention. One login and sign-out flow covers both features; no cross-application session sharing is planned.
 
@@ -71,7 +77,7 @@ Server APIs use `getAuthenticatedUserId` from `server/utils/auth.ts`. It require
 
 Run `pnpm test:db` with a running Docker engine. The script uses the official `postgres:17-alpine` image, creating a unique temporary container with no network access or published ports. The first run may download the image. It never loads `.env` or uses the application's connection strings.
 
-The check applies the unified init to an empty database and inserts representative Note fixtures. It checks shared category membership and rename, category-name uniqueness per owner, category deletion uncategorizing both notes and chats without losing messages, initially empty Chat tables, orphan rejection, RLS, and owner deletion isolation. It stops the container and removes its temporary storage when complete. These are direct SQL checks; they do not exercise Prisma's deployment history or live OAuth.
+The check applies the unified init to an empty database and inserts representative Note fixtures. It checks shared category membership and rename, category-name uniqueness per owner, category deletion uncategorizing both notes and chats without losing messages, initially empty Chat tables, orphan rejection, RLS, token hash uniqueness, token lifecycle column absence, and owner deletion isolation. It stops the container and removes its temporary storage when complete. These are direct SQL checks; they do not exercise Prisma's deployment history or live OAuth.
 
 `pnpm test` runs both the Node unit tests and Nuxt component/composable tests. See the [test guide](../tests/README.md) for directory responsibilities, project-specific commands and coverage limits. Unit tests check authentication and Note API ownership using mocked sessions and database calls. Real GitHub sign-in and authenticated Note saving must be smoke-tested separately after running the app. Chat API ownership and safe Markdown are covered by unit tests; generation lifecycle and retry are covered by Nuxt composable tests. `pnpm test:chat` checks the built server against a disposable database and mock AI, including Note update/category/delete ownership checks; real OAuth remains a separate manual check.
 
