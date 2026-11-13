@@ -6,7 +6,7 @@ import { landingDecorators, waitForLandingAssets } from "./fixtures/landing";
 async function confirmGeneration(canvasElement: HTMLElement) {
   const canvas = within(canvasElement);
   await userEvent.click(
-    await canvas.findByRole("button", { name: "Generate note" }),
+    await canvas.findByRole("button", { name: "Generate draft" }),
   );
   const dialog = await canvas.findByRole("dialog", {
     name: "Generate a note from this chat?",

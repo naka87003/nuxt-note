@@ -173,7 +173,7 @@ describe("ChatSession", () => {
     const wrapper = await mountSession();
     expect(wrapper.getComponent(ChatComposer).props("busy")).toBe(true);
     expect(wrapper.get("textarea").attributes("disabled")).toBeDefined();
-    for (const label of ["Generate note", "Delete"]) {
+    for (const label of ["Generate draft", "Delete"]) {
       expect(
         wrapper
           .findAll("button")
@@ -206,7 +206,7 @@ describe("ChatSession", () => {
     const wrapper = await mountSession();
     await wrapper
       .findAll("button")
-      .find((button) => button.text() === "Generate note")!
+      .find((button) => button.text() === "Generate draft")!
       .trigger("click");
     expect(wrapper.get('[role="dialog"]').text()).toContain(
       "Generate a note from this chat?",
@@ -225,7 +225,7 @@ describe("ChatSession", () => {
     const wrapper = await mountSession();
     await wrapper
       .findAll("button")
-      .find((button) => button.text() === "Generate note")!
+      .find((button) => button.text() === "Generate draft")!
       .trigger("click");
     await wrapper
       .findAll("button")

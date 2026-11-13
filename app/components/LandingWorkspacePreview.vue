@@ -27,7 +27,7 @@ const previewAriaLabel = computed(() => {
     return "Interactive demo: turn a conversation into a note";
   }
   if (props.noteDraft) {
-    return "Example Chat workspace with a Generate note confirmation: AI organizes the conversation into a draft to review and edit before saving";
+    return "Example Chat workspace with a Generate draft confirmation: AI organizes the conversation into a draft to review and edit before saving";
   }
   if (isChat.value) {
     return "Example Chat workspace with shared categories and a conversation about useFetch";
@@ -270,7 +270,7 @@ const visibleGroups = computed(() =>
                 </small>
                 <div class="sample-actions">
                   <span v-if="isChat" class="sample-primary"
-                    >Generate note</span
+                    >Generate draft</span
                   >
                   <div class="sample-secondary-actions">
                     <span :class="isChat ? 'sample-soft' : 'sample-primary'">

@@ -61,7 +61,7 @@ const editing = computed(
 const steps: Record<Step, { progress: number; guidance: string }> = {
   chat: {
     progress: 1,
-    guidance: "Generate note turns this chat into an editable draft.",
+    guidance: "Generate draft turns this chat into an editable draft.",
   },
   confirm: { progress: 2, guidance: "Confirm to generate your draft." },
   generating: { progress: 3, guidance: "Preparing your draft…" },
@@ -196,7 +196,7 @@ async function go(next: Step) {
                 :aria-describedby="hintId"
                 @click="go('confirm')"
               >
-                Generate note
+                Generate draft
                 <LandingClickCue v-if="step === 'chat'" />
               </UButton>
               <div class="chat-secondary-actions" aria-hidden="true">

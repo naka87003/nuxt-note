@@ -271,7 +271,7 @@ async function remove() {
           :disabled="!canCreateNote"
           @click="confirmNote"
         >
-          Generate note
+          Generate draft
         </UButton>
         <div class="chat-secondary-actions">
           <UButton

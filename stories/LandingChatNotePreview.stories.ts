@@ -23,17 +23,17 @@ export const Responsive: Story = {
       // Wait for the real lazy component, rather than capturing the SSR fallback.
       await expect(
         await canvas.findByRole("button", {
-          name: "Generate note",
+          name: "Generate draft",
         }),
       ).toBeVisible();
     } else {
       await expect(
         canvas.getByRole("img", {
-          name: /Example Chat workspace with a Generate note confirmation/,
+          name: /Example Chat workspace with a Generate draft confirmation/,
         }),
       ).toBeVisible();
       await expect(
-        canvas.queryByRole("button", { name: "Generate note" }),
+        canvas.queryByRole("button", { name: "Generate draft" }),
       ).not.toBeInTheDocument();
     }
     await waitForLandingAssets(canvasElement);
