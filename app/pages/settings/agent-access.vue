@@ -14,9 +14,15 @@ const endpoint = new URL("/mcp", requestUrl.origin).href;
 const name = ref("My agent");
 const issued = ref<{ id: string; token: string } | null>(null);
 const toast = useToast();
-const busy = ref(false);
-const failure = ref("");
+const creating = ref(false);
+const deleting = ref(false);
+const busy = computed(() => creating.value || deleting.value);
+const createFailure = ref("");
+const deleteFailure = ref("");
 const deleteId = ref("");
+const deleteTarget = computed(() =>
+  tokens.value?.find((token) => token.id === deleteId.value),
+);
 const deleteOpen = computed({
   get: () => Boolean(deleteId.value),
   set: (open) => {
@@ -24,10 +30,14 @@ const deleteOpen = computed({
   },
 });
 
+watch(deleteId, () => {
+  deleteFailure.value = "";
+});
+
 async function issue() {
   if (busy.value || issued.value) return;
-  busy.value = true;
-  failure.value = "";
+  creating.value = true;
+  createFailure.value = "";
   try {
     const result = await $fetch("/api/agent-tokens", {
       method: "POST",
@@ -36,16 +46,16 @@ async function issue() {
     issued.value = { id: result.id, token: result.token };
     await refresh();
   } catch {
-    failure.value = "Could not create the token. Please try again.";
+    createFailure.value = "Could not create the token. Please try again.";
   } finally {
-    busy.value = false;
+    creating.value = false;
   }
 }
 
 async function deleteToken() {
   if (busy.value || !deleteId.value) return;
-  busy.value = true;
-  failure.value = "";
+  deleting.value = true;
+  deleteFailure.value = "";
   try {
     await $fetch(`/api/agent-tokens/${deleteId.value}`, { method: "DELETE" });
     if (deleteId.value === issued.value?.id) issued.value = null;
@@ -53,9 +63,9 @@ async function deleteToken() {
     toast.add({ title: "Token deleted", color: "success" });
     await refresh();
   } catch {
-    failure.value = "Could not delete the token. Please try again.";
+    deleteFailure.value = "Could not delete the token. Please try again.";
   } finally {
-    busy.value = false;
+    deleting.value = false;
   }
 }
 </script>
@@ -66,9 +76,8 @@ async function deleteToken() {
       <h1 class="text-2xl font-semibold">Agent access</h1>
       <p class="text-muted">
         Let an agent search, read, create, update, and permanently delete your
-        Notes. All valid tokens, including previously issued tokens, allow these
-        actions. Tokens cannot access Chat. Tokens have no expiration date and
-        can be deleted at any time.
+        Notes. Each token allows all of these actions but cannot access Chat.
+        Tokens do not expire and can be deleted at any time.
       </p>
     </div>
 
@@ -89,7 +98,7 @@ async function deleteToken() {
         copied-message="URL copied to clipboard."
       />
       <ol class="list-decimal space-y-2 pl-5 text-sm">
-        <li>Create a token below.</li>
+        <li>Create a token below and copy it before leaving this page.</li>
         <li>
           In your agent's MCP settings, add the URL above with Streamable HTTP
           transport.
@@ -100,14 +109,13 @@ async function deleteToken() {
         </li>
       </ol>
       <p class="text-sm text-muted">
-        Use a client that supports custom Bearer headers. Automatic OAuth
-        sign-in is not available yet. Keep the token in the client's private
-        settings, never in a URL or chat.
+        OAuth sign-in is not supported. Keep the token in your agent's private
+        settings, never in a URL, chat, or version control.
       </p>
       <p class="text-sm">
-        Try: “Use nuxt-note to search my Notes about Nuxt, read one, and
-        summarize it.”
+        Try: “Use nuxt-note to list my Notes, read one, and summarize it.”
       </p>
+      <AgentSetupExamples :endpoint="endpoint" />
     </section>
 
     <section
@@ -133,8 +141,8 @@ async function deleteToken() {
         </UFormField>
         <UButton
           type="submit"
-          :loading="busy"
-          :disabled="!name.trim() || Boolean(issued)"
+          :loading="creating"
+          :disabled="busy || !name.trim() || Boolean(issued)"
         >
           Create token
         </UButton>
@@ -169,7 +177,9 @@ async function deleteToken() {
           </UButton>
         </div>
       </div>
-      <p v-if="failure" role="alert" class="text-error">{{ failure }}</p>
+      <p v-if="createFailure" role="alert" class="text-error">
+        {{ createFailure }}
+      </p>
     </section>
 
     <section class="space-y-4" aria-labelledby="tokens-heading">
@@ -207,10 +217,15 @@ async function deleteToken() {
 
     <UModal
       v-model:open="deleteOpen"
-      title="Delete token?"
+      :title="
+        deleteTarget ? `Delete token “${deleteTarget.name}”?` : 'Delete token?'
+      "
       description="This permanently deletes the token. Any agent using it will lose access to your Notes. This cannot be undone."
       :dismissible="!busy"
     >
+      <template v-if="deleteFailure" #body>
+        <p role="alert" class="text-error">{{ deleteFailure }}</p>
+      </template>
       <template #footer>
         <UButton
           color="neutral"
@@ -220,7 +235,12 @@ async function deleteToken() {
         >
           Cancel
         </UButton>
-        <UButton color="error" :loading="busy" @click="deleteToken">
+        <UButton
+          color="error"
+          :loading="deleting"
+          :disabled="busy"
+          @click="deleteToken"
+        >
           Delete token
         </UButton>
       </template>

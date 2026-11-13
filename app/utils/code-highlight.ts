@@ -13,6 +13,7 @@ import mdc from "shiki/langs/mdc.mjs";
 import php from "shiki/langs/php.mjs";
 import python from "shiki/langs/python.mjs";
 import sql from "shiki/langs/sql.mjs";
+import toml from "shiki/langs/toml.mjs";
 import tsx from "shiki/langs/tsx.mjs";
 import typescript from "shiki/langs/typescript.mjs";
 import vue from "shiki/langs/vue.mjs";
@@ -34,6 +35,7 @@ export default shiki({
     php,
     python,
     sql,
+    toml,
     tsx,
     typescript,
     vue,
