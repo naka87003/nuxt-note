@@ -7,6 +7,8 @@
     "node": ">=26.11.1 <27"
   },
   "scripts": {
+    "check:mcp:remote": "node scripts/check-mcp-remote.mjs",
+    "test:agent": "node scripts/test-agent-access.mjs",
     "storybook": "storybook dev --port 6006 --host localhost --disable-telemetry",
     "build-storybook": "storybook build --disable-telemetry",
     "typecheck:storybook": "nuxt prepare && vue-tsc --noEmit -p .storybook/tsconfig.json",
@@ -32,6 +34,7 @@
     "@ai-sdk/openai": "^4.0.108",
     "@comark/nuxt": "^0.9.0",
     "@fontsource-variable/inter": "^5.2.0",
+    "@modelcontextprotocol/server": "^2.4.0",
     "@nuxt/ui": "^4.12.0",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
@@ -42,10 +45,12 @@
     "pg": "^8.23.1",
     "shiki": "^4.6.0",
     "tailwindcss": "^4.3.4",
-    "vue": "^3.5.44"
+    "vue": "^3.5.44",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@iconify-json/lucide": "^1.2.151",
+    "@modelcontextprotocol/client": "^2.4.0",
     "@nuxt/eslint": "^1.17.0",
     "@nuxt/test-utils": "^4.3.4",
     "@nuxtjs/storybook": "10.0.3",

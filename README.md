@@ -77,6 +77,16 @@ export PNG at 1× (1200 × 630), and replace `public/images/og-image.png`.
 Shared social titles and descriptions live in `app/utils/seo.ts` and are also
 used by the landing page.
 
+## MCP
+
+Authenticated saved-Note search and reading is available through the remote
+Streamable HTTP endpoint at `/mcp`. Create a read-only token in
+**Profile menu → Agent access**, then register the displayed URL and Bearer header
+in your agent. No project clone or local MCP process is required for remote use.
+See the [saved Notes MCP guide](docs/mcp-notes.md) for setup and compatibility.
+Tokens expire after 90 days, can be revoked, and authorize only the owner's Note
+reads.
+
 ## Validation
 
 Visual regression tests use Storybook + Chromatic. Run `pnpm storybook` to view

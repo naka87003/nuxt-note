@@ -5,6 +5,11 @@ const { user, clear } = useUserSession();
 const items = computed(() => [
   { label: user.value?.name ?? "GitHub user", type: "label" as const },
   { type: "separator" as const },
+  {
+    label: "Agent access",
+    icon: "i-lucide-key-round",
+    to: "/settings/agent-access",
+  },
   { label: "Sign out", icon: "i-lucide-log-out", onSelect: signOut },
 ]);
 

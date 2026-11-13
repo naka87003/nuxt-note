@@ -15,6 +15,7 @@ export default defineNuxtConfig({
     },
   },
   runtimeConfig: {
+    mcpAllowedOrigins: "",
     openaiApiKey: "",
     openaiModel: "gpt-6.1-sol",
     public: {

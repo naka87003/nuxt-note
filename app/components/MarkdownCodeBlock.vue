@@ -8,58 +8,19 @@ const props = defineProps<{ __node: ElementNode }>();
 const code = computed(() => textContent(props.__node));
 const copyable = inject<Ref<boolean>>("markdown-copyable", ref(true));
 const active = ref(false);
-const pending = ref(false);
-const state = ref<"idle" | "copied" | "failed">("idle");
-const feedbackByState = {
-  idle: { icon: "i-lucide-copy", color: "neutral", message: "" },
-  copied: {
-    icon: "i-lucide-check",
-    color: "success",
-    message: "Code copied to clipboard.",
-  },
-  failed: {
-    icon: "i-lucide-x",
-    color: "error",
-    message:
-      "Unable to copy. Try again or select the code and copy it manually.",
-  },
-} as const;
-const feedback = computed(() => feedbackByState[state.value]);
-let timer: ReturnType<typeof setTimeout>;
-
-watch(code, () => {
-  clearTimeout(timer);
-  state.value = "idle";
-});
-onBeforeUnmount(() => clearTimeout(timer));
-
-async function copyCode() {
-  if (pending.value) return;
-  clearTimeout(timer);
-  const source = code.value;
-  state.value = "idle";
-  pending.value = true;
-  let copied = false;
-  try {
-    await navigator.clipboard.writeText(source);
-    copied = true;
-  } catch {
-    // Clipboard permission failures and unsupported browsers allow a retry.
-  } finally {
-    pending.value = false;
-  }
-  if (source !== code.value) return;
-  state.value = copied ? "copied" : "failed";
-  timer = setTimeout(() => {
-    state.value = "idle";
-  }, 2000);
-}
+const { state, pending, feedback, copy } = useCopyFeedback(
+  code,
+  "Code copied to clipboard.",
+);
 </script>
 
 <template>
   <div
     class="code-block"
-    :class="{ 'code-block--active': active, 'code-block--copyable': copyable }"
+    :class="{
+      'code-block--active': active,
+      'code-block--copyable': copyable,
+    }"
     @click="active = true"
   >
     <UButton
@@ -73,7 +34,7 @@ async function copyCode() {
       :disabled="pending"
       aria-label="Copy code"
       :data-state="state"
-      @click.stop="copyCode"
+      @click.stop="copy"
     />
     <pre><slot /></pre>
     <span v-if="copyable" class="sr-only" role="status">

@@ -62,10 +62,19 @@ pnpm exec vitest --clearCache
 
 ## Disposable integration checks
 
+Agent access also has an explicit real-database check: build and apply its
+migration first, then run `pnpm test:agent --live`. Unlike the disposable commands
+below, this loads `.env`, uses an existing user, and creates narrowly identified
+verification records which it removes in `finally`. See the
+[saved Notes MCP guide](../docs/mcp-notes.md) before running it.
+
+`pnpm check:mcp:remote` is a read-only check of the configured remote MCP credentials.
+It searches and reads one Note without printing its contents.
+
 | Command                                 | Prerequisites           | Scope                                                                            |
 | --------------------------------------- | ----------------------- | -------------------------------------------------------------------------------- |
 | `pnpm test:db`                          | Docker                  | Applies the migration and runs `database/` SQL fixtures/assertions               |
 | `pnpm test:chat`                        | Docker and `pnpm build` | Exercises the built HTTP server with temporary PostgreSQL and a mock AI provider |
 | `node scripts/test-notebook-import.mjs` | Docker                  | Checks preview, ownership, rollback and repeat imports using synthetic CSV files |
 
-These integration scripts are separate from `pnpm test`. They do not load application credentials or target the configured application database. Real GitHub OAuth remains a manual check. See [development](../docs/development.md) and [Notebook migration](../docs/notebook-migration.md) for details.
+The disposable integration scripts in the table are separate from `pnpm test`. They do not load application credentials or target the configured application database. Real GitHub OAuth remains a manual check. See [development](../docs/development.md) and [Notebook migration](../docs/notebook-migration.md) for details.
