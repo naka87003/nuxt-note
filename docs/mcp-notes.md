@@ -72,18 +72,13 @@ site's own origin or an origin allowed by `NUXT_MCP_ALLOWED_ORIGINS`.
 
 ## Deploy the endpoint
 
-Deploy the Nuxt application with the SDK and Zod runtime dependencies and the
-existing database/session configuration. Apply the committed migrations to the
-target database before deploying if not applied already. `NUXT_PUBLIC_SITE_URL` defaults to
-`https://nuxt-note-ivory.vercel.app`; no extra setting is needed when using that
-domain. Override it only when changing the canonical origin. The Vercel deployment host (`VERCEL_URL`) and
-loopback development hosts are also accepted; unrelated Host and Origin headers
-are rejected. `NUXT_MCP_ALLOWED_ORIGINS` is an optional comma-separated list of
-exact extra browser origins, not a wildcard CORS setting.
-
-AgentToken is included in the unified `20261103000000_init` migration, with no
-scopes, expiration, or revocation columns. See [database initialization](development.md#database-initialization)
-for new-database setup and routine migration commands.
+Deploy the Nuxt application with its database/session configuration and apply
+pending migrations through the [deployment procedure](deployment.md).
+The [domain configuration](deployment.md#domain-and-mcp-configuration) defines
+`public.siteUrl`, optional browser origins, and accepted hosts. Leave
+`NUXT_PUBLIC_SITE_URL` and `NUXT_MCP_ALLOWED_ORIGINS` unset for the current
+production domain and native clients such as Codex. The site origin is
+`https://nuxt-note.com`; the MCP client URL is `https://nuxt-note.com/mcp`.
 
 The handler creates a fresh MCP instance per authenticated request and stores no
 user sessions in memory. It serves current SDK requests and a stateless fallback
@@ -97,7 +92,7 @@ details.
 
 Verify URL/authentication, owner isolation, search/reading, and token deletion on the
 hosted deployment before treating it as validated in production. Local checks do
-not establish hosting behavior. This implementation does not deploy itself.
+not establish hosting behavior.
 
 ## Verify the connection
 
@@ -162,17 +157,16 @@ A stale timestamp fails without modifying the Note. The tool returns a conflict
 error instructing the agent to call `get_note` again and reconcile the latest
 content with the requested changes. Do not blindly replace the timestamp and
 retry. Successful updates return the saved Note, a new `updatedAt`, and `url`;
-present the saved title as a clickable link. No database migration is required.
+present the saved title as a clickable link.
 
 The tool is annotated as non-read-only, destructive (it replaces content), and
 non-idempotent (retrying a successful request with its old timestamp conflicts).
 This guard applies to MCP updates, including detecting intervening browser edits.
-The browser editor's save behavior is unchanged and does not itself reject stale
-browser saves.
+The browser editor does not itself reject stale browser saves.
 
 ## Delete an existing Note
 
-`delete_note` is available to every valid token, including previously issued tokens.
+`delete_note` is available to every valid token.
 It permanently deletes one Note; there is no trash, undo, or deleted-Note history.
 Categories, Chats, and other Notes are unaffected. Use it only when the user
 explicitly requests deleting the identified Note; clarify ambiguous targets first.
@@ -182,7 +176,7 @@ These instructions guide the agent; the server does not enforce a two-step confi
 First call `get_note`, then pass its `id` and exact `updatedAt` (UTC ISO timestamp
 with milliseconds). Both fields are required and extra fields, including `userId`,
 are rejected. The database deletes only when `id`, token owner, and `updatedAt`
-match atomically. No database migration is required. Browser deletion is unchanged.
+match atomically.
 
 A changed Note returns a conflict error without deleting it. Read it again and
 ask the user to confirm deletion of the changed Note before retrying with the new
@@ -203,9 +197,9 @@ not the raw token. Token lists never return either the secret or hash. Token cre
 and token deletion require the browser login session. Bearer tokens do not authorize
 those operations, browser Note API routes, or Chat endpoints.
 
-There are no per-token scopes or permission choices. All valid tokens, including
-previously issued read-only tokens, can now create, update, and permanently delete Notes. Their secret remains unchanged; no token replacement or client
-configuration change is required. Reconnect the agent to refresh its tool list.
+There are no per-token scopes or permission choices. Every valid token grants
+search, read, create, update, and permanent delete access to its owner's Notes.
+Reconnect the agent after tool changes to refresh its tool list.
 
 Every MCP request checks that the token hash exists and derives
 the owner ID from the token record. Caller-supplied user IDs are ignored. Reading
@@ -220,66 +214,34 @@ An operation already in flight may finish. Already retrieved text remains in the
 agent's context. Issue a new token and update the agent's private connection
 settings when replacing a deleted token. No deleted-token history is retained.
 
-## Code map
-
-- [`server/utils/agent-auth.ts`](../server/utils/agent-auth.ts): generation,
-  hashing, token lookup, and token metadata selection.
-- [`server/utils/note-reads.ts`](../server/utils/note-reads.ts): owner-scoped
-  reads shared by browser routes and MCP tools.
-- [`server/utils/note-writes.ts`](../server/utils/note-writes.ts): validated,
-  owner-scoped creation shared by the browser route and MCP, and atomic
-  version-checked MCP updates and deletions.
-- [`server/routes/mcp.ts`](../server/routes/mcp.ts): authenticated Streamable HTTP entry.
-- [`server/utils/note-tools.ts`](../server/utils/note-tools.ts): shared tool
-  definitions, validation, results, and sanitized errors.
-- [`server/utils/mcp-notes.ts`](../server/utils/mcp-notes.ts): request-scoped MCP registration.
-- [`server/utils/chat-tools.ts`](../server/utils/chat-tools.ts): session-scoped AI
-  tools, read-before-write checks, cancellation, and Chat instructions.
-- [`server/utils/mcp-http.ts`](../server/utils/mcp-http.ts): Host and Origin checks.
-- `server/api/agent-tokens/`: browser-session token management.
-- [`app/pages/settings/agent-access.vue`](../app/pages/settings/agent-access.vue):
-  one-time secret display, repeatable value copying, and confirmed deletion.
-
 ## Verification
 
-```bash
-pnpm test --project unit
-pnpm lint
-pnpm typecheck
-pnpm build
-```
+Use the [test guide](../tests/README.md) for standard unit, Nuxt, and disposable
+integration checks. The commands below are opt-in and have different side effects.
 
-To check editing through the real AI model with fake Notes (no database access),
-explicitly run:
+### Live AI with fake Notes
 
 ```bash
 NUXT_NOTE_LIVE_AI=1 pnpm test --project unit tests/unit/server/utils/chat-tools.live.test.ts
 ```
 
-This loads `.env` for `NUXT_OPENAI_API_KEY` and the optional `NUXT_OPENAI_MODEL`,
-and makes billable AI requests. It checks editing a previously linked Note even
-when earlier conversation history contains an incorrect refusal. It is skipped
-in the normal test suite. It does not verify the deployed app or a real database.
+Loads `.env` for the API key and optional model and makes billable AI requests.
+Notes are mocked; no database is accessed. This test is skipped in the normal suite
+and does not verify production or a real database.
 
-The real database integration check is explicitly opt-in:
+### Real database integration
 
 ```bash
 pnpm test:agent --live
 ```
 
-It loads `.env` and uses the configured database. Build and apply any pending
-migrations before running it. It starts a separate local app process with a temporary session
-secret, uses the existing user with the most Notes, and creates two verification
-Notes, one temporary second user/Note, and tokens. It tests session-only token
-management, stored hashes, searching/pagination, owner isolation,
-physical token deletion, remote HTTP MCP calls, creation/readback,
-updates/readback, concurrent update conflict detection, update owner isolation,
-version-checked deletion, deletion conflicts and owner isolation, concurrent deletion,
-category ownership, creation denial after deletion, concurrent user isolation,
-legacy initialization, malformed/oversized requests, and HTTP boundary checks. It removes only records identified by that
-run's random marker/IDs in `finally`. Existing Notes are neither edited nor deleted, and their content is not printed. An interrupted process may require cleaning up its verification records.
+Build the app and apply pending migrations first. This check loads `.env`, uses
+the configured database and an existing user, and creates verification Notes,
+a temporary second user, and tokens. It exercises authenticated MCP operations,
+owner isolation, version conflicts, token deletion, and HTTP boundaries without AI
+requests. The app process is local; the database may still be hosted or production.
 
-This check runs no AI requests and does not register an agent host or deploy the
-application. Local development may use a hosted database: choosing localhost as
-the app URL does not make the database local. Production deployment remains a
-separate release step, including applying any pending migrations to that target.
+Only records identified by the run's random marker/IDs are removed in `finally`.
+Existing Notes are not edited or deleted and their content is not printed.
+An interrupted run may require cleanup of its verification records. This command
+does not deploy the app or register an agent connection.

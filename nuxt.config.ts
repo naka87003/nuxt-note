@@ -19,7 +19,7 @@ export default defineNuxtConfig({
     openaiApiKey: "",
     openaiModel: "gpt-6.1-sol",
     public: {
-      siteUrl: "https://nuxt-note-ivory.vercel.app",
+      siteUrl: "https://nuxt-note.com",
     },
   },
   app: {

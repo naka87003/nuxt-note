@@ -5,7 +5,7 @@ import AgentSetupExamples from "../app/components/AgentSetupExamples.vue";
 const meta = {
   title: "Settings/Agent setup examples",
   component: AgentSetupExamples,
-  args: { endpoint: "https://nuxt-note-ivory.vercel.app/mcp" },
+  args: { endpoint: "https://nuxt-note.com/mcp" },
   decorators: [
     () => ({
       template:

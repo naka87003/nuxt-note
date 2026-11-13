@@ -25,7 +25,7 @@ export function privateAgentResponse(event: H3Event) {
   setHeader(event, "Cache-Control", "private, no-store");
 }
 
-// Bearer tokens authorize MCP reads and creation, never browser sessions.
+// Bearer tokens authorize MCP Note operations, never browser sessions.
 export async function getAgentUserId(event: H3Event) {
   privateAgentResponse(event);
   const match = /^Bearer (nnr_[A-Za-z0-9_-]{43})$/i.exec(

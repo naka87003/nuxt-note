@@ -23,3 +23,9 @@ The original illustration PNGs and the Figma comparison section were deleted at 
 ## Logo assets
 
 The Assets section contains the Nuxt Note SVG logo and standalone Nuxt symbol. The wordmark uses the same Inter Bold outlines as `AppBrand.vue`. Symbol and Note fills bind to `--ui-primary`. LP headers and footers and shared workspace headers use the logo component. A shared palette button component supplies the theme picker trigger in LP and workspace headers.
+
+## Social sharing image
+
+All pages use `public/images/og-image.png` (1200 × 630) for Open Graph and Twitter/X cards. To update it, edit the [OG Image frame](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=420-4057), export PNG at 1×, and replace the committed file. Builds need no image-generation dependency. Shared social titles and descriptions live in `app/utils/seo.ts`; the artwork contains no private Note or Chat content.
+
+Absolute image URLs use the site origin configured in `nuxt.config.ts`. See [domain configuration](../deployment.md#domain-and-mcp-configuration) for environment overrides.

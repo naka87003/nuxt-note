@@ -316,7 +316,7 @@ try {
     created.structuredContent.url,
     new URL(
       `/notes/${created.structuredContent.id}`,
-      process.env.NUXT_PUBLIC_SITE_URL ?? "https://nuxt-note-ivory.vercel.app",
+      process.env.NUXT_PUBLIC_SITE_URL ?? "https://nuxt-note.com",
     ).href,
   );
   const saved = await remote.callTool({
