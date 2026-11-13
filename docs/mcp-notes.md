@@ -94,7 +94,7 @@ Ordinary users only configure their agent and do not need this repository or fil
 | ------------- | --------------------------------------------------- | -------------------------------------------------------------------- |
 | `list_notes`  | Optional `q`, `category`, `limit`, `offset`         | IDs, titles, category IDs, update times, text previews, `nextOffset` |
 | `get_note`    | `id` from a search result                           | ID, title, Markdown, category ID, creation/update times              |
-| `create_note` | Required `title`, `markdown`; optional `categoryId` | ID, title, Markdown, category ID, creation/update times              |
+| `create_note` | Required `title`, `markdown`; optional `categoryId` | ID, title, Markdown, category ID, creation/update times, URL         |
 
 Search is literal and case-insensitive across title and Markdown body, with the
 same 50-character search limit as the UI. `%`, `_`, and backslashes are literal.
@@ -110,6 +110,13 @@ uncategorized Note; otherwise use an existing category ID belonging to the token
 owner (for example from `list_notes`). Missing and foreign categories return the
 same error without creating a Note. Extra fields, including `userId` and `id`,
 are rejected. Ownership comes only from the authenticated token.
+
+Creation also returns `url`, an absolute browser link built from
+`NUXT_PUBLIC_SITE_URL` and `/notes/<id>`. The tool description asks the agent to
+present the saved title as a clickable link. Opening it requires the owner's
+normal browser sign-in; the URL contains no token and does not make the Note public.
+For links to open a local development app, set `NUXT_PUBLIC_SITE_URL` to that
+app's origin.
 
 Creation is non-idempotent: repeating a successful call creates another Note.
 The tool is annotated as a non-read-only, non-destructive, non-idempotent action.

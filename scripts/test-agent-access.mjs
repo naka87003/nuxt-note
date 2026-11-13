@@ -309,6 +309,13 @@ try {
   assert(!created.isError);
   createdNotes.push(created.structuredContent.id);
   assert.equal(created.structuredContent.categoryId, null);
+  assert.equal(
+    created.structuredContent.url,
+    new URL(
+      `/notes/${created.structuredContent.id}`,
+      process.env.NUXT_PUBLIC_SITE_URL ?? "https://nuxt-note-ivory.vercel.app",
+    ).href,
+  );
   const saved = await remote.callTool({
     name: "get_note",
     arguments: { id: createdNotes[0] },

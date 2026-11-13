@@ -37,12 +37,15 @@ export default defineEventHandler(async (event) => {
   }
   // Authenticate every exchange, including discovery and initialized clients.
   const userId = await getAgentUserId(event);
-  const handler = createMcpHandler(() => createRemoteNotesServer(userId), {
-    legacy: "stateless",
-    responseMode: "json",
-    maxRequestBodySize: 65_536,
-    maxSubscriptions: 0,
-  });
+  const handler = createMcpHandler(
+    () => createRemoteNotesServer(userId, config.public.siteUrl),
+    {
+      legacy: "stateless",
+      responseMode: "json",
+      maxRequestBodySize: 65_536,
+      maxSubscriptions: 0,
+    },
+  );
   try {
     const response = await handler.fetch(request);
     response.headers.set("Cache-Control", "private, no-store");

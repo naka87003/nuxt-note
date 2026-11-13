@@ -37,11 +37,14 @@ afterEach(async () => {
   for (const client of clients.splice(0)) await client.close();
   for (const handler of handlers.splice(0)) await handler.close();
 });
-async function connect(owner: string) {
-  const handler = createMcpHandler(() => createRemoteNotesServer(owner), {
-    responseMode: "json",
-    maxSubscriptions: 0,
-  });
+async function connect(owner: string, siteUrl = "https://notes.example") {
+  const handler = createMcpHandler(
+    () => createRemoteNotesServer(owner, siteUrl),
+    {
+      responseMode: "json",
+      maxSubscriptions: 0,
+    },
+  );
   handlers.push(handler);
   const client = new Client({ name: "remote-test", version: "0.1.0" });
   clients.push(client);
@@ -75,7 +78,7 @@ describe("remote MCP tools", () => {
     });
   });
   it("exposes create for every token and stores content for the token owner", async () => {
-    const client = await connect("owner");
+    const client = await connect("owner", "https://my-notes.example/");
     const { tools } = await client.listTools();
     expect(
       tools.find((t) => t.name === "create_note")?.annotations,
@@ -98,9 +101,13 @@ describe("remote MCP tools", () => {
     expect(result.isError).toBeFalsy();
     expect(result.structuredContent).toMatchObject({
       id: "new",
+      url: "https://my-notes.example/notes/new",
       title: "Untitled note",
       createdAt: "2026-11-13T00:00:00.000Z",
     });
+    expect(result.content).toEqual([
+      { type: "text", text: JSON.stringify(result.structuredContent, null, 2) },
+    ]);
     expect(writes.note.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: {
