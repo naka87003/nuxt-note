@@ -64,7 +64,7 @@ const steps: Record<Step, { progress: number; guidance: string }> = {
     guidance: "Generate draft turns this chat into an editable draft.",
   },
   confirm: { progress: 2, guidance: "Confirm to generate your draft." },
-  generating: { progress: 3, guidance: "Preparing your draft…" },
+  generating: { progress: 3, guidance: "Generating your draft…" },
   edit: { progress: 4, guidance: "Edit the draft, then select Save." },
   saving: { progress: 4, guidance: "Saving your note…" },
   done: { progress: 5, guidance: "Your saved note is below." },
@@ -86,8 +86,8 @@ const showingDialog = computed(
 const dialogTitle = computed(() => {
   if (confirmingDiscard.value) return "Discard unsaved changes?";
   return step.value === "confirm"
-    ? "Generate a note from this chat?"
-    : "Generating your note…";
+    ? "Generate a draft from this chat?"
+    : "Generating your draft…";
 });
 
 let transitionTimer: ReturnType<typeof setTimeout>;

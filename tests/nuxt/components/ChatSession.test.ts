@@ -234,7 +234,7 @@ describe("ChatSession", () => {
       .find((button) => button.text() === "Generate draft")!
       .trigger("click");
     expect(wrapper.get('[role="dialog"]').text()).toContain(
-      "Generate a note from this chat?",
+      "Generate a draft from this chat?",
     );
     expect(request).not.toHaveBeenCalled();
     await wrapper
@@ -262,7 +262,7 @@ describe("ChatSession", () => {
       expect.objectContaining({ method: "POST" }),
     );
     expect(wrapper.get('[role="dialog"]').text()).toContain(
-      "Generating your note",
+      "Generating your draft…",
     );
     expect(wrapper.get('[role="dialog"]').findAll("button")).toHaveLength(0);
     expect(wrapper.getComponent({ name: "UModal" }).props("dismissible")).toBe(

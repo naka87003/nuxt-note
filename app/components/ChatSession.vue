@@ -167,6 +167,7 @@ const {
   busy: creatingNote,
   open: noteDialog,
   failure: noteFailure,
+  failureTitle: noteFailureTitle,
   confirm: confirmNote,
   create: createNote,
 } = useChatNoteDraft(
@@ -433,10 +434,10 @@ async function remove() {
       v-model:open="noteDialog"
       :title="
         notePhase === 'generating'
-          ? 'Generating your note…'
+          ? 'Generating your draft…'
           : notePhase === 'failed'
-            ? 'Could not generate your note'
-            : 'Generate a note from this chat?'
+            ? noteFailureTitle
+            : 'Generate a draft from this chat?'
       "
       :dismissible="!creatingNote"
       :close="false"

@@ -85,7 +85,7 @@ export function useChatGeneration(
       if (!response.ok || !response.body) {
         if (response.status === 503)
           throw new Error(
-            "AI is not configured. Please contact the administrator.",
+            "Response generation is currently unavailable. Please try again later.",
           );
         if (response.status === 409)
           throw new Error("This conversation has changed. Please try again.");

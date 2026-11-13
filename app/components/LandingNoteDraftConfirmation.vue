@@ -6,7 +6,7 @@ withDefaults(
     titleId?: string;
     focusTitle?: boolean;
   }>(),
-  { title: "Generate a note from this chat?", titleId: undefined },
+  { title: "Generate a draft from this chat?", titleId: undefined },
 );
 </script>
 

@@ -60,6 +60,7 @@ it("allows manual retry after an error without creating a blank draft", async ()
   await flow.create();
   expect(flow.phase.value).toBe("failed");
   expect(flow.failure.value).toContain("too long");
+  expect(flow.failureTitle.value).toBe("Could not generate your draft");
   expect(openDraft).not.toHaveBeenCalled();
   await flow.create();
   expect(openDraft).toHaveBeenCalledWith(draft);
@@ -96,7 +97,13 @@ it("does not regenerate paid output if opening the editor fails", async () => {
   flow.confirm();
   await flow.create();
   expect(flow.phase.value).toBe("failed");
+  expect(flow.failureTitle.value).toBe("Could not open your draft");
+  expect(flow.failure.value).toBe(
+    "Could not open your draft. Please try again.",
+  );
   await flow.create();
   expect(request).toHaveBeenCalledTimes(1);
   expect(openDraft).toHaveBeenCalledTimes(2);
+  flow.confirm();
+  expect(flow.failureTitle.value).toBe("Could not generate your draft");
 });
