@@ -12,6 +12,28 @@ const savedNoteSelect = {
   updatedAt: true,
 } as const;
 
+async function throwNoteWriteError(userId: string, id: string): Promise<never> {
+  const note = await getPrisma().note.findFirst({
+    where: { id, userId },
+    select: { id: true },
+  });
+  if (!note)
+    throw createError({ statusCode: 404, statusMessage: "Note not found" });
+  throw createError({ statusCode: 409, statusMessage: "Note has changed" });
+}
+
+export async function deleteOwnedNote(
+  userId: string,
+  input: { id: string; updatedAt: string },
+) {
+  const db = getPrisma();
+  const deleted = await db.note.deleteMany({
+    where: { id: input.id, userId, updatedAt: new Date(input.updatedAt) },
+  });
+  if (deleted.count) return { id: input.id, deleted: true };
+  return throwNoteWriteError(userId, input.id);
+}
+
 export async function updateOwnedNote(
   userId: string,
   input: {
@@ -50,13 +72,7 @@ export async function updateOwnedNote(
       error.code !== "P2025"
     )
       throw error;
-    const note = await db.note.findFirst({
-      where: { id: input.id, userId },
-      select: { id: true },
-    });
-    if (!note)
-      throw createError({ statusCode: 404, statusMessage: "Note not found" });
-    throw createError({ statusCode: 409, statusMessage: "Note has changed" });
+    return throwNoteWriteError(userId, input.id);
   }
 }
 

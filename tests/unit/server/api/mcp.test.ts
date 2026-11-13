@@ -16,7 +16,12 @@ vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));
 const writes = vi.hoisted(() => ({
-  note: { create: vi.fn(), update: vi.fn(), findFirst: vi.fn() },
+  note: {
+    create: vi.fn(),
+    update: vi.fn(),
+    deleteMany: vi.fn(),
+    findFirst: vi.fn(),
+  },
   category: { findFirst: vi.fn() },
 }));
 vi.mock("../../../../server/utils/prisma", () => ({ getPrisma: () => writes }));
@@ -62,6 +67,7 @@ describe("remote MCP tools", () => {
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([
       "create_note",
+      "delete_note",
       "get_note",
       "list_notes",
       "update_note",
@@ -362,6 +368,139 @@ describe("remote MCP tools", () => {
     );
     expect(
       writes.note.update.mock.calls.map(([args]) => args.where.userId).sort(),
+    ).toEqual(["a", "b"]);
+  });
+  const deleteInput = {
+    id: "note",
+    updatedAt: "2026-11-13T00:00:00.000Z",
+  };
+  it("deletes only the owner and expected version without returning content", async () => {
+    const client = await connect("owner");
+    const { tools } = await client.listTools();
+    expect(
+      tools.find((t) => t.name === "delete_note")?.annotations,
+    ).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    });
+    writes.note.deleteMany.mockResolvedValue({ count: 1 });
+    const result = await client.callTool({
+      name: "delete_note",
+      arguments: deleteInput,
+    });
+    expect(result.isError).toBeFalsy();
+    expect(result.structuredContent).toEqual({ id: "note", deleted: true });
+    expect(result.content).toEqual([
+      { type: "text", text: JSON.stringify(result.structuredContent, null, 2) },
+    ]);
+    expect(writes.note.deleteMany).toHaveBeenCalledExactlyOnceWith({
+      where: {
+        id: "note",
+        userId: "owner",
+        updatedAt: new Date(deleteInput.updatedAt),
+      },
+    });
+    expect(writes.note.findFirst).not.toHaveBeenCalled();
+  });
+  it.each(["missing", "foreign", "already-deleted"])(
+    "hides a %s Note on deletion",
+    async (id) => {
+      const client = await connect("owner");
+      writes.note.deleteMany.mockResolvedValue({ count: 0 });
+      writes.note.findFirst.mockResolvedValue(null);
+      expect(
+        await client.callTool({
+          name: "delete_note",
+          arguments: { ...deleteInput, id },
+        }),
+      ).toMatchObject({
+        isError: true,
+        content: [{ text: "Note not found." }],
+      });
+      expect(writes.note.deleteMany).toHaveBeenCalledExactlyOnceWith({
+        where: {
+          id,
+          userId: "owner",
+          updatedAt: new Date(deleteInput.updatedAt),
+        },
+      });
+      expect(writes.note.findFirst).toHaveBeenCalledWith({
+        where: { id, userId: "owner" },
+        select: { id: true },
+      });
+    },
+  );
+  it("requires user confirmation after a deletion conflict without retrying", async () => {
+    const client = await connect("owner");
+    writes.note.deleteMany.mockResolvedValue({ count: 0 });
+    writes.note.findFirst.mockResolvedValue({ id: "note" });
+    const result = await client.callTool({
+      name: "delete_note",
+      arguments: deleteInput,
+    });
+    expect(result).toMatchObject({
+      isError: true,
+      content: [
+        { text: expect.stringContaining("ask the user to confirm deletion") },
+      ],
+    });
+    expect(writes.note.deleteMany).toHaveBeenCalledTimes(1);
+  });
+  it.each(["delete", "lookup"])(
+    "hides database failures during deletion %s",
+    async (stage) => {
+      const client = await connect("owner");
+      const error = new Error("private database details");
+      if (stage === "delete") writes.note.deleteMany.mockRejectedValue(error);
+      else {
+        writes.note.deleteMany.mockResolvedValue({ count: 0 });
+        writes.note.findFirst.mockRejectedValue(error);
+      }
+      const result = await client.callTool({
+        name: "delete_note",
+        arguments: deleteInput,
+      });
+      expect(result).toMatchObject({
+        isError: true,
+        content: [{ text: "Could not delete Note. Please try again." }],
+      });
+      expect(JSON.stringify(result)).not.toContain("private database details");
+    },
+  );
+  it.each([
+    {},
+    { updatedAt: deleteInput.updatedAt },
+    { ...deleteInput, id: "" },
+    { ...deleteInput, id: "x".repeat(101) },
+    { ...deleteInput, id: 1 },
+    { id: "note" },
+    { ...deleteInput, updatedAt: "not-a-date" },
+    { ...deleteInput, updatedAt: "2026-02-30T00:00:00.000Z" },
+    { ...deleteInput, updatedAt: "2026-11-13T00:00:00Z" },
+    { ...deleteInput, userId: "other" },
+    { ...deleteInput, confirm: true },
+  ])("rejects invalid delete arguments %j", async (args) => {
+    const client = await connect("owner");
+    expect(
+      (await client.callTool({ name: "delete_note", arguments: args })).isError,
+    ).toBe(true);
+    expect(writes.note.deleteMany).not.toHaveBeenCalled();
+    expect(writes.note.findFirst).not.toHaveBeenCalled();
+  });
+  it("keeps concurrent deletion owners separate", async () => {
+    const [a, b] = await Promise.all([connect("a"), connect("b")]);
+    writes.note.deleteMany.mockResolvedValue({ count: 1 });
+    await Promise.all(
+      [a, b].map((client) =>
+        client.callTool({ name: "delete_note", arguments: deleteInput }),
+      ),
+    );
+    expect(
+      writes.note.deleteMany.mock.calls
+        .map(([args]) => args.where.userId)
+        .sort(),
     ).toEqual(["a", "b"]);
   });
   it("keeps concurrent creation owners separate", async () => {

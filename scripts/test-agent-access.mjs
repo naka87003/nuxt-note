@@ -237,6 +237,7 @@ try {
   );
   assert.deepEqual((await remote.listTools()).tools.map((t) => t.name).sort(), [
     "create_note",
+    "delete_note",
     "get_note",
     "list_notes",
     "update_note",
@@ -425,6 +426,75 @@ try {
     ).isError,
   );
 
+  // Delete only this run's newly created Note, never existing content.
+  const staleDelete = await remote.callTool({
+    name: "delete_note",
+    arguments: { id: updateArguments.id, updatedAt: updateArguments.updatedAt },
+  });
+  assert.equal(staleDelete.isError, true);
+  assert.match(staleDelete.content[0].text, /ask the user to confirm deletion/);
+  assert.equal(
+    (
+      await db.query('SELECT count(*)::int AS count FROM "Note" WHERE id=$1', [
+        updateArguments.id,
+      ])
+    ).rows[0].count,
+    1,
+  );
+  const deleteArguments = {
+    id: updateArguments.id,
+    updatedAt: updated.structuredContent.updatedAt,
+  };
+  const foreignVersion = await db.query(
+    'SELECT "updatedAt" FROM "Note" WHERE id=$1',
+    [foreignNote],
+  );
+  for (const id of [foreignNote, randomUUID()]) {
+    const denied = await remote.callTool({
+      name: "delete_note",
+      arguments: {
+        id,
+        updatedAt: foreignVersion.rows[0].updatedAt.toISOString(),
+      },
+    });
+    assert.equal(denied.isError, true);
+    assert.equal(denied.content[0].text, "Note not found.");
+  }
+  assert.equal(
+    (
+      await db.query('SELECT count(*)::int AS count FROM "Note" WHERE id=$1', [
+        foreignNote,
+      ])
+    ).rows[0].count,
+    1,
+  );
+  const deletes = await Promise.all([
+    remote.callTool({ name: "delete_note", arguments: deleteArguments }),
+    remote.callTool({ name: "delete_note", arguments: deleteArguments }),
+  ]);
+  assert.equal(deletes.filter((result) => !result.isError).length, 1);
+  assert.equal(
+    deletes.find((result) => result.isError).content[0].text,
+    "Note not found.",
+  );
+  assert.deepEqual(
+    deletes.find((result) => !result.isError).structuredContent,
+    { id: deleteArguments.id, deleted: true },
+  );
+  assert.equal(
+    (
+      await db.query('SELECT count(*)::int AS count FROM "Note" WHERE id=$1', [
+        deleteArguments.id,
+      ])
+    ).rows[0].count,
+    0,
+  );
+  const deletedRead = await remote.callTool({
+    name: "get_note",
+    arguments: { id: deleteArguments.id },
+  });
+  assert.equal(deletedRead.isError, true);
+
   assert.equal(
     (
       await api(`/api/agent-tokens/${issued.id}`, {
@@ -463,8 +533,11 @@ try {
       },
     }),
   );
+  await assert.rejects(
+    remote.callTool({ name: "delete_note", arguments: deleteArguments }),
+  );
   console.log(
-    "Passed: session-only issuance, hash storage, pagination/search, owner isolation, deletion, and MCP reads/creation/updates and update conflicts. No existing Note content was printed or edited.",
+    "Passed: session-only issuance, hash storage, pagination/search, owner isolation, deletion, and MCP reads/creation/updates/deletion and version conflicts. No existing Note content was printed or edited.",
   );
 } catch (error) {
   failed = true;
