@@ -4,6 +4,19 @@ import ChatComposer from "~/components/ChatComposer.vue";
 import { INPUT_LIMITS } from "#shared/utils/input-limits";
 
 describe("ChatComposer", () => {
+  it("focuses after the prefilled link so the user can append a question", async () => {
+    const link = "https://example.com/notes/note-1\n\n";
+    const wrapper = await mountSuspended(ChatComposer, {
+      props: { modelValue: link, autofocus: true },
+      attachTo: document.body,
+    });
+    const input = wrapper.get("textarea").element;
+    expect(document.activeElement).toBe(input);
+    expect(input.selectionStart).toBe(link.length);
+    expect(input.selectionEnd).toBe(link.length);
+    expect(wrapper.emitted("send")).toBeUndefined();
+  });
+
   it("updates the draft and sends with Enter or the submit button", async () => {
     const wrapper = await mountSuspended(ChatComposer);
     const input = wrapper.get("textarea");

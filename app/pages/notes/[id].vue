@@ -132,6 +132,22 @@ async function remove() {
               Edit
             </UButton>
             <UButton
+              :to="{
+                path: '/chats/new',
+                query: {
+                  category: note.categoryId ?? 'uncategorized',
+                  note: note.id,
+                },
+              }"
+              color="neutral"
+              variant="soft"
+              icon="i-lucide-message-circle"
+              :ui="{ leadingIcon: 'size-4' }"
+              class="justify-center"
+            >
+              Ask AI
+            </UButton>
+            <UButton
               color="neutral"
               variant="soft"
               class="min-w-16 justify-center"
@@ -216,7 +232,8 @@ async function remove() {
   margin: 32px;
 }
 @media (max-width: 767px) {
-  .note-reader-actions :deep(button) {
+  .note-reader-actions :deep(button),
+  .note-reader-actions :deep(a) {
     min-height: 44px;
   }
   .note-reader-body {

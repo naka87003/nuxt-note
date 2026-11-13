@@ -90,6 +90,31 @@ async function mountSession() {
 }
 
 describe("ChatSession", () => {
+  it("prefills a new chat with a Note link and waits for the user's question", async () => {
+    flow.persisted.value = false;
+    mocks.refresh.mockImplementation(() => async () => null);
+    const link = "https://example.com/notes/note-1\n\n";
+    const wrapper = await mountSuspended(ChatSession, {
+      props: { chatId: "", initialDraft: link },
+    });
+    expect(wrapper.get("textarea").element.value).toBe(link);
+    expect(flow.send).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
+
+    await wrapper.get("textarea").setValue(`${link}要約してください`);
+    await wrapper.get("form").trigger("submit");
+    expect(flow.draft.value).toBe(`${link}要約してください`);
+    expect(flow.send).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not inject a Note link into an existing conversation", async () => {
+    const wrapper = await mountSuspended(ChatSession, {
+      props: { chatId: "chat", initialDraft: "/notes/note-1\n\n" },
+    });
+    expect(wrapper.get("textarea").element.value).toBe("");
+    expect(flow.send).not.toHaveBeenCalled();
+  });
+
   it("keeps following when asynchronous Markdown grows after the stream update", async () => {
     let notify!: ResizeObserverCallback;
     const observed = new Set<Element>();

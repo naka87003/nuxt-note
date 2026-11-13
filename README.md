@@ -21,6 +21,7 @@ Development continues in this repository. The original nuxt-chat repository rema
 - Owner-scoped Note and Chat search with literal wildcard handling; Chat history, saved conversation reading, category reassignment, and confirmed deletion
 - Chat creation, OpenAI streaming, generation cursor, partial-answer persistence on disconnection, manual retry, and safe assistant Markdown
 - Chat-to-Note creation with confirmation, non-cancellable AI organization, a Markdown draft of up to 3,000 characters, inherited category, and explicit review/save or discard; no source-chat relation or schema change
+- Ask AI from a saved Note opens a new chat in the Note's category with its link prefilled; add a question and send when ready. AI reads the saved Note through the existing Note tools.
 - New chats have no saved title and display “Untitled chat” until a summary is ready. After the first answer completes, a separate request summarizes that exchange in the question's language and reveals the title in the heading and list with a typewriter animation, without blocking the next message. It uses the configured OpenAI model; failures keep the existing title, and later exchanges do not regenerate it. Reduced-motion preferences disable the animation.
 - Request UUIDs, a database generation guard, and stale-attempt recovery to prevent duplicate or late writes
 - Disposable PostgreSQL checks for initial schema creation, RLS, foreign keys, and deletion behavior

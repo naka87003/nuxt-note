@@ -3,7 +3,7 @@ import type { Conversation } from "~/composables/useChatGeneration";
 import type { CategoriesResponse } from "#shared/types/workspace";
 import { sortCategoriesByCount } from "#shared/utils/categories";
 
-const props = defineProps<{ chatId: string }>();
+const props = defineProps<{ chatId: string; initialDraft?: string }>();
 const emit = defineEmits<{ created: [id: string] }>();
 const activeId = ref(props.chatId);
 const navigationFailure = ref("");
@@ -57,6 +57,8 @@ const {
         },
       },
 );
+
+if (!props.chatId && props.initialDraft) draft.value = props.initialDraft;
 
 const requestFetch = useRequestFetch();
 const refreshConversation = useChatRefresh(chat, activeId, sending, (id) =>
@@ -411,10 +413,7 @@ async function remove() {
       >
         <span class="min-w-0 truncate">{{ selectedCategoryName }}</span>
       </UBadge>
-      <div class="new-chat-card">
-        <h1 class="mb-4 text-center text-xl font-medium wrap-anywhere">
-          Start your chat
-        </h1>
+      <div class="new-chat-content">
         <UAlert
           v-if="generationFailure"
           :title="generationFailure"
@@ -422,7 +421,12 @@ async function remove() {
           class="mb-4"
           role="alert"
         />
-        <ChatComposer v-model="draft" :busy="sending" @send="send" />
+        <ChatComposer
+          v-model="draft"
+          :busy="sending"
+          :autofocus="!!initialDraft"
+          @send="send"
+        />
       </div>
     </div>
     <UModal
@@ -572,11 +576,9 @@ async function remove() {
   font-size: 12px;
   line-height: 16px;
 }
-.new-chat-card {
+.new-chat-content {
   width: 100%;
   max-width: 800px;
-  padding: 24px;
-  background: var(--ui-bg-elevated);
 }
 .chat-session {
   display: flex;
@@ -660,9 +662,6 @@ async function remove() {
   .new-chat-category {
     right: 16px;
     max-width: calc(100% - 88px);
-  }
-  .new-chat-card {
-    padding: 24px 12px;
   }
   .chat-inner {
     padding: 16px;

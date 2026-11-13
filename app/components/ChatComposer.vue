@@ -5,6 +5,7 @@ const value = defineModel<string>({ default: "" });
 const props = defineProps<{
   busy?: boolean;
   disabled?: boolean;
+  autofocus?: boolean;
 }>();
 
 const textarea = ref<HTMLTextAreaElement>();
@@ -19,7 +20,13 @@ function focusInput() {
   if (!props.busy && !props.disabled) textarea.value?.focus();
 }
 
-onMounted(resize);
+onMounted(() => {
+  resize();
+  if (props.autofocus) {
+    focusInput();
+    textarea.value?.setSelectionRange(value.value.length, value.value.length);
+  }
+});
 
 watch(value, resize, { flush: "post" });
 
@@ -52,6 +59,7 @@ function keydown(event: KeyboardEvent) {
       rows="1"
       :maxlength="INPUT_LIMITS.chatMessage"
       aria-label="Message"
+      placeholder="Ask anything…"
       @keydown="keydown"
     />
     <UButton
