@@ -65,9 +65,9 @@ async function deleteToken() {
     <div class="space-y-3">
       <h1 class="text-2xl font-semibold">Agent access</h1>
       <p class="text-muted">
-        Let an agent search, read, and create your Notes. Tokens cannot edit or
-        delete content, or access Chat. Tokens have no expiration date and can
-        be deleted at any time.
+        Let an agent search, read, create, and update your Notes. Tokens cannot
+        delete content or access Chat. Tokens have no expiration date and can be
+        deleted at any time.
       </p>
     </div>
 

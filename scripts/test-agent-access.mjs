@@ -239,6 +239,7 @@ try {
     "create_note",
     "get_note",
     "list_notes",
+    "update_note",
   ]);
   const remoteSearch = await remote.callTool({
     name: "list_notes",
@@ -322,6 +323,41 @@ try {
   });
   assert(!saved.isError);
   assert.equal(saved.structuredContent.markdown, "# Created through MCP");
+  const updateArguments = {
+    id: saved.structuredContent.id,
+    title: marker,
+    markdown: "# Updated through MCP",
+    updatedAt: saved.structuredContent.updatedAt,
+  };
+  const updates = await Promise.all([
+    remote.callTool({ name: "update_note", arguments: updateArguments }),
+    remote.callTool({ name: "update_note", arguments: updateArguments }),
+  ]);
+  assert.equal(updates.filter((result) => !result.isError).length, 1);
+  assert.equal(updates.filter((result) => result.isError).length, 1);
+  const updated = updates.find((result) => !result.isError);
+  assert.equal(updated.structuredContent.url, created.structuredContent.url);
+  assert.notEqual(
+    updated.structuredContent.updatedAt,
+    updateArguments.updatedAt,
+  );
+  const readback = await remote.callTool({
+    name: "get_note",
+    arguments: { id: updateArguments.id },
+  });
+  assert.equal(readback.structuredContent.markdown, updateArguments.markdown);
+  assert.equal(
+    readback.structuredContent.updatedAt,
+    updated.structuredContent.updatedAt,
+  );
+  for (const id of [foreignNote, randomUUID()]) {
+    const denied = await remote.callTool({
+      name: "update_note",
+      arguments: { ...updateArguments, id },
+    });
+    assert.equal(denied.isError, true);
+    assert.equal(denied.content[0].text, "Note or category not found.");
+  }
   const savedOwner = await db.query('SELECT "userId" FROM "Note" WHERE id=$1', [
     createdNotes[0],
   ]);
@@ -418,8 +454,17 @@ try {
       arguments: { title: marker, markdown: "must not save" },
     }),
   );
+  await assert.rejects(
+    remote.callTool({
+      name: "update_note",
+      arguments: {
+        ...updateArguments,
+        updatedAt: updated.structuredContent.updatedAt,
+      },
+    }),
+  );
   console.log(
-    "Passed: session-only issuance, hash storage, pagination/search, owner isolation, deletion, and MCP reads/creation. No existing Note content was printed or edited.",
+    "Passed: session-only issuance, hash storage, pagination/search, owner isolation, deletion, and MCP reads/creation/updates and update conflicts. No existing Note content was printed or edited.",
   );
 } catch (error) {
   failed = true;

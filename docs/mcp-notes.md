@@ -1,4 +1,4 @@
-# Read and create Notes through MCP
+# Read, create, and update Notes through MCP
 
 Saved Notes are available through a remote **Streamable HTTP** MCP endpoint at
 `/mcp`. Users register the URL and their token in a compatible agent;
@@ -13,7 +13,7 @@ The remote endpoint calls the shared server-side Note operations directly.
 ## Connect remotely
 
 1. Sign in to Nuxt Note and open **Profile menu → Agent access**.
-2. Create a token. Every token allows searching, reading, and creating Notes.
+2. Create a token. Every token allows searching, reading, creating, and updating Notes.
    Use the copy button beside its value.
    You can copy it repeatedly while visible; save it before hiding it or leaving
    the page because it cannot be displayed again.
@@ -71,7 +71,7 @@ subscription support. GET and DELETE return 405. Every POST, including discovery
 requires a valid token; a browser session cookie alone is not sufficient.
 Requests are limited to 64 KiB and responses use `private, no-store` even for legacy
 SSE. Invalid or deleted tokens receive HTTP 401. Tool errors hide database
-details. Editing and deleting existing Notes remain unavailable.
+details. Deleting existing Notes remains unavailable.
 
 Verify URL/authentication, owner isolation, search/reading, and token deletion on the
 hosted deployment before treating it as validated in production. Local checks do
@@ -94,11 +94,12 @@ running and `.env.mcp.local` configured from `.env.mcp.example` (or set
 check discovers the available tools and reads one Note, without printing its contents.
 Ordinary users only configure their agent and do not need this repository or file.
 
-| Tool          | Arguments                                           | Result                                                               |
-| ------------- | --------------------------------------------------- | -------------------------------------------------------------------- |
-| `list_notes`  | Optional `q`, `category`, `limit`, `offset`         | IDs, titles, category IDs, update times, text previews, `nextOffset` |
-| `get_note`    | `id` from a search result                           | ID, title, Markdown, category ID, creation/update times              |
-| `create_note` | Required `title`, `markdown`; optional `categoryId` | ID, title, Markdown, category ID, creation/update times, URL         |
+| Tool          | Arguments                                                              | Result                                                               |
+| ------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `list_notes`  | Optional `q`, `category`, `limit`, `offset`                            | IDs, titles, category IDs, update times, text previews, `nextOffset` |
+| `get_note`    | `id` from a search result                                              | ID, title, Markdown, category ID, creation/update times              |
+| `create_note` | Required `title`, `markdown`; optional `categoryId`                    | ID, title, Markdown, category ID, creation/update times, URL         |
+| `update_note` | Required `id`, `title`, `markdown`, `updatedAt`; optional `categoryId` | Updated Note with creation/update times and URL                      |
 
 Search is literal and case-insensitive across title and Markdown body, with the
 same 50-character search limit as the UI. `%`, `_`, and backslashes are literal.
@@ -115,7 +116,7 @@ owner (for example from `list_notes`). Missing and foreign categories return the
 same error without creating a Note. Extra fields, including `userId` and `id`,
 are rejected. Ownership comes only from the authenticated token.
 
-Creation also returns `url`, an absolute browser link built from
+Creation and updating also return `url`, an absolute browser link built from
 `NUXT_PUBLIC_SITE_URL` and `/notes/<id>`. The tool description asks the agent to
 present the saved title as a clickable link. Opening it requires the owner's
 normal browser sign-in; the URL contains no token and does not make the Note public.
@@ -125,20 +126,43 @@ app's origin.
 Creation is non-idempotent: repeating a successful call creates another Note.
 The tool is annotated as a non-read-only, non-destructive, non-idempotent action.
 Ask the agent to save a new Note explicitly, then use `get_note` on the returned
-ID to verify it. Editing, deleting, and category creation are not exposed.
+ID to verify it. Deleting Notes and creating categories are not exposed.
+
+## Update an existing Note
+
+`update_note` is available to every valid token. First call `get_note`, then pass
+its `id` and exact `updatedAt` (UTC ISO timestamp with milliseconds), together with
+the complete replacement `title` and `markdown`. Content limits and title
+normalization match `create_note`. Omit `categoryId` to keep the current category,
+pass null to remove it, or pass an existing category ID owned by the token owner.
+Extra fields, including `userId`, are rejected. Missing and foreign Notes or
+categories return the same error without exposing ownership or content.
+
+The update checks `id`, token owner, and `updatedAt` atomically in the database.
+A stale timestamp fails without modifying the Note. The tool returns a conflict
+error instructing the agent to call `get_note` again and reconcile the latest
+content with the requested changes. Do not blindly replace the timestamp and
+retry. Successful updates return the saved Note, a new `updatedAt`, and `url`;
+present the saved title as a clickable link. No database migration is required.
+
+The tool is annotated as non-read-only, destructive (it replaces content), and
+non-idempotent (retrying a successful request with its old timestamp conflicts).
+This guard applies to MCP updates, including detecting intervening browser edits.
+The browser editor's save behavior is unchanged and does not itself reject stale
+browser saves.
 
 ## Authentication and deletion
 
 Each token has 256 bits of randomness, no expiration date, and access to only
-its issuing user's Notes for searching, reading, and creation. The database stores its SHA-256 hash and metadata,
+its issuing user's Notes for searching, reading, creation, and updates. The database stores its SHA-256 hash and metadata,
 not the raw token. Token lists never return either the secret or hash. Creation
 and deletion require the browser login session. Bearer tokens do not authorize
 those operations, browser Note API routes, or Chat endpoints.
 
 There are no per-token scopes or permission choices. All valid tokens, including
-previously issued read-only tokens, can now create new Notes. Their secret remains unchanged; no token replacement or client
+previously issued read-only tokens, can now create and update Notes. Their secret remains unchanged; no token replacement or client
 configuration change is required. Reconnect the agent to refresh its tool list.
-Editing and deleting existing Notes remain unavailable through MCP.
+Deleting existing Notes remains unavailable through MCP.
 
 Every MCP request checks that the token hash exists and derives
 the owner ID from the token record. Caller-supplied user IDs are ignored. Reading
@@ -160,7 +184,8 @@ settings when replacing a deleted token. No deleted-token history is retained.
 - [`server/utils/note-reads.ts`](../server/utils/note-reads.ts): owner-scoped
   reads shared by browser routes and MCP tools.
 - [`server/utils/note-writes.ts`](../server/utils/note-writes.ts): validated,
-  owner-scoped creation shared by the browser route and MCP.
+  owner-scoped creation shared by the browser route and MCP, and atomic
+  version-checked MCP updates.
 - [`server/routes/mcp.ts`](../server/routes/mcp.ts): authenticated Streamable HTTP entry.
 - [`server/utils/mcp-notes.ts`](../server/utils/mcp-notes.ts): request-scoped MCP tools.
 - [`server/utils/mcp-http.ts`](../server/utils/mcp-http.ts): Host and Origin checks.
@@ -189,6 +214,7 @@ secret, uses the existing user with the most Notes, and creates two verification
 Notes, one temporary second user/Note, and tokens. It tests session-only token
 management, stored hashes, searching/pagination, owner isolation,
 physical token deletion, remote HTTP MCP calls, creation/readback,
+updates/readback, concurrent update conflict detection, update owner isolation,
 category ownership, creation denial after deletion, concurrent user isolation,
 legacy initialization, malformed/oversized requests, and HTTP boundary checks. It removes only records identified by that
 run's random marker/IDs in `finally`. Existing Note content is neither edited nor

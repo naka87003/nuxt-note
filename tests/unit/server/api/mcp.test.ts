@@ -16,7 +16,7 @@ vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));
 const writes = vi.hoisted(() => ({
-  note: { create: vi.fn() },
+  note: { create: vi.fn(), update: vi.fn(), findFirst: vi.fn() },
   category: { findFirst: vi.fn() },
 }));
 vi.mock("../../../../server/utils/prisma", () => ({ getPrisma: () => writes }));
@@ -57,17 +57,18 @@ async function connect(owner: string, siteUrl = "https://notes.example") {
 }
 
 describe("remote MCP tools", () => {
-  it("discovers read and create tools and supplies bounded search defaults", async () => {
+  it("discovers read and write tools and supplies bounded search defaults", async () => {
     const client = await connect("owner");
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([
       "create_note",
       "get_note",
       "list_notes",
+      "update_note",
     ]);
     expect(
       tools
-        .filter((t) => t.name !== "create_note")
+        .filter((t) => ["get_note", "list_notes"].includes(t.name))
         .every((t) => t.annotations?.readOnlyHint),
     ).toBe(true);
     await client.callTool({ name: "list_notes", arguments: { q: "Nuxt" } });
@@ -172,6 +173,196 @@ describe("remote MCP tools", () => {
       content: [{ text: "Could not create Note. Please try again." }],
     });
     expect(JSON.stringify(result)).not.toContain("private database details");
+  });
+  const updateInput = {
+    id: "note",
+    title: "  Updated  ",
+    markdown: "# Changed",
+    updatedAt: "2026-11-13T00:00:00.000Z",
+  };
+  it("updates only the owner and expected version and returns the saved Note URL", async () => {
+    const client = await connect("owner", "https://my-notes.example/");
+    writes.note.update.mockResolvedValue({
+      id: "note",
+      title: "Updated",
+      markdown: "# Changed",
+      categoryId: "existing",
+      createdAt: new Date("2026-11-12T00:00:00Z"),
+      updatedAt: new Date("2026-11-13T00:00:01Z"),
+    });
+    const { tools } = await client.listTools();
+    expect(
+      tools.find((t) => t.name === "update_note")?.annotations,
+    ).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+    });
+    const result = await client.callTool({
+      name: "update_note",
+      arguments: updateInput,
+    });
+    expect(result.isError).toBeFalsy();
+    expect(result.structuredContent).toMatchObject({
+      title: "Updated",
+      markdown: "# Changed",
+      categoryId: "existing",
+      updatedAt: "2026-11-13T00:00:01.000Z",
+      url: "https://my-notes.example/notes/note",
+    });
+    const args = writes.note.update.mock.calls[0]![0];
+    expect(args.where).toEqual({
+      id: "note",
+      userId: "owner",
+      updatedAt: new Date(updateInput.updatedAt),
+    });
+    expect(args.data).toEqual({
+      title: "Updated",
+      markdown: "# Changed",
+      updatedAt: expect.any(Date),
+    });
+    expect(args.data.updatedAt.getTime()).toBeGreaterThan(
+      new Date(updateInput.updatedAt).getTime(),
+    );
+    expect(args.select).not.toHaveProperty("userId");
+    expect(writes.category.findFirst).not.toHaveBeenCalled();
+  });
+  it("advances the version even when the clock has not moved forward", async () => {
+    const client = await connect("owner");
+    const expectedTime = new Date(updateInput.updatedAt).getTime();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(expectedTime);
+    writes.note.update.mockResolvedValue({ id: "note" });
+    try {
+      await client.callTool({ name: "update_note", arguments: updateInput });
+      expect(writes.note.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            updatedAt: new Date(expectedTime + 1),
+          }),
+        }),
+      );
+    } finally {
+      clock.mockRestore();
+    }
+  });
+  it.each([null, "owned"])(
+    "updates an explicit category %j",
+    async (categoryId) => {
+      const client = await connect("owner");
+      writes.category.findFirst.mockResolvedValue({ id: "owned" });
+      writes.note.update.mockResolvedValue({ id: "note" });
+      expect(
+        (
+          await client.callTool({
+            name: "update_note",
+            arguments: { ...updateInput, categoryId },
+          })
+        ).isError,
+      ).toBeFalsy();
+      expect(writes.note.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ categoryId }),
+        }),
+      );
+      if (categoryId)
+        expect(writes.category.findFirst).toHaveBeenCalledWith({
+          where: { id: "owned", userId: "owner" },
+          select: { id: true },
+        });
+    },
+  );
+  it("rejects missing and foreign categories before writing", async () => {
+    const client = await connect("owner");
+    writes.category.findFirst.mockResolvedValue(null);
+    const result = await client.callTool({
+      name: "update_note",
+      arguments: { ...updateInput, categoryId: "foreign" },
+    });
+    expect(result).toMatchObject({
+      isError: true,
+      content: [{ text: "Note or category not found." }],
+    });
+    expect(writes.note.update).not.toHaveBeenCalled();
+  });
+  it.each(["missing", "foreign"])("hides a %s Note on update", async (id) => {
+    const client = await connect("owner");
+    writes.note.update.mockRejectedValue({ code: "P2025" });
+    writes.note.findFirst.mockResolvedValue(null);
+    expect(
+      await client.callTool({
+        name: "update_note",
+        arguments: { ...updateInput, id },
+      }),
+    ).toMatchObject({
+      isError: true,
+      content: [{ text: "Note or category not found." }],
+    });
+    expect(writes.note.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id,
+          userId: "owner",
+          updatedAt: new Date(updateInput.updatedAt),
+        },
+      }),
+    );
+    expect(writes.note.findFirst).toHaveBeenCalledWith({
+      where: { id, userId: "owner" },
+      select: { id: true },
+    });
+  });
+  it("rejects stale updates and hides database failures", async () => {
+    const client = await connect("owner");
+    writes.note.update.mockRejectedValueOnce({ code: "P2025" });
+    writes.note.findFirst.mockResolvedValue({ id: "note" });
+    const result = await client.callTool({
+      name: "update_note",
+      arguments: updateInput,
+    });
+    expect(result).toMatchObject({
+      isError: true,
+      content: [{ text: expect.stringContaining("Note has changed.") }],
+    });
+    expect(writes.note.update).toHaveBeenCalledTimes(1);
+    writes.note.update.mockRejectedValueOnce(
+      new Error("private database details"),
+    );
+    expect(
+      await client.callTool({ name: "update_note", arguments: updateInput }),
+    ).toMatchObject({
+      isError: true,
+      content: [{ text: "Could not update Note. Please try again." }],
+    });
+  });
+  it.each([
+    {},
+    { ...updateInput, id: "" },
+    { ...updateInput, title: "x".repeat(51) },
+    { ...updateInput, markdown: "x".repeat(5001) },
+    { ...updateInput, updatedAt: undefined },
+    { ...updateInput, updatedAt: "not-a-date" },
+    { ...updateInput, updatedAt: "2026-02-30T00:00:00.000Z" },
+    { ...updateInput, categoryId: "" },
+    { ...updateInput, userId: "other" },
+    { ...updateInput, extra: true },
+  ])("rejects invalid update arguments %j", async (args) => {
+    const client = await connect("owner");
+    expect(
+      (await client.callTool({ name: "update_note", arguments: args })).isError,
+    ).toBe(true);
+    expect(writes.note.update).not.toHaveBeenCalled();
+  });
+  it("keeps concurrent update owners separate", async () => {
+    const [a, b] = await Promise.all([connect("a"), connect("b")]);
+    writes.note.update.mockResolvedValue({ id: "note" });
+    await Promise.all(
+      [a, b].map((client) =>
+        client.callTool({ name: "update_note", arguments: updateInput }),
+      ),
+    );
+    expect(
+      writes.note.update.mock.calls.map(([args]) => args.where.userId).sort(),
+    ).toEqual(["a", "b"]);
   });
   it("keeps concurrent creation owners separate", async () => {
     const [a, b] = await Promise.all([connect("a"), connect("b")]);
