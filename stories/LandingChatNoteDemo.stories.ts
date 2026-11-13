@@ -9,7 +9,7 @@ async function confirmGeneration(canvasElement: HTMLElement) {
     await canvas.findByRole("button", { name: "Generate draft" }),
   );
   const dialog = await canvas.findByRole("dialog", {
-    name: "Generate a note from this chat?",
+    name: "Generate a draft from this chat?",
   });
   await expect(dialog).toBeVisible();
   return within(dialog);
