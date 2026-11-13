@@ -2,44 +2,32 @@
 
 ## Designs
 
-- [Figma file](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n)
-- [Landing page / Desktop 1440px](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=60-924)
-- [Landing page / Medium 1024px](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=119-1330)
-- [Landing page / Medium 768px](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=119-1855)
-- [Landing page / Mobile 390px](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=61-1093)
-- [Workspace / Desktop](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=39-776)
-- [Workspace / Mobile](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=40-647)
-- [New Chat / Desktop and mobile](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=46-930)
-- [Responsive layout states / 768px, 1024px and mobile](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=106-1023)
-- [Notes editing / Desktop and mobile](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=135-1583)
-- [Nuxt UI Tabs / Workspace variants](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=49-875)
-- [Nuxt UI v4 reference assets](https://www.figma.com/design/UKhfIA0UGXuJHv0wNpyZW3/?node-id=3724-8039)
+The [Figma file](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n) contains
+editable screens, interaction states, and shared components on the Production page.
+It uses local components and is synchronized with the implementation manually.
 
-Figma contains static design proposals. The reference library could not be imported using published keys, so the designs use local components. There is no automatic synchronization with the implementation.
+Key references:
+
+- [Workspace](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=92-1008)
+- [Responsive layouts](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=106-1023)
+- [Landing page](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=92-1009)
+- [Agent access](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=428-4067): desktop/mobile connection instructions, collapsed/expanded Codex guide, token issuance, and deletion confirmation. Token values are placeholders.
+- [Note editing and saving](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=364-3863)
+- [Chat generation and recovery](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=364-3864)
+- [Chat to Note](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=364-3865)
 
 ## Canvas organization and review
 
-The Production page has nine numbered sections with matching title backgrounds and a compact Documentation card linking to the [specification](specification.md), the source of truth for features and interaction rules. Drafts is reserved for work in progress. Existing screen, asset and shared-component IDs are preserved; boards 04–07 are wrapped in sections so existing frame links still work.
+Screens are arranged on the left, flows and states in the middle, and shared
+components, assets, and Documentation on the right. Preserve existing node IDs
+when reorganizing the canvas so links remain valid. Section numbers and the full
+layer inventory are maintained in Figma rather than duplicated here.
 
-- [01 / Screens / Workspace](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=92-1008): unified desktop/mobile Notes and Chat, including New Chat.
-- [02 / Screens / Responsive Layouts](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=106-1023): medium layouts, list-hidden views, category drawers, and mobile list/reader states.
-- [03 / Screens / Landing Page](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=92-1009): desktop, 1024px, 768px, and mobile LPs.
-- [04 / Flows / Note Editing and Saving](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=364-3863): desktop/mobile editing, preview, and unsaved changes.
-- [05 / Flows / Chat Generation and Recovery](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=364-3864): generation, interruption, failure, and retry.
-- [06 / Flows / Chat to Note](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=364-3865): desktop/mobile note generation and review.
-- [07 / States / Creation, Empty States and Long Names](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=364-3866): creation actions, empty states, and long category names.
-- [08 / Resources / Shared Components](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=92-1010): reusable UI components.
-- [09 / Resources / Brand Assets and Illustrations](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=238-1888): logos, illustrations, and previews.
-
-The Assets section contains editable vector illustration masters, SVG previews, and logo/theme-control previews. Landing-page frames reuse instances of the illustration components; exported SVGs and their application usage are documented in [asset notes](assets/README.md).
-
-Boards are arranged in three columns: screens on the left; flows and states in the middle; shared components, assets, and Documentation on the right. Figma retains screen labels and responsive comparison captions. The Chat-to-Note board's duplicated specification prose has been removed; behavior is maintained in the specification.
-
-Shared components are grouped into Controls, Navigation, Workspace, Landing page and Icons. The unused legacy mobile header and archive icon were removed after confirming they had no instances. Remaining component IDs and artwork image hashes are preserved. Validation checks component references, board bounds and visual placement.
-
-The Note editor/preview uses the unified shell and shared unsaved-edit confirmation; see the Notes editing board below. Chat generation, interruption, failure, and retry are defined in the specification and illustrated in the runtime-state board linked below.
-
-The [integration plan](integration.md) establishes a single app with notes as the main workspace and chat as an additional feature. The existing Note screens, the live Nuxt Chat desktop interface, and the nuxt-chat header, sidebar, message, Markdown, and composer source have now been inspected. The unified workspace proposals include three desktop and five mobile states. The user approved these designs. The shared-category navigation and responsive Notes / Chat shell are implemented; detailed Note editor states are in board 04. Chat runtime states are implemented as described below.
+Use editable layers and shared components, color/spacing variables, and text
+styles. Check rendered views for overlap, clipping, and responsive layout.
+The [specification](specification.md) defines behavior; avoid duplicating it on
+the canvas. Exported illustrations and their usage are documented in
+[asset notes](assets/README.md).
 
 ## Current workspace design
 
@@ -120,7 +108,7 @@ Specification, code and Figma reflect this phase. Shared GitHub Dark highlightin
 
 ## Chat to Note
 
-The mobile action rows in board 06 match the implemented content-aware layout: Back, Generate note, category and Delete stay on one row when space permits; narrower screens or long category names move category and Delete together to a second row. The mobile Category: prefix is omitted, long names truncate within the button, and actions retain 44px touch targets. [Editable 390px and 320px comparisons](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=196-1656) show both cases alongside the updated mobile flow screens.
+The mobile action rows in the Chat-to-Note section match the implemented content-aware layout: Back, Generate note, category and Delete stay on one row when space permits; narrower screens or long category names move category and Delete together to a second row. The mobile Category: prefix is omitted, long names truncate within the button, and actions retain 44px touch targets. [Editable 390px and 320px comparisons](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=196-1656) show both cases alongside the updated mobile flow screens.
 
 [Chat to Note / Desktop and mobile](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=187-1299) illustrates the implemented Generate note flow with four desktop screens and five mobile screens, reusing the workspace shells, component instances, and design tokens. It retains confirmation, loading, failure, and editor screens, plus short state labels and mobile toolbar comparisons. Duplicated behavior notes were removed from the canvas.
 

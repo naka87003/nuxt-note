@@ -72,25 +72,24 @@ defaults to `https://nuxt-note-ivory.vercel.app`. No additional environment
 configuration is required for that domain. Set it when changing the production
 domain. The PNG is committed, so builds need no image-generation
 dependency. The editable source is the [OG Image frame in Figma](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=420-4057),
-under `10 / Resources / Social Sharing`. To change the artwork, edit that frame,
+in the Social Sharing section. To change the artwork, edit that frame,
 export PNG at 1× (1200 × 630), and replace `public/images/og-image.png`.
 Shared social titles and descriptions live in `app/utils/seo.ts` and are also
 used by the landing page.
 
 ## MCP
 
-Authenticated Note search, reading, and creation are available through the remote
-Streamable HTTP endpoint at `/mcp`. Create a token in
-**Profile menu → Agent access**, then register the displayed URL and Bearer header
-in your agent. No project clone or local MCP process is required for remote use.
-See the [saved Notes MCP guide](docs/mcp-notes.md) for setup and compatibility.
-Tokens have no expiration date, can be deleted, and authorize searching, reading,
-and creating only the owner's Notes. Editing and deletion are not available through MCP.
+The remote Streamable HTTP endpoint at `/mcp` supports searching, reading,
+creating, updating, and permanently deleting the token owner's Notes.
+Open **Profile menu → Agent access** for token management and connection
+instructions, including a Codex setup example. No project clone or local MCP
+process is required. See the [Notes MCP guide](docs/mcp-notes.md) for protocol,
+authentication, and deployment details.
 
 ## Validation
 
 Visual regression tests use Storybook + Chromatic. Run `pnpm storybook` to view
-the initial editor, Markdown, workspace list and chat composer stories, or
+the component stories, or
 `pnpm build-storybook` to verify the static build. After pushing changes, run VRT
 manually from **Actions → Storybook VRT → Run workflow** using the
 `CHROMATIC_PROJECT_TOKEN` repository Actions secret. Pushes do not automatically

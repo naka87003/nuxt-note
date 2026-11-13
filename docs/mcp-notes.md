@@ -56,41 +56,19 @@ state rather than infer successful writes from an interrupted response.
 
 ## Connect remotely
 
-1. Sign in to Nuxt Note and open **Profile menu → Agent access**.
-2. Create a token. Every token allows searching, reading, creating, updating, and permanently deleting Notes.
-   Use the copy button beside its value.
-   You can copy it repeatedly while visible; save it before hiding it or leaving
-   the page because it cannot be displayed again.
-3. Add the MCP URL shown on the page to an agent that supports **Streamable HTTP
-   with custom Bearer headers**. Locally this is `http://localhost:3001/mcp`.
-   After deployment it is `https://<your-domain>/mcp`.
-4. Set the `Authorization` header to `Bearer <your token>`. The token is a private
-   client setting, never a URL parameter or a chat message.
-5. Reconnect/reload the agent and try the prompt below.
+Open **Profile menu → Agent access** for the connection URL, token creation,
+and setup instructions, including a copyable Codex configuration example.
+No repository clone or local MCP process is required.
 
-For Codex, add a server entry containing the URL and token to the private user config
-`~/.codex/config.toml`, or the project `.codex/config.toml` if already using a
-trusted project. Preserve other settings and replace an existing entry with the
-same name rather than adding duplicate tables. Keep the file owner-readable only.
-The configuration contains a secret: keep it in private configuration rather than
-version control. The following example has placeholders:
+The endpoint is `/mcp` on the application's origin and requires **Streamable HTTP
+with a custom `Authorization: Bearer <token>` header**. Keep tokens in private
+client settings, never in URLs, chat messages, or version control. Tokens can only
+be copied while visible after issuance; they cannot be displayed again later.
 
-```toml
-[mcp_servers.nuxt-note]
-url = "https://<your-domain>/mcp"
-http_headers = { Authorization = "Bearer <YOUR_TOKEN>" }
-```
-
-Alternatively use `bearer_token_env_var = "NUXT_NOTE_TOKEN"` if that environment
-variable is available to the agent process. A GUI app does not automatically read
-this repository's `.env.mcp.local`. No `command` or local script `args` belongs in
-this remote server entry. See [OpenAI's MCP configuration documentation](https://learn.chatgpt.com/docs/extend/mcp).
-
-This endpoint uses manually issued tokens. It does **not** implement OAuth discovery,
-authorization, or automatic browser sign-in. Clients that require OAuth and cannot
-send a custom Bearer header need additional integration. Native clients typically
-send no `Origin` header. Browser clients must use the site's own origin or an
-explicitly allowed origin configured in `NUXT_MCP_ALLOWED_ORIGINS`.
+The endpoint does not implement OAuth discovery or authorization. Clients that
+require OAuth and cannot send a custom Bearer header need additional integration.
+Native clients typically send no `Origin` header. Browser clients must use the
+site's own origin or an origin allowed by `NUXT_MCP_ALLOWED_ORIGINS`.
 
 ## Deploy the endpoint
 
@@ -121,16 +99,11 @@ Verify URL/authentication, owner isolation, search/reading, and token deletion o
 hosted deployment before treating it as validated in production. Local checks do
 not establish hosting behavior. This implementation does not deploy itself.
 
-## Try it
+## Verify the connection
 
-After reloading the agent app, ask:
-
-> Use the nuxt-note MCP server's list_notes tool to find Notes about Nuxt.
-> Use get_note to read one matching Note and summarize it. Do not use shell
-> commands or repository files to obtain the Note.
-
-Check the activity for actual tool calls. No token should appear in tool arguments
-or results.
+After reconnecting the agent, try the example prompt on the Agent access page.
+Have at least one saved Note available. Check the activity for actual MCP tool
+calls; no token should appear in tool arguments or results.
 
 For a read-only remote terminal check, run `pnpm check:mcp:remote` with Nuxt
 running and `.env.mcp.local` configured from `.env.mcp.example` (or set

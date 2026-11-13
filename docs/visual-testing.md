@@ -29,42 +29,25 @@ separate typecheck covers Storybook configuration, stories and inline render set
 Build success checks bundling; it does not mean that Chromatic has run or approved
 screenshots.
 
-## Initial coverage
+## Coverage and viewports
 
-The suite has 26 stories (55 snapshots per browser per full build). The original
-19 stories use 390px and 1280px widths. Landing previews use 390px, 1024px and
-1280px; the interactive landing demo uses only 1024px and 1280px, matching the
-widths where the landing page mounts it.
+Stories cover the note editor, Markdown, workspace list, chat composer, landing
+previews/demo, and the collapsed/expanded agent setup guide. The current states
+are defined in [`stories/`](../stories/); counts are not maintained here.
 
-| Area             | Stories                                                                                                       |
-| ---------------- | ------------------------------------------------------------------------------------------------------------- |
-| Note editor form | Editing/split view, new empty note, unchanged, saving, save failure, over limit, preview selected             |
-| Markdown         | Rich content with headings/lists/table/highlighted code, long content with Japanese text/wide table/long code |
-| Workspace list   | Grouped notes with selected/untitled/long-title items, empty, loading, failure, no search results             |
-| Chat composer    | Empty, message entered, multiline, sending, disabled                                                          |
-| Landing previews | Notes workspace, Chat workspace, responsive Chat-to-note preview                                              |
-| Landing demo     | Generation confirmation, editing, discard confirmation, saved note                                            |
+[`.storybook/preview.ts`](../.storybook/preview.ts) sets the shared 390px and
+1280px Chromatic viewports. Override `parameters.chromatic.viewports` in a story
+file's default export for all of its stories, or on an individual story.
+Landing stories use overrides to match their responsive layouts.
 
-Editor models stay interactive in local Storybook. The Preview story clicks the
-actual tab and checks that the preview is visible before Chromatic captures it.
-Fixtures use synthetic content and a fixed reference time for list grouping.
-The preview fixes the default green/gray dark theme and disables CSS motion and
-the caret. Application components and their styles are not stubbed.
+Use real components with synthetic fixtures. The preview fixes the green/gray
+dark theme and disables motion and the caret. Use `play` to reach stable states
+through real controls and wait for meaningful content, fonts, and images.
+Keep landing fixture widths aligned with `app/pages/index.vue`.
 
-Landing stories reproduce the page’s content width, mobile padding and desktop
-Chat column width. Keep `stories/fixtures/landing.css` (shared content width and
-padding) and the Chat story’s responsive width classes in
-`stories/LandingWorkspacePreview.stories.ts` aligned with `app/pages/index.vue`. The responsive preview waits for the lazy desktop demo or
-asserts the mobile static fallback. Demo stories reach each stable state through
-real controls, waiting for generation/saving to finish rather than using fixed
-screenshot delays. They also wait for local fonts and preview images. Transient
-generating/saving states are not captured.
-
-These are component/composed-view checks, not complete application pages.
-Authenticated layouts, routing, ChatSession/streaming, portalled dialogs and
-alternate theme colors are not yet covered. Add them as separate stories with
-explicit fixtures; add MSW when a story needs network responses. Avoid using
-live OAuth, AI responses or production data to prepare a snapshot.
+These are component/composed-view checks. Authenticated application pages,
+routing, streaming, portalled dialogs, and alternate theme colors are outside
+this coverage. Do not use live account data, OAuth, or AI responses for snapshots.
 
 ## GitHub Actions manual execution
 
@@ -111,40 +94,26 @@ This still uploads to Chromatic and consumes its snapshot allowance.
 Local execution still exits with code `1` for visual differences by default;
 add `--exit-zero-on-changes` to match the Actions behavior.
 
-## Configuration and dependencies
+## Configuration
 
-- `@nuxtjs/storybook` provides the Nuxt integration and depends on
-  `@storybook-vue/nuxt` (the Storybook framework).
-- `storybook` provides the CLI. Storybook packages use the same release line.
-- Stories import `Meta`/`StoryObj` through `@nuxtjs/storybook`; a direct renderer
-  dependency is not needed.
-- `eslint-plugin-storybook` adds its flat recommended rules to `pnpm lint`,
-  covering story exports, awaited interactions and Storybook imports.
-- `chromatic` provides the upload/test CLI.
-- `.storybook/main.ts` chooses the Nuxt framework, stories and `public/` assets.
-- `.storybook/preview.ts` defines the shared `UApp` decorator inline for Nuxt UI
-  providers. Workspace state is initialized directly in its story's render setup.
-- `stories/tsconfig.json` inherits the Storybook typecheck configuration so the
-  editor can discover Nuxt aliases such as `#imports` for story fixtures.
-- `nuxt.config.ts` uses `ui.colorMode: false` to disable automatic theme switching
-  for the application and Storybook. Both fix the HTML dark class.
-  Authentication retains its default session-fetching behavior; the static
-  Storybook has no authentication API.
-- The installed Nuxt framework serializes configured runtime defaults into the
-  static preview, including private fields. Keep secret defaults empty and supply
-  credentials through environment variables, rather than hardcoding them in
-  `nuxt.config.ts`. A local build with `.env` loaded and a dummy server API key
-  did not contain those environment values. Recheck generated output if runtime
-  configuration or the framework's behavior changes.
+- [`.storybook/main.ts`](../.storybook/main.ts) selects the Nuxt framework,
+  story files, and public assets.
+- [`.storybook/preview.ts`](../.storybook/preview.ts) supplies Nuxt UI providers,
+  the shared theme, and default viewports.
+- `stories/tsconfig.json` inherits `.storybook/tsconfig.json` for Nuxt aliases.
+- Story files import `Meta`/`StoryObj` through `@nuxtjs/storybook` and interaction
+  helpers through `storybook/test`. ESLint checks Storybook conventions.
 
-An additional Playwright test runner, Vitest Browser Mode, the Chromatic panel
-addon and MSW are not required for this initial suite.
+Keep private runtime defaults empty in `nuxt.config.ts`; the Nuxt Storybook
+framework includes configured defaults in the static preview. Supply credentials
+through environment variables and recheck generated output if runtime
+configuration or framework behavior changes.
 
 ## Adding coverage
 
 Place `*.stories.ts` under `stories/`. Prefer the real component with fixed props
 and inline render setup when Nuxt state is needed. Give each important state
-its own story; use `play` from Storybook for deterministic interaction before
+its own story; use a `play` function for deterministic interaction before
 capture. Wait for meaningful content and local fonts, rather than adding arbitrary
 delays. Keep authentication and data-fetching setup inside story fixtures.
 

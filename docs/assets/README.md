@@ -16,7 +16,7 @@ The exported asset is `public/images/nuxt-chat-ai-conversations-vector.svg`. The
 
 ## Figma presentation
 
-[09 / Resources / Brand Assets and Illustrations](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=238-1888) contains both masters and their preview. All four responsive LP frames use instances of these components.
+[Brand Assets and Illustrations](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=238-1888) contains both masters and their preview. All four responsive LP frames use instances of these components.
 
 The original illustration PNGs and the Figma comparison section were deleted at the user's request. `public/images/preview-avatar.png` supplies the sample avatar used in product previews.
 
