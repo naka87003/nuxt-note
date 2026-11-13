@@ -21,6 +21,7 @@ const { data: categories } = useNuxtData<CategoriesResponse>(
 
 const route = useRoute();
 const list = useTemplateRef("list");
+const searchInput = useTemplateRef("searchInput");
 const now = useState("workspace-list-now", () => new Date().toISOString());
 
 const itemCountLabel = computed(() => `${props.items.length} ${mode.value}`);
@@ -92,6 +93,11 @@ function onScroll(event: Event) {
   current.value.scroll = (event.target as HTMLElement).scrollTop;
 }
 
+function clearSearch() {
+  current.value.search = "";
+  searchInput.value?.inputRef?.focus();
+}
+
 function date(value: string) {
   const updatedAt = new Date(value);
   const oneYearAgo = new Date(now.value);
@@ -150,12 +156,26 @@ function date(value: string) {
         </div>
       </div>
       <UInput
+        ref="searchInput"
         v-model="current.search"
         :maxlength="INPUT_LIMITS.search"
         :placeholder="searchPlaceholder"
         :aria-label="searchAriaLabel"
         class="w-full"
-      />
+        :ui="{ trailing: 'pe-1' }"
+      >
+        <template v-if="current.search.length" #trailing>
+          <UButton
+            type="button"
+            color="neutral"
+            variant="link"
+            size="sm"
+            icon="i-lucide-circle-x"
+            aria-label="Clear search"
+            @click="clearSearch"
+          />
+        </template>
+      </UInput>
       <p class="mt-3 text-xs text-dimmed" aria-live="polite">
         {{ listDescription }}
       </p>
