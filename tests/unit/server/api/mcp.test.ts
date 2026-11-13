@@ -22,7 +22,7 @@ const writes = vi.hoisted(() => ({
     deleteMany: vi.fn(),
     findFirst: vi.fn(),
   },
-  category: { findFirst: vi.fn() },
+  category: { findFirst: vi.fn(), findMany: vi.fn() },
 }));
 vi.mock("../../../../server/utils/prisma", () => ({ getPrisma: () => writes }));
 const clients: Client[] = [];
@@ -62,6 +62,59 @@ async function connect(owner: string, siteUrl = "https://notes.example") {
 }
 
 describe("remote MCP tools", () => {
+  it("lists all categories, including empty categories, scoped to each token owner", async () => {
+    writes.category.findMany.mockImplementation(async ({ where }) => [
+      { id: `${where.userId}-category`, name: "Empty category" },
+    ]);
+    const [a, b] = await Promise.all([connect("a"), connect("b")]);
+    const [first, second] = await Promise.all(
+      [a, b].map((client) =>
+        client.callTool({ name: "list_categories", arguments: {} }),
+      ),
+    );
+    expect(first.structuredContent).toEqual({
+      categories: [{ id: "a-category", name: "Empty category" }],
+    });
+    expect(second.structuredContent).toEqual({
+      categories: [{ id: "b-category", name: "Empty category" }],
+    });
+    expect(writes.category.findMany).toHaveBeenCalledWith({
+      where: { userId: "a" },
+      orderBy: [{ nameKey: "asc" }, { id: "asc" }],
+      select: { id: true, name: true },
+    });
+    const { tools } = await a.listTools();
+    expect(
+      tools.find((t) => t.name === "list_categories")?.annotations,
+    ).toMatchObject({ readOnlyHint: true, openWorldHint: false });
+  });
+  it("returns empty categories and sanitizes list failures", async () => {
+    const client = await connect("owner");
+    writes.category.findMany
+      .mockResolvedValueOnce([])
+      .mockRejectedValueOnce(new Error("private database details"));
+    expect(
+      await client.callTool({ name: "list_categories", arguments: {} }),
+    ).toMatchObject({ structuredContent: { categories: [] } });
+    expect(
+      await client.callTool({ name: "list_categories", arguments: {} }),
+    ).toMatchObject({
+      isError: true,
+      content: [{ text: "Could not read Categories. Please try again." }],
+    });
+  });
+  it("rejects owner injection into category listing", async () => {
+    const client = await connect("owner");
+    expect(
+      (
+        await client.callTool({
+          name: "list_categories",
+          arguments: { userId: "other" },
+        })
+      ).isError,
+    ).toBe(true);
+    expect(writes.category.findMany).not.toHaveBeenCalled();
+  });
   it("discovers read and write tools and supplies bounded search defaults", async () => {
     const client = await connect("owner");
     const { tools } = await client.listTools();
@@ -69,12 +122,15 @@ describe("remote MCP tools", () => {
       "create_note",
       "delete_note",
       "get_note",
+      "list_categories",
       "list_notes",
       "update_note",
     ]);
     expect(
       tools
-        .filter((t) => ["get_note", "list_notes"].includes(t.name))
+        .filter((t) =>
+          ["get_note", "list_categories", "list_notes"].includes(t.name),
+        )
         .every((t) => t.annotations?.readOnlyHint),
     ).toBe(true);
     await client.callTool({ name: "list_notes", arguments: { q: "Nuxt" } });

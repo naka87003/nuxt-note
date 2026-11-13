@@ -1,6 +1,7 @@
 import { createError } from "nuxt/server";
 import { getAuthenticatedUserId } from "../../../utils/auth";
 import { getPrisma } from "../../../utils/prisma";
+import { listOwnedCategories } from "../../../utils/category-reads";
 import {
   messageOrder,
   recoverGeneration,
@@ -65,13 +66,15 @@ export default defineEventHandler(async (event) => {
   const disconnected = () => controller.abort();
   event.node.res.once("close", disconnected);
   try {
+    const { categories } = await listOwnedCategories(userId);
     const draft = await createChatNoteDraft(
       messages,
       config,
       controller.signal,
+      { categories, chatCategoryId: chat.categoryId },
     );
     if (controller.signal.aborted) throw new Error("Draft request ended");
-    return { ...draft, categoryId: chat.categoryId };
+    return draft;
   } catch {
     throw createError({
       statusCode: controller.signal.aborted ? 504 : 502,

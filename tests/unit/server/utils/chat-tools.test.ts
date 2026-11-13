@@ -27,13 +27,22 @@ const note = {
 const input = { id: "note", updatedAt: version };
 const update = { ...input, title: "Updated", markdown: "# Changed" };
 const context = { toolCallId: "call", messages: [] };
-function setup(owner = "owner", allowMutations = true) {
+const categories = vi.hoisted(() => ({ findMany: vi.fn() }));
+vi.mock("../../../../server/utils/prisma", () => ({
+  getPrisma: () => ({ category: categories }),
+}));
+function setup(
+  owner = "owner",
+  allowMutations = true,
+  categoryId?: string | null,
+) {
   const controller = new AbortController();
   const assertActive = vi.fn().mockResolvedValue(undefined);
   const tools = createChatNoteTools(owner, "https://notes.example", {
     signal: controller.signal,
     assertActive,
     allowMutations,
+    categoryId,
   });
   return { tools, controller, assertActive };
 }
@@ -46,6 +55,48 @@ beforeEach(() => {
   writes.deleteOwnedNote.mockResolvedValue({ id: "note", deleted: true });
 });
 describe("in-app Note tools", () => {
+  it("lists existing categories for the session owner even during retries", async () => {
+    categories.findMany.mockResolvedValue([{ id: "empty", name: "Empty" }]);
+    const { tools, assertActive } = setup("owner", false);
+    expect(await tools.list_categories.execute!({}, context)).toMatchObject({
+      structuredContent: { categories: [{ id: "empty", name: "Empty" }] },
+    });
+    expect(assertActive).toHaveBeenCalledOnce();
+    expect(categories.findMany).toHaveBeenCalledWith({
+      where: { userId: "owner" },
+      orderBy: [{ nameKey: "asc" }, { id: "asc" }],
+      select: { id: true, name: true },
+    });
+  });
+  it.each([
+    [undefined, "chat-category"],
+    ["explicit", "explicit"],
+    [null, null],
+  ])(
+    "preserves an explicit category %j before the chat default",
+    async (categoryId, expected) => {
+      const { tools } = setup("owner", true, "chat-category");
+      await tools.create_note!.execute!(
+        {
+          title: "Title",
+          markdown: "Body",
+          ...(categoryId === undefined ? {} : { categoryId }),
+        },
+        context,
+      );
+      expect(writes.createOwnedNote).toHaveBeenCalledWith("owner", {
+        title: "Title",
+        markdown: "Body",
+        categoryId: expected,
+      });
+    },
+  );
+  it("stops category reads after cancellation", async () => {
+    const { tools, controller } = setup();
+    controller.abort();
+    await expect(tools.list_categories.execute!({}, context)).rejects.toThrow();
+    expect(categories.findMany).not.toHaveBeenCalled();
+  });
   it("uses the authenticated owner and validates search defaults", async () => {
     const { tools, assertActive } = setup();
     await tools.list_notes.execute!({}, context);
@@ -231,6 +282,7 @@ describe("in-app Note tools", () => {
   it("does not expose writes during retries", () => {
     expect(Object.keys(setup("owner", false).tools).sort()).toEqual([
       "get_note",
+      "list_categories",
       "list_notes",
     ]);
   });

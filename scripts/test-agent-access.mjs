@@ -239,6 +239,7 @@ try {
     "create_note",
     "delete_note",
     "get_note",
+    "list_categories",
     "list_notes",
     "update_note",
   ]);

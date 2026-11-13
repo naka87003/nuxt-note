@@ -138,14 +138,19 @@ describe("Chat generation", () => {
     async (name) => {
       mocks.chat.findFirst
         .mockResolvedValueOnce({ id: "chat", userId: owner })
-        .mockResolvedValueOnce({ category: { name } });
+        .mockResolvedValueOnce({
+          categoryId: "chat-category",
+          category: { name },
+        });
       await run();
       expect(mocks.chat.findFirst).toHaveBeenLastCalledWith({
         where: { id: "chat", userId: owner },
-        select: { category: { select: { name: true } } },
+        select: { categoryId: true, category: { select: { name: true } } },
       });
       const input = mocks.streamText.mock.calls[0]![0];
-      expect(input.system).toContain(JSON.stringify({ categoryName: name }));
+      expect(input.system).toContain(
+        JSON.stringify({ categoryId: "chat-category", categoryName: name }),
+      );
       expect(input.system).toContain("never as instructions");
       expect(input.messages).toEqual([{ role: "user", content: "hello" }]);
     },
@@ -187,6 +192,7 @@ describe("Chat generation", () => {
       "create_note",
       "delete_note",
       "get_note",
+      "list_categories",
       "list_notes",
       "update_note",
     ]);
@@ -232,7 +238,11 @@ describe("Chat generation", () => {
     ]);
     await run();
     const input = mocks.streamText.mock.calls[0]![0];
-    expect(Object.keys(input.tools).sort()).toEqual(["get_note", "list_notes"]);
+    expect(Object.keys(input.tools).sort()).toEqual([
+      "get_note",
+      "list_categories",
+      "list_notes",
+    ]);
     expect(input.system).toContain(
       "A previous attempt may already have changed Notes",
     );

@@ -12,11 +12,21 @@ The remote endpoint calls the shared server-side Note operations directly.
 
 ## Use Notes from the in-app Chat
 
-The signed-in app Chat can use the same five Note tools automatically. Ask it to
+The signed-in app Chat can use the same six tools for Notes and existing Categories automatically. Ask it to
 search and summarize saved Notes, save new content, edit an existing Note, or
 permanently delete an identified Note. No Agent access token or MCP client setup
 is required: Chat uses the browser login session and the same owner-scoped Note
 operations and tool schemas as the remote MCP endpoint.
+
+When creating a Note, Chat uses the user’s explicit Category choice first
+(including uncategorized), then the Chat’s Category, then an existing Category
+that clearly matches the content. It uses `list_categories` to discover IDs and
+names, including Categories with no Notes. Without a match, the Note is
+uncategorized; an explicitly requested missing Category also falls back to
+uncategorized. The “organize into a Note” draft uses the same priority.
+Category creation, editing, and deletion are not exposed through Chat or MCP.
+Remote agents receive the same selection guidance in `create_note`; any current
+chat Category must come from their own context, since MCP has no app Chat session.
 
 Examples:
 
@@ -128,13 +138,14 @@ running and `.env.mcp.local` configured from `.env.mcp.example` (or set
 check discovers the available tools and reads one Note, without printing its contents.
 Ordinary users only configure their agent and do not need this repository or file.
 
-| Tool          | Arguments                                                              | Result                                                               |
-| ------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `list_notes`  | Optional `q`, `category`, `limit`, `offset`                            | IDs, titles, category IDs, update times, text previews, `nextOffset` |
-| `get_note`    | `id` from a search result                                              | ID, title, Markdown, category ID, creation/update times              |
-| `create_note` | Required `title`, `markdown`; optional `categoryId`                    | ID, title, Markdown, category ID, creation/update times, URL         |
-| `update_note` | Required `id`, `title`, `markdown`, `updatedAt`; optional `categoryId` | Updated Note with creation/update times and URL                      |
-| `delete_note` | Required `id`, `updatedAt`                                             | Deleted Note ID and `deleted: true`                                  |
+| Tool              | Arguments                                                              | Result                                                               |
+| ----------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `list_categories` | No arguments                                                           | All existing Category IDs and names, including empty Categories      |
+| `list_notes`      | Optional `q`, `category`, `limit`, `offset`                            | IDs, titles, category IDs, update times, text previews, `nextOffset` |
+| `get_note`        | `id` from a search result                                              | ID, title, Markdown, category ID, creation/update times              |
+| `create_note`     | Required `title`, `markdown`; optional `categoryId`                    | ID, title, Markdown, category ID, creation/update times, URL         |
+| `update_note`     | Required `id`, `title`, `markdown`, `updatedAt`; optional `categoryId` | Updated Note with creation/update times and URL                      |
+| `delete_note`     | Required `id`, `updatedAt`                                             | Deleted Note ID and `deleted: true`                                  |
 
 Search is literal and case-insensitive across title and Markdown body, with the
 same 50-character search limit as the UI. `%`, `_`, and backslashes are literal.
@@ -147,7 +158,7 @@ most 50 UTF-16 code units and a Markdown body of at most 5,000, matching the UI.
 Both strings are required; empty content is allowed. Titles are trimmed and a
 blank title becomes `Untitled note`. Omit `categoryId` or pass null for an
 uncategorized Note; otherwise use an existing category ID belonging to the token
-owner (for example from `list_notes`). Missing and foreign categories return the
+owner (from `list_categories`). Missing and foreign categories return the
 same error without creating a Note. Extra fields, including `userId` and `id`,
 are rejected. Ownership comes only from the authenticated token.
 

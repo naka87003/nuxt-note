@@ -7,6 +7,7 @@ import handler from "../../../../server/api/chats/[id]/note-draft.post";
 const mocks = vi.hoisted(() => ({
   generate: vi.fn(),
   findFirst: vi.fn(),
+  categories: vi.fn(),
   recover: vi.fn(),
   session: vi.fn(),
   config: vi.fn(),
@@ -20,7 +21,10 @@ vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));
 vi.mock("../../../../server/utils/prisma", () => ({
-  getPrisma: () => ({ chat: { findFirst: mocks.findFirst } }),
+  getPrisma: () => ({
+    chat: { findFirst: mocks.findFirst },
+    category: { findMany: mocks.categories },
+  }),
 }));
 vi.mock("../../../../server/utils/chat-generation", () => ({
   recoverGeneration: mocks.recover,
@@ -33,6 +37,7 @@ vi.hoisted(() => {
   vi.stubGlobal("useRuntimeConfig", mocks.config);
 });
 const config = { openaiApiKey: "test", openaiModel: "test" };
+const emptyCategoryContext = { categories: [], chatCategoryId: null };
 const owner = "11111111-1111-4111-8111-111111111111";
 const history = [
   { role: "user", content: "Question" },
@@ -56,20 +61,97 @@ beforeEach(() => {
     messages: history.map((m) => ({ ...m, status: "completed" })),
   });
   mocks.generate.mockResolvedValue(response(goodDraft));
+  mocks.categories.mockResolvedValue([{ id: "category", name: "General" }]);
 });
 
 describe("AI Note draft output", () => {
+  it.each([
+    [
+      { explicitCategoryId: "explicit", suggestedCategoryId: "content" },
+      "chat",
+      "explicit",
+    ],
+    [
+      { explicitCategoryId: null, suggestedCategoryId: "content" },
+      "chat",
+      null,
+    ],
+    [
+      { explicitCategoryId: "foreign", suggestedCategoryId: "content" },
+      "chat",
+      null,
+    ],
+    [{ suggestedCategoryId: "content" }, "chat", "chat"],
+    [{ suggestedCategoryId: "content" }, null, "content"],
+    [{ suggestedCategoryId: "foreign" }, null, null],
+    [{ suggestedCategoryId: null }, null, null],
+  ])(
+    "selects explicit choice, chat, content, then uncategorized: %j",
+    async (selection, chatCategoryId, expected) => {
+      mocks.generate.mockResolvedValue(
+        response({ ...goodDraft, ...selection }),
+      );
+      const context = {
+        categories: ["explicit", "chat", "content"].map((id) => ({
+          id,
+          name: id,
+        })),
+        chatCategoryId,
+      };
+      expect(
+        await createChatNoteDraft(
+          history,
+          config,
+          new AbortController().signal,
+          context,
+        ),
+      ).toEqual({ ...goodDraft, categoryId: expected });
+    },
+  );
+  it("never selects an ID when the owner has no categories", async () => {
+    mocks.generate.mockResolvedValue(
+      response({ ...goodDraft, suggestedCategoryId: "foreign" }),
+    );
+    expect(
+      await createChatNoteDraft(history, config, new AbortController().signal, {
+        categories: [],
+        chatCategoryId: null,
+      }),
+    ).toEqual({ ...goodDraft, categoryId: null });
+  });
+  it("preserves category selection while shortening the draft", async () => {
+    mocks.generate
+      .mockResolvedValueOnce(
+        response({
+          title: "Title",
+          markdown: "x".repeat(3001),
+          explicitCategoryId: null,
+        }),
+      )
+      .mockResolvedValueOnce(
+        response({ ...goodDraft, explicitCategoryId: "chat" }),
+      );
+    expect(
+      await createChatNoteDraft(history, config, new AbortController().signal, {
+        categories: [{ id: "chat", name: "Chat" }],
+        chatCategoryId: "chat",
+      }),
+    ).toEqual({ ...goodDraft, categoryId: null });
+  });
   it("returns complete Markdown and disables provider retries and storage", async () => {
     const signal = new AbortController().signal;
-    await expect(createChatNoteDraft(history, config, signal)).resolves.toEqual(
-      goodDraft,
-    );
+    await expect(
+      createChatNoteDraft(history, config, signal, emptyCategoryContext),
+    ).resolves.toEqual({ ...goodDraft, categoryId: null });
     expect(mocks.generate).toHaveBeenCalledWith(
       expect.objectContaining({
         abortSignal: signal,
         maxRetries: 0,
         providerOptions: { openai: { store: false } },
-        prompt: JSON.stringify({ conversation: history }),
+        prompt: JSON.stringify({
+          conversation: history,
+          ...emptyCategoryContext,
+        }),
         output: expect.objectContaining({ name: "json" }),
       }),
     );
@@ -80,8 +162,13 @@ describe("AI Note draft output", () => {
       .mockResolvedValueOnce(response(long))
       .mockResolvedValueOnce(response(goodDraft));
     await expect(
-      createChatNoteDraft(history, config, new AbortController().signal),
-    ).resolves.toEqual(goodDraft);
+      createChatNoteDraft(
+        history,
+        config,
+        new AbortController().signal,
+        emptyCategoryContext,
+      ),
+    ).resolves.toEqual({ ...goodDraft, categoryId: null });
     expect(mocks.generate).toHaveBeenCalledTimes(2);
     expect(JSON.parse(mocks.generate.mock.calls[1]![0].prompt)).toMatchObject({
       draft: long,
@@ -97,8 +184,13 @@ describe("AI Note draft output", () => {
     };
     mocks.generate.mockResolvedValue(response(draft));
     await expect(
-      createChatNoteDraft(history, config, new AbortController().signal),
-    ).resolves.toEqual(draft);
+      createChatNoteDraft(
+        history,
+        config,
+        new AbortController().signal,
+        emptyCategoryContext,
+      ),
+    ).resolves.toEqual({ ...draft, categoryId: null });
     expect(mocks.generate).toHaveBeenCalledTimes(1);
   });
   it.each([
@@ -110,7 +202,12 @@ describe("AI Note draft output", () => {
     async (draft) => {
       mocks.generate.mockResolvedValue(response(draft));
       await expect(
-        createChatNoteDraft(history, config, new AbortController().signal),
+        createChatNoteDraft(
+          history,
+          config,
+          new AbortController().signal,
+          emptyCategoryContext,
+        ),
       ).rejects.toThrow();
       expect(mocks.generate).toHaveBeenCalledTimes(2);
     },
@@ -125,7 +222,12 @@ describe("AI Note draft output", () => {
   ])("does not return incomplete or invalid drafts", async (result) => {
     mocks.generate.mockResolvedValue(result);
     await expect(
-      createChatNoteDraft(history, config, new AbortController().signal),
+      createChatNoteDraft(
+        history,
+        config,
+        new AbortController().signal,
+        emptyCategoryContext,
+      ),
     ).rejects.toThrow();
   });
 });
@@ -172,6 +274,8 @@ describe("Chat Note draft API", () => {
     await handler(event());
     expect(JSON.parse(mocks.generate.mock.calls[0]![0].prompt)).toEqual({
       conversation: history,
+      categories: [{ id: "category", name: "General" }],
+      chatCategoryId: null,
     });
   });
   it.each([
