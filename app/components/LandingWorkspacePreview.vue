@@ -282,6 +282,13 @@ const visibleGroups = computed(() =>
                       </template>
                       <template v-else>Edit</template>
                     </span>
+                    <span v-if="!isChat" class="sample-soft">
+                      <UIcon
+                        name="i-lucide-message-circle"
+                        class="size-4 shrink-0"
+                      />
+                      Ask AI
+                    </span>
                     <span class="sample-soft">Delete</span>
                   </div>
                 </div>

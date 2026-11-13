@@ -234,7 +234,7 @@ async function go(next: Step) {
                 :content="categoryAnswer"
               />
               <div class="demo-composer" aria-hidden="true">
-                <span>Ask a follow-up…</span>
+                <span>Ask anything…</span>
                 <UButton
                   type="button"
                   class="chat-send"

@@ -16,7 +16,7 @@ const { data } = await useFetch('/api/notes')
     </p>
     <LandingMarkdownContent variant="chat" :content="answer" />
     <div class="sample-composer">
-      <span />
+      <span class="text-dimmed">Ask anything…</span>
       <span class="sample-send">
         <img src="/icons/chat-send.svg" width="20" height="20" alt="" />
       </span>
@@ -57,10 +57,10 @@ const { data } = await useFetch('/api/notes')
   display: flex;
   justify-content: space-between;
   align-items: center;
-  min-height: 48px;
+  min-height: 56px;
   border: 1px solid var(--ui-border);
-  border-radius: 29px;
-  padding: 8px 12px;
+  border-radius: 28.8px;
+  padding: 12px 12px 12px 19.2px;
   margin-top: auto;
 }
 .sample-send {
