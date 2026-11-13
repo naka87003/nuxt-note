@@ -15,6 +15,11 @@ vi.mock("../../../../server/utils/note-reads", () => reads);
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));
+const writes = vi.hoisted(() => ({
+  note: { create: vi.fn() },
+  category: { findFirst: vi.fn() },
+}));
+vi.mock("../../../../server/utils/prisma", () => ({ getPrisma: () => writes }));
 const clients: Client[] = [];
 const handlers: ReturnType<typeof createMcpHandler>[] = [];
 beforeEach(() => {
@@ -32,11 +37,14 @@ afterEach(async () => {
   for (const client of clients.splice(0)) await client.close();
   for (const handler of handlers.splice(0)) await handler.close();
 });
-async function connect(owner: string) {
-  const handler = createMcpHandler(() => createRemoteNotesServer(owner), {
-    responseMode: "json",
-    maxSubscriptions: 0,
-  });
+async function connect(owner: string, scopes?: string[]) {
+  const handler = createMcpHandler(
+    () => createRemoteNotesServer(owner, scopes),
+    {
+      responseMode: "json",
+      maxSubscriptions: 0,
+    },
+  );
   handlers.push(handler);
   const client = new Client({ name: "remote-test", version: "0.1.0" });
   clients.push(client);
@@ -60,6 +68,131 @@ describe("remote MCP tools", () => {
       limit: 20,
       offset: 0,
     });
+  });
+  it("rejects direct create calls for read-only tokens", async () => {
+    const client = await connect("owner");
+    await expect(
+      client.callTool({
+        name: "create_note",
+        arguments: { title: "New", markdown: "" },
+      }),
+    ).rejects.toThrow();
+    expect(writes.note.create).not.toHaveBeenCalled();
+  });
+  it("exposes create only with permission and stores content for the token owner", async () => {
+    const client = await connect("owner", ["notes:read", "notes:create"]);
+    const { tools } = await client.listTools();
+    expect(tools.map((t) => t.name).sort()).toEqual([
+      "create_note",
+      "get_note",
+      "list_notes",
+    ]);
+    expect(
+      tools.find((t) => t.name === "create_note")?.annotations,
+    ).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+    });
+    writes.note.create.mockResolvedValue({
+      id: "new",
+      title: "Untitled note",
+      markdown: "# Saved",
+      categoryId: null,
+      createdAt: new Date("2026-11-13T00:00:00Z"),
+    });
+    const result = await client.callTool({
+      name: "create_note",
+      arguments: { title: "  ", markdown: "# Saved" },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(result.structuredContent).toMatchObject({
+      id: "new",
+      title: "Untitled note",
+      createdAt: "2026-11-13T00:00:00.000Z",
+    });
+    expect(writes.note.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          title: "Untitled note",
+          markdown: "# Saved",
+          categoryId: null,
+          userId: "owner",
+        },
+      }),
+    );
+  });
+  it.each([
+    {},
+    { title: "New" },
+    { title: 1, markdown: "" },
+    { title: "x".repeat(51), markdown: "" },
+    { title: "New", markdown: "あ".repeat(5001) },
+    { title: "New", markdown: "", categoryId: "" },
+    { title: "New", markdown: "", userId: "other" },
+    { title: "New", markdown: "", id: "existing" },
+  ])("rejects invalid create arguments %j", async (args) => {
+    const client = await connect("owner", ["notes:read", "notes:create"]);
+    expect(
+      (await client.callTool({ name: "create_note", arguments: args })).isError,
+    ).toBe(true);
+    expect(writes.note.create).not.toHaveBeenCalled();
+  });
+  it("validates category ownership before creating and hides storage errors", async () => {
+    const client = await connect("owner", ["notes:read", "notes:create"]);
+    const call = () =>
+      client.callTool({
+        name: "create_note",
+        arguments: { title: "New", markdown: "", categoryId: "category" },
+      });
+    writes.category.findFirst.mockResolvedValue(null);
+    expect(await call()).toMatchObject({
+      isError: true,
+      content: [{ text: "Category not found." }],
+    });
+    expect(writes.category.findFirst).toHaveBeenCalledWith({
+      where: { id: "category", userId: "owner" },
+      select: { id: true },
+    });
+    expect(writes.note.create).not.toHaveBeenCalled();
+    writes.category.findFirst.mockResolvedValue({ id: "category" });
+    writes.note.create.mockResolvedValue({ id: "new" });
+    expect((await call()).isError).toBeFalsy();
+    expect(writes.note.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          title: "New",
+          markdown: "",
+          categoryId: "category",
+          userId: "owner",
+        },
+      }),
+    );
+    writes.note.create.mockRejectedValue(new Error("private database details"));
+    const result = await call();
+    expect(result).toMatchObject({
+      isError: true,
+      content: [{ text: "Could not create Note. Please try again." }],
+    });
+    expect(JSON.stringify(result)).not.toContain("private database details");
+  });
+  it("keeps concurrent creation owners separate", async () => {
+    const [a, b] = await Promise.all([
+      connect("a", ["notes:read", "notes:create"]),
+      connect("b", ["notes:read", "notes:create"]),
+    ]);
+    writes.note.create.mockResolvedValue({ id: "new" });
+    await Promise.all(
+      [a, b].map((c) =>
+        c.callTool({
+          name: "create_note",
+          arguments: { title: "New", markdown: "" },
+        }),
+      ),
+    );
+    expect(
+      writes.note.create.mock.calls.map(([args]) => args.data.userId).sort(),
+    ).toEqual(["a", "b"]);
   });
   it("keeps concurrent owners separate and serializes dates", async () => {
     const [a, b] = await Promise.all([connect("a"), connect("b")]);

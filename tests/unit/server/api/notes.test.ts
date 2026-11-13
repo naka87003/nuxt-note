@@ -71,7 +71,14 @@ describe("notes API ownership and validation", () => {
         userId: ownerId,
         categoryId: null,
       },
-      select: { id: true },
+      select: {
+        id: true,
+        title: true,
+        markdown: true,
+        categoryId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
     expect(mocks.status).toHaveBeenCalledWith(event, 201);
   });

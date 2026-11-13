@@ -1,11 +1,11 @@
-# Read your saved Notes through MCP
+# Read and create Notes through MCP
 
 Saved Notes are available through a remote **Streamable HTTP** MCP endpoint at
-`/mcp`. Users register the URL and their read-only token in a compatible agent;
+`/mcp`. Users register the URL and their scoped token in a compatible agent;
 no repository clone, Node.js installation, or local MCP program is required.
 
 ```text
-Agent host → HTTPS /mcp → token verification → owner-scoped Note reads → PostgreSQL
+Agent host → HTTPS /mcp → token verification → owner-scoped Note operations → PostgreSQL
 ```
 
 The remote endpoint calls the shared server-side Note operations directly.
@@ -13,7 +13,8 @@ The remote endpoint calls the shared server-side Note operations directly.
 ## Connect remotely
 
 1. Sign in to Nuxt Note and open **Profile menu → Agent access**.
-2. Create a read-only token. Use the copy button beside its value.
+2. Create a token. Reading is enabled by default; select **Allow creating new Notes**
+   only for agents that should save new Notes. Use the copy button beside its value.
    You can copy it repeatedly while visible; save it before hiding it or leaving
    the page because it cannot be displayed again.
 3. Add the MCP URL shown on the page to an agent that supports **Streamable HTTP
@@ -50,8 +51,8 @@ explicitly allowed origin configured in `NUXT_MCP_ALLOWED_ORIGINS`.
 ## Deploy the endpoint
 
 Deploy the Nuxt application with the SDK and Zod runtime dependencies and the
-existing database/session configuration. Apply the additive AgentToken migration
-to the target database if not applied already. `NUXT_PUBLIC_SITE_URL` defaults to
+existing database/session configuration. Apply both additive AgentToken migrations
+to the target database before deploying this version. `NUXT_PUBLIC_SITE_URL` defaults to
 `https://nuxt-note-ivory.vercel.app`; no extra setting is needed when using that
 domain. Override it only when changing the canonical origin. The Vercel deployment host (`VERCEL_URL`) and
 loopback development hosts are also accepted; unrelated Host and Origin headers
@@ -66,7 +67,7 @@ subscription support. GET and DELETE return 405. Every POST, including discovery
 requires a valid token; a browser session cookie alone is not sufficient.
 Requests are limited to 64 KiB and responses use `private, no-store` even for legacy
 SSE. Invalid/expired/revoked tokens receive HTTP 401. Tool errors hide database
-details. Existing Note mutations remain unavailable.
+details. Editing and deleting existing Notes remain unavailable.
 
 Verify URL/authentication, owner isolation, search/reading, and revocation on the
 hosted deployment before treating it as validated in production. Local checks do
@@ -86,13 +87,14 @@ or results.
 For a read-only remote terminal check, run `pnpm check:mcp:remote` with Nuxt
 running and `.env.mcp.local` configured from `.env.mcp.example` (or set
 `NUXT_NOTE_URL` and `NUXT_NOTE_TOKEN` in the process environment). This developer
-check discovers both tools and reads one Note, without printing its contents.
+check discovers the available tools and reads one Note, without printing its contents.
 Ordinary users only configure their agent and do not need this repository or file.
 
-| Tool         | Arguments                                   | Result                                                               |
-| ------------ | ------------------------------------------- | -------------------------------------------------------------------- |
-| `list_notes` | Optional `q`, `category`, `limit`, `offset` | IDs, titles, category IDs, update times, text previews, `nextOffset` |
-| `get_note`   | `id` from a search result                   | ID, title, Markdown, category ID, creation/update times              |
+| Tool          | Arguments                                           | Result                                                               |
+| ------------- | --------------------------------------------------- | -------------------------------------------------------------------- |
+| `list_notes`  | Optional `q`, `category`, `limit`, `offset`         | IDs, titles, category IDs, update times, text previews, `nextOffset` |
+| `get_note`    | `id` from a search result                           | ID, title, Markdown, category ID, creation/update times              |
+| `create_note` | Required `title`, `markdown`; optional `categoryId` | ID, title, Markdown, category ID, creation/update times              |
 
 Search is literal and case-insensitive across title and Markdown body, with the
 same 50-character search limit as the UI. `%`, `_`, and backslashes are literal.
@@ -100,13 +102,37 @@ same 50-character search limit as the UI. `%`, `_`, and backslashes are literal.
 20, maximum 50. Pass `nextOffset` back as `offset` until it is null. Concurrent
 edits may move Notes between pages; this is a bounded offset listing, not a snapshot.
 
+`create_note` is available only with `notes:create`. It accepts a title of at
+most 50 UTF-16 code units and a Markdown body of at most 5,000, matching the UI.
+Both strings are required; empty content is allowed. Titles are trimmed and a
+blank title becomes `Untitled note`. Omit `categoryId` or pass null for an
+uncategorized Note; otherwise use an existing category ID belonging to the token
+owner (for example from `list_notes`). Missing and foreign categories return the
+same error without creating a Note. Extra fields, including `userId` and `id`,
+are rejected. Ownership comes only from the authenticated token.
+
+Creation is non-idempotent: repeating a successful call creates another Note.
+The tool is annotated as a non-read-only, non-destructive, non-idempotent action.
+Ask the agent to save a new Note explicitly, then use `get_note` on the returned
+ID to verify it. Editing, deleting, and category creation are not exposed.
+
 ## Authentication and revocation
 
 Each token has 256 bits of randomness, a fixed 90-day lifetime, and access to only
-its issuing user's Note reads. The database stores its SHA-256 hash and metadata,
+its issuing user's Notes within its stored scopes. The database stores its SHA-256 hash and metadata,
 not the raw token. Token lists never return either the secret or hash. Creation
 and revocation require the browser login session. Bearer tokens do not authorize
-those operations, Note mutations, or Chat endpoints.
+those operations, browser Note API routes, or Chat endpoints. MCP creation
+requires the separate `notes:create` scope.
+
+`AgentToken.scopes` defaults to `["notes:read"]`, including all existing records
+when the additive `20261113010000_agent_token_scopes` migration is applied.
+Existing tokens keep their secret, expiry, and read-only access. There is no
+in-place permission upgrade: issue a new token with creation enabled and update
+the agent configuration to grant creation. Token metadata lists show scopes.
+`POST /api/agent-tokens` accepts optional `scopes`: `["notes:read"]` (default) or
+`["notes:read", "notes:create"]`; unknown, duplicate, or missing read scopes are
+rejected. This route still requires the browser session.
 
 Every MCP request checks the hash, expiry, and revocation state and derives
 the owner ID from the token record. Caller-supplied user IDs are ignored. Reading
@@ -114,7 +140,7 @@ another user's Note returns the same 404 as reading a missing Note. Responses us
 `Cache-Control: private, no-store`.
 
 Revoke a token from **Agent access → Revoke** to reject subsequent requests, even
-without reconnecting the agent. A read already in flight may finish. Already
+without reconnecting the agent. An operation already in flight may finish. Already
 retrieved text remains in the agent's context. Issue a replacement token and update
 the agent's private connection settings when a token expires or is revoked. Revoked metadata
 remains visible in the management page.
@@ -125,6 +151,8 @@ remains visible in the management page.
   hashing, expiry/revocation checks, and token metadata selection.
 - [`server/utils/note-reads.ts`](../server/utils/note-reads.ts): owner-scoped
   reads shared by browser routes and MCP tools.
+- [`server/utils/note-writes.ts`](../server/utils/note-writes.ts): validated,
+  owner-scoped creation shared by the browser route and MCP.
 - [`server/routes/mcp.ts`](../server/routes/mcp.ts): authenticated Streamable HTTP entry.
 - [`server/utils/mcp-notes.ts`](../server/utils/mcp-notes.ts): request-scoped MCP tools.
 - [`server/utils/mcp-http.ts`](../server/utils/mcp-http.ts): Host and Origin checks.
@@ -150,9 +178,10 @@ pnpm test:agent --live
 It loads `.env` and uses the configured database. Build first and apply the
 migration first. It starts a separate local app process with a temporary session
 secret, uses the existing user with the most Notes, and creates two verification
-Notes, one temporary second user/Note, and one token. It tests session-only token
+Notes, one temporary second user/Note, and scoped tokens. It tests session-only token
 management, stored hashes, searching/pagination, owner isolation, expiry,
-revocation, remote HTTP MCP calls, concurrent user isolation,
+revocation, remote HTTP MCP calls, read-only creation denial, scoped creation/readback,
+category ownership, writer revocation, concurrent user isolation,
 legacy initialization, malformed/oversized requests, and HTTP boundary checks. It removes only records identified by that
 run's random marker/IDs in `finally`. Existing Note content is neither edited nor
 printed. An interrupted process may require cleaning up its verification records.

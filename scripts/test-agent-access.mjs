@@ -34,6 +34,8 @@ let app;
 let owner;
 let remote;
 let remoteOther;
+let remoteWriter;
+const createdNotes = [];
 let failed = false;
 try {
   await db.connect();
@@ -108,6 +110,7 @@ try {
   assert.match(issue.headers.get("cache-control"), /no-store/);
   const issued = await issue.json();
   assert(!("tokenHash" in issued));
+  assert.deepEqual(issued.scopes, ["notes:read"]);
   const stored = await db.query(
     'SELECT "tokenHash","userId" FROM "AgentToken" WHERE id=$1',
     [issued.id],
@@ -300,6 +303,87 @@ try {
       .isError,
     true,
   );
+  await assert.rejects(
+    remote.callTool({
+      name: "create_note",
+      arguments: { title: marker, markdown: "must not save" },
+    }),
+  );
+  const writerIssue = await api("/api/agent-tokens", {
+    method: "POST",
+    headers: { Cookie: cookie, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: marker,
+      scopes: ["notes:read", "notes:create"],
+    }),
+  });
+  assert.equal(writerIssue.status, 201);
+  const writerToken = await writerIssue.json();
+  remoteWriter = new Client({ name: "writer-verification", version: "0.1.0" });
+  await remoteWriter.connect(
+    new StreamableHTTPClientTransport(new URL("/mcp", base), {
+      requestInit: {
+        headers: { Authorization: `Bearer ${writerToken.token}` },
+      },
+    }),
+  );
+  assert.deepEqual(
+    (await remoteWriter.listTools()).tools.map((t) => t.name).sort(),
+    ["create_note", "get_note", "list_notes"],
+  );
+  const created = await remoteWriter.callTool({
+    name: "create_note",
+    arguments: { title: marker, markdown: "# Created through MCP" },
+  });
+  assert(!created.isError);
+  createdNotes.push(created.structuredContent.id);
+  assert.equal(created.structuredContent.categoryId, null);
+  const saved = await remoteWriter.callTool({
+    name: "get_note",
+    arguments: { id: createdNotes[0] },
+  });
+  assert(!saved.isError);
+  assert.equal(saved.structuredContent.markdown, "# Created through MCP");
+  const savedOwner = await db.query('SELECT "userId" FROM "Note" WHERE id=$1', [
+    createdNotes[0],
+  ]);
+  assert.equal(savedOwner.rows[0].userId, owner);
+  // A category owned by the temporary second user must not be attachable.
+  const foreignCategory = randomUUID();
+  await db.query(
+    'INSERT INTO "Category" (id,name,"nameKey","userId","updatedAt") VALUES ($1,$2,$2,$3,now())',
+    [foreignCategory, "mcp-verification", other],
+  );
+  const deniedCategory = await remoteWriter.callTool({
+    name: "create_note",
+    arguments: { title: marker, markdown: "", categoryId: foreignCategory },
+  });
+  assert.equal(deniedCategory.isError, true);
+  assert.equal(
+    (
+      await db.query(
+        'SELECT count(*)::int AS count FROM "Note" WHERE "userId"=$1 AND title=$2',
+        [owner, marker],
+      )
+    ).rows[0].count,
+    3,
+  );
+  assert.equal(
+    (
+      await api(`/api/agent-tokens/${writerToken.id}`, {
+        method: "DELETE",
+        headers: { Cookie: cookie },
+      })
+    ).status,
+    204,
+  );
+  await assert.rejects(
+    remoteWriter.callTool({
+      name: "create_note",
+      arguments: { title: marker, markdown: "must not save" },
+    }),
+  );
+
   const otherIssue = await api("/api/agent-tokens", {
     method: "POST",
     headers: {
@@ -363,7 +447,7 @@ try {
   );
   await assert.rejects(remote.callTool({ name: "list_notes", arguments: {} }));
   console.log(
-    "Passed: session-only issuance, hash storage, pagination/search, owner isolation, expiry, revocation, and real MCP reads. No existing Note content was printed or edited.",
+    "Passed: session-only issuance, hash storage, pagination/search, owner isolation, expiry, revocation, and scoped MCP reads/creation. No existing Note content was printed or edited.",
   );
 } catch (error) {
   failed = true;
@@ -375,6 +459,7 @@ try {
       : (error.code ?? error.name),
   );
 } finally {
+  await remoteWriter?.close();
   await remoteOther?.close();
   await remote?.close();
   app?.kill("SIGTERM");
@@ -386,7 +471,7 @@ try {
       ]);
       await db.query(
         'DELETE FROM "Note" WHERE "userId"=$1 AND id=ANY($2::text[])',
-        [owner, [ownNote, secondNote]],
+        [owner, [ownNote, secondNote, ...createdNotes]],
       );
     }
     await db.query('DELETE FROM "User" WHERE id=$1 AND "githubId"=$2', [

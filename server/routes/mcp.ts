@@ -1,6 +1,6 @@
 import { createMcpHandler } from "@modelcontextprotocol/server";
 import { createError } from "nuxt/server";
-import { getAgentUserId, privateAgentResponse } from "../utils/agent-auth";
+import { getAgentAccess, privateAgentResponse } from "../utils/agent-auth";
 import { createRemoteNotesServer } from "../utils/mcp-notes";
 import { validateMcpRequest } from "../utils/mcp-http";
 
@@ -36,13 +36,16 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 405, statusMessage: "Method not allowed" });
   }
   // Authenticate every exchange, including discovery and initialized clients.
-  const userId = await getAgentUserId(event);
-  const handler = createMcpHandler(() => createRemoteNotesServer(userId), {
-    legacy: "stateless",
-    responseMode: "json",
-    maxRequestBodySize: 65_536,
-    maxSubscriptions: 0,
-  });
+  const { userId, scopes } = await getAgentAccess(event);
+  const handler = createMcpHandler(
+    () => createRemoteNotesServer(userId, scopes),
+    {
+      legacy: "stateless",
+      responseMode: "json",
+      maxRequestBodySize: 65_536,
+      maxSubscriptions: 0,
+    },
+  );
   try {
     const response = await handler.fetch(request);
     response.headers.set("Cache-Control", "private, no-store");

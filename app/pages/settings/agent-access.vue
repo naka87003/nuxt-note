@@ -13,6 +13,7 @@ const requestUrl = useRequestURL();
 const endpoint = new URL("/mcp", requestUrl.origin).href;
 const name = ref("My agent");
 const issued = ref("");
+const allowCreate = ref(false);
 const busy = ref(false);
 const failure = ref("");
 const endpointCopied = ref(false);
@@ -38,7 +39,12 @@ async function issue() {
   try {
     const result = await $fetch("/api/agent-tokens", {
       method: "POST",
-      body: { name: name.value },
+      body: {
+        name: name.value,
+        scopes: allowCreate.value
+          ? ["notes:read", "notes:create"]
+          : ["notes:read"],
+      },
     });
     issued.value = result.token;
     endpointCopied.value = false;
@@ -80,9 +86,9 @@ async function revoke() {
     <div class="space-y-3">
       <h1 class="text-2xl font-semibold">Agent access</h1>
       <p class="text-muted">
-        Let an agent search and read your Notes. These tokens cannot create,
-        edit, or delete content, or access Chat. Tokens expire after 90 days and
-        can be revoked at any time.
+        Let an agent search and read your Notes, and optionally create new
+        Notes. Tokens cannot edit or delete content, or access Chat. Tokens
+        expire after 90 days and can be revoked at any time.
       </p>
     </div>
 
@@ -104,7 +110,7 @@ async function revoke() {
         </UButton>
       </div>
       <ol class="list-decimal space-y-2 pl-5 text-sm">
-        <li>Create a read-only token below.</li>
+        <li>Choose permissions and create a token below.</li>
         <li>
           In your agent's MCP settings, add the URL above with Streamable HTTP
           transport.
@@ -130,7 +136,7 @@ async function revoke() {
       aria-labelledby="create-token-heading"
     >
       <h2 id="create-token-heading" class="text-lg font-semibold">
-        Create a read-only token
+        Create an agent token
       </h2>
       <form class="flex flex-wrap items-end gap-3" @submit.prevent="issue">
         <UFormField
@@ -146,6 +152,11 @@ async function revoke() {
             class="w-full"
           />
         </UFormField>
+        <UCheckbox
+          v-model="allowCreate"
+          label="Allow creating new Notes"
+          :disabled="busy || Boolean(issued)"
+        />
         <UButton
           type="submit"
           :loading="busy"
@@ -204,7 +215,13 @@ async function revoke() {
           <div class="min-w-0">
             <p class="font-medium wrap-anywhere">{{ token.name }}</p>
             <p class="text-sm text-muted">
-              {{ tokenStatus(token) }} · Expires
+              {{ tokenStatus(token) }} ·
+              {{
+                token.scopes.includes("notes:create")
+                  ? "Read + create"
+                  : "Read only"
+              }}
+              · Expires
               {{ new Date(token.expiresAt).toLocaleDateString() }}
             </p>
           </div>

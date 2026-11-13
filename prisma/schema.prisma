@@ -25,6 +25,7 @@ model AgentToken {
   id        String    @id @default(uuid())
   name      String    @db.VarChar(50)
   tokenHash String    @unique @db.VarChar(64)
+  scopes    String[]  @default(["notes:read"])
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime  @default(now())
