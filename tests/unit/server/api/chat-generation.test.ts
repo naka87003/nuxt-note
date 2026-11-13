@@ -33,7 +33,8 @@ vi.mock("../../../../server/utils/prisma", () => ({ getPrisma: () => mocks }));
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));
-vi.mock("ai", () => ({
+vi.mock("ai", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("ai")>()),
   streamText: mocks.streamText,
   generateText: mocks.generateText,
 }));
@@ -72,6 +73,7 @@ beforeEach(() => {
   mocks.config.mockReturnValue({
     openaiApiKey: "test-only",
     openaiModel: "test-model",
+    public: { siteUrl: "https://notes.example" },
   });
   mocks.body.mockResolvedValue({ messageId: questionId, attemptId });
   mocks.$transaction.mockImplementation((fn) => fn(mocks));
@@ -148,14 +150,16 @@ describe("Chat generation", () => {
       expect(input.messages).toEqual([{ role: "user", content: "hello" }]);
     },
   );
-  it("adds no category context for an uncategorized chat", async () => {
+  it("provides Note tool instructions without category context for an uncategorized chat", async () => {
     mocks.chat.findFirst.mockResolvedValue({
       id: "chat",
       userId: owner,
       category: null,
     });
     await run();
-    expect(mocks.streamText.mock.calls[0]![0]).not.toHaveProperty("system");
+    const input = mocks.streamText.mock.calls[0]![0];
+    expect(input.system).toContain("signed-in user's Notes");
+    expect(input.system).not.toContain("categoryName");
   });
   it("delivers text and commits completion before announcing done", async () => {
     await run();
@@ -172,8 +176,104 @@ describe("Chat generation", () => {
     expect(mocks.streamText).toHaveBeenCalledWith(
       expect.objectContaining({
         maxRetries: 0,
-        providerOptions: { openai: { store: false } },
+        providerOptions: { openai: { store: false, parallelToolCalls: false } },
       }),
+    );
+  });
+  it("enables Note tools and reserves the last step for an answer", async () => {
+    await run();
+    const input = mocks.streamText.mock.calls[0]![0];
+    expect(Object.keys(input.tools).sort()).toEqual([
+      "create_note",
+      "delete_note",
+      "get_note",
+      "list_notes",
+      "update_note",
+    ]);
+    expect(input.stopWhen({ steps: Array(8) })).toBe(true);
+    expect(input.stopWhen({ steps: Array(7) })).toBe(false);
+    expect(input.prepareStep({ stepNumber: 7 })).toEqual({
+      toolChoice: "none",
+    });
+    expect(input.prepareStep({ stepNumber: 0 })).toEqual({});
+  });
+  it("keeps editing available for a new question after creating a Note in the same chat", async () => {
+    const savedLink = "[Saved Note](https://notes.example/notes/note)";
+    mocks.message.findMany.mockResolvedValue([
+      { ...question, id: "earlier-question", content: "Save this as a Note" },
+      {
+        id: "earlier-reply",
+        role: "assistant",
+        replyToId: "earlier-question",
+        status: "completed",
+        content: savedLink,
+      },
+      { ...question, content: "Translate that Note into English" },
+    ]);
+    await run();
+    const input = mocks.streamText.mock.calls[0]![0];
+    expect(input.tools.update_note.execute).toEqual(expect.any(Function));
+    expect(input.messages).toEqual([
+      { role: "user", content: "Save this as a Note" },
+      { role: "assistant", content: savedLink },
+      { role: "user", content: "Translate that Note into English" },
+    ]);
+  });
+  it("allows only reads on retries to avoid repeating interrupted mutations", async () => {
+    mocks.message.findMany.mockResolvedValue([
+      question,
+      {
+        id: "reply",
+        role: "assistant",
+        replyToId: questionId,
+        status: "failed",
+        content: "Saving",
+      },
+    ]);
+    await run();
+    const input = mocks.streamText.mock.calls[0]![0];
+    expect(Object.keys(input.tools).sort()).toEqual(["get_note", "list_notes"]);
+    expect(input.system).toContain(
+      "A previous attempt may already have changed Notes",
+    );
+  });
+  it("continues streaming after tool events and saves the final answer", async () => {
+    mocks.streamText.mockReturnValue({
+      fullStream: (async function* () {
+        yield { type: "tool-call", toolName: "list_notes" };
+        yield {
+          type: "tool-result",
+          toolName: "list_notes",
+          output: { notes: [] },
+        };
+        yield { type: "text-delta", text: "No matching Notes." };
+        yield { type: "finish", finishReason: "stop" };
+      })(),
+    });
+    await run();
+    expect(mocks.message.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: { content: "No matching Notes.", status: "completed" },
+      }),
+    );
+    expect(
+      mocks.push.mock.calls.map(([data]) => JSON.parse(data).type),
+    ).toEqual(["start", "text", "done"]);
+  });
+  it("fails tool execution errors without leaking details", async () => {
+    mocks.streamText.mockReturnValue({
+      fullStream: (async function* () {
+        yield { type: "tool-error", error: new Error("private tool input") };
+        yield { type: "text-delta", text: "Done" };
+        yield { type: "finish", finishReason: "stop" };
+      })(),
+    });
+    await run();
+    expect(mocks.message.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: { content: "", status: "failed" } }),
+    );
+    expect(JSON.stringify(mocks.push.mock.calls)).not.toContain(
+      "private tool input",
     );
   });
   it("preserves partial text when the provider fails", async () => {

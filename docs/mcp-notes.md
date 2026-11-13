@@ -10,6 +10,40 @@ Agent host → HTTPS /mcp → token verification → owner-scoped Note operation
 
 The remote endpoint calls the shared server-side Note operations directly.
 
+## Use Notes from the in-app Chat
+
+The signed-in app Chat can use the same five Note tools automatically. Ask it to
+search and summarize saved Notes, save new content, edit an existing Note, or
+permanently delete an identified Note. No Agent access token or MCP client setup
+is required: Chat uses the browser login session and the same owner-scoped Note
+operations and tool schemas as the remote MCP endpoint.
+
+Examples:
+
+- “Find my Notes about Nuxt and summarize them.”
+- “Save this explanation as a new Note.”
+- “Add this example to my Nuxt Note.”
+- “Delete the Note titled Old draft.”
+
+Chat can read an existing Note directly from its link in the conversation,
+including a link returned when the Note was created. The Chat `get_note` tool
+accepts a Note ID, a same-site absolute Note URL, or a `/notes/<id>` path. Links
+are resolved locally to IDs; the tool never fetches external URLs. The remote MCP
+`get_note` input remains a Note ID.
+
+Chat reads the exact Note version before updating or deleting it. Concurrent
+changes prevent the write; a deletion conflict requires a new user confirmation
+message. Successful creates and updates return a clickable Note link.
+
+Tool execution is bounded to eight model steps, with the final step reserved for
+an answer, and shares Chat's existing 120-second timeout. Leaving the Chat stops
+new tool executions; a database operation already in flight may still finish.
+After an interrupted response, **Try again** provides only search/read tools so
+that it cannot repeat a write whose acknowledgement was lost. It checks current
+Notes and asks for a new message if further changes are needed. Tool call history
+is not stored separately from the assistant's text, so Chat must verify current
+state rather than infer successful writes from an interrupted response.
+
 ## Connect remotely
 
 1. Sign in to Nuxt Note and open **Profile menu → Agent access**.
@@ -212,7 +246,11 @@ settings when replacing a deleted token. No deleted-token history is retained.
   owner-scoped creation shared by the browser route and MCP, and atomic
   version-checked MCP updates and deletions.
 - [`server/routes/mcp.ts`](../server/routes/mcp.ts): authenticated Streamable HTTP entry.
-- [`server/utils/mcp-notes.ts`](../server/utils/mcp-notes.ts): request-scoped MCP tools.
+- [`server/utils/note-tools.ts`](../server/utils/note-tools.ts): shared tool
+  definitions, validation, results, and sanitized errors.
+- [`server/utils/mcp-notes.ts`](../server/utils/mcp-notes.ts): request-scoped MCP registration.
+- [`server/utils/chat-tools.ts`](../server/utils/chat-tools.ts): session-scoped AI
+  tools, read-before-write checks, cancellation, and Chat instructions.
 - [`server/utils/mcp-http.ts`](../server/utils/mcp-http.ts): Host and Origin checks.
 - `server/api/agent-tokens/`: browser-session token management.
 - [`app/pages/settings/agent-access.vue`](../app/pages/settings/agent-access.vue):
@@ -226,6 +264,18 @@ pnpm lint
 pnpm typecheck
 pnpm build
 ```
+
+To check editing through the real AI model with fake Notes (no database access),
+explicitly run:
+
+```bash
+NUXT_NOTE_LIVE_AI=1 pnpm test --project unit tests/unit/server/utils/chat-tools.live.test.ts
+```
+
+This loads `.env` for `NUXT_OPENAI_API_KEY` and the optional `NUXT_OPENAI_MODEL`,
+and makes billable AI requests. It checks editing a previously linked Note even
+when earlier conversation history contains an incorrect refusal. It is skipped
+in the normal test suite. It does not verify the deployed app or a real database.
 
 The real database integration check is explicitly opt-in:
 
