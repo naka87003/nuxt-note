@@ -320,6 +320,7 @@ describe("Chat generation", () => {
       "list_categories",
       "list_notes",
       "read_webpage",
+      "update_category",
       "update_note",
       "web_search",
     ]);

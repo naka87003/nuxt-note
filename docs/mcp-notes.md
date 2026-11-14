@@ -12,7 +12,7 @@ The remote endpoint calls the shared server-side Note operations directly.
 
 ## Use Notes from the in-app Chat
 
-The signed-in app Chat can use the same eight tools for Notes and Categories automatically. Ask it to
+The signed-in app Chat can use the shared tools for Notes and Categories automatically. Ask it to
 search and summarize saved Notes, save new content, edit an existing Note, or
 permanently delete an identified Note. No Agent access token or MCP client setup
 is required: Chat uses the browser login session and the same owner-scoped Note
@@ -25,9 +25,9 @@ names, including Categories with no Notes. Without a match, the Note is
 uncategorized; an explicitly requested missing Category also falls back to
 uncategorized unless the user requests creating it. The “organize into a Note” draft uses the same priority.
 When explicitly asked to create a Category, Chat and MCP can use `create_category`
-and then save a Note with its returned ID. They can also delete an explicitly identified Category with `delete_category`.
+and then save a Note with its returned ID. They can also rename a Category with
+`update_category` or delete an explicitly identified Category with `delete_category`.
 Its Notes and Chats become Uncategorized; their content and messages are preserved.
-Category renaming is not exposed.
 Remote agents receive the same selection guidance in `create_note`; any current
 chat Category must come from their own context, since MCP has no app Chat session.
 
@@ -113,6 +113,7 @@ Ordinary users only configure their agent and do not need this repository or fil
 | Tool              | Arguments                                                              | Result                                                               |
 | ----------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | `create_category` | Required `name`                                                        | Created Category ID and name                                         |
+| `update_category` | Required `id`, `name`                                                  | Updated Category ID and name                                         |
 | `list_categories` | No arguments                                                           | All existing Category IDs and names, including empty Categories      |
 | `list_notes`      | Optional `q`, `category`, `limit`, `offset`                            | IDs, titles, category IDs, update times, text previews, `nextOffset` |
 | `get_note`        | `id` from a search result                                              | ID, title, Markdown, category ID, creation/update times              |
@@ -155,6 +156,18 @@ case-insensitive comparison, matching the app. On a duplicate, use
 are rejected. Ownership comes from the authenticated token or Chat session.
 Creation is available to every valid token and is annotated as non-read-only,
 non-destructive, and non-idempotent. Chat retries do not expose this write tool.
+
+## Rename a Category
+
+`update_category` accepts an existing Category `id` from `list_categories` and
+the replacement `name`. It reuses the browser's rename operation, including the
+same name limits, trimming, Unicode normalization, duplicate checks, and owner
+restriction. Missing and foreign Categories return the same error; extra fields,
+including `userId`, are rejected. Success returns the Category ID and trimmed name.
+Use it when the user requests renaming a Category; clarify ambiguous targets first.
+It is available to every valid token and annotated as non-read-only, destructive
+(it replaces the name), and idempotent. Repeating the same rename has no further
+effect. The in-app Chat also exposes this tool on normal sends, but not on retries.
 
 ## Delete a Category
 
@@ -217,14 +230,14 @@ same request has no additional effect on stored data, even though its response d
 ## Authentication and deletion
 
 Each token has 256 bits of randomness, no expiration date, and access to only
-its issuing user's Notes for searching, reading, creation, updates, and permanent deletion, plus Category listing and creation. The database stores its SHA-256 hash and metadata,
+its issuing user's Notes for searching, reading, creation, updates, and permanent deletion, plus Category listing, creation, renaming, and deletion. The database stores its SHA-256 hash and metadata,
 not the raw token. Token lists never return either the secret or hash. Token creation
 and token deletion require the browser login session. Bearer tokens do not authorize
 those operations, browser Note API routes, or Chat endpoints.
 
 There are no per-token scopes or permission choices. Every valid token grants
 search, read, create, update, and permanent delete access to its owner's Notes,
-plus Category listing and creation.
+plus Category listing, creation, renaming, and deletion.
 Reconnect the agent after tool changes to refresh its tool list.
 
 Every MCP request checks that the token hash exists and derives

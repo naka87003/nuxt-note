@@ -30,6 +30,7 @@ const context = { toolCallId: "call", messages: [] };
 const categories = vi.hoisted(() => ({
   findMany: vi.fn(),
   create: vi.fn(),
+  updateMany: vi.fn(),
   deleteMany: vi.fn(),
 }));
 vi.mock("../../../../server/utils/prisma", () => ({
@@ -59,6 +60,57 @@ beforeEach(() => {
   writes.deleteOwnedNote.mockResolvedValue({ id: "note", deleted: true });
 });
 describe("in-app Note tools", () => {
+  it("renames a Category for the active session owner and keeps the Chat category", async () => {
+    categories.updateMany.mockResolvedValue({ count: 1 });
+    const { tools, assertActive } = setup("owner", true, "chat-category");
+    expect(
+      await tools.update_category!.execute!(
+        { id: "chat-category", name: "  Ｎｕｘｔ  " },
+        context,
+      ),
+    ).toMatchObject({
+      structuredContent: { id: "chat-category", name: "Ｎｕｘｔ" },
+    });
+    expect(categories.updateMany).toHaveBeenCalledWith({
+      where: { id: "chat-category", userId: "owner" },
+      data: { name: "Ｎｕｘｔ", nameKey: "nuxt" },
+    });
+    expect(assertActive).toHaveBeenCalledOnce();
+    await tools.create_note!.execute!(
+      { title: "Title", markdown: "Body" },
+      context,
+    );
+    expect(writes.createOwnedNote).toHaveBeenCalledWith("owner", {
+      title: "Title",
+      markdown: "Body",
+      categoryId: "chat-category",
+    });
+    expect(CHAT_NOTES_INSTRUCTIONS).toContain("Use update_category");
+    expect(CHAT_NOTES_INSTRUCTIONS).not.toContain("Never rename Categories");
+  });
+  it("validates Category renaming and stops after cancellation or ownership loss", async () => {
+    const input = { id: "category", name: "Nuxt" };
+    const { tools, controller } = setup();
+    await expect(
+      tools.update_category!.execute!(
+        { ...input, userId: "other" } as never,
+        context,
+      ),
+    ).rejects.toThrow();
+    await expect(
+      tools.update_category!.execute!({ ...input, name: " " }, context),
+    ).rejects.toThrow();
+    controller.abort();
+    await expect(
+      tools.update_category!.execute!(input, context),
+    ).rejects.toThrow();
+    const inactive = setup();
+    inactive.assertActive.mockRejectedValue(new Error("no longer active"));
+    await expect(
+      inactive.tools.update_category!.execute!(input, context),
+    ).rejects.toThrow();
+    expect(categories.updateMany).not.toHaveBeenCalled();
+  });
   it("deletes a Category for the active session owner", async () => {
     categories.deleteMany.mockResolvedValue({ count: 1 });
     const { tools, assertActive } = setup("owner");

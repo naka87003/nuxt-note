@@ -4,13 +4,14 @@ import { createWorkspaceTools } from "./workspace-tools";
 import {
   CATEGORY_CREATION_INSTRUCTIONS,
   CATEGORY_DELETION_INSTRUCTIONS,
+  CATEGORY_UPDATE_INSTRUCTIONS,
   NOTE_CATEGORY_INSTRUCTIONS,
 } from "./category-instructions";
 
 export const CHAT_TOOL_STEPS = 8;
 
 export const CHAT_NOTES_INSTRUCTIONS =
-  "You can list, create, and delete Categories using the provided tools. " +
+  "You can list, create, rename, and delete Categories using the provided tools. " +
   "You can search, read, create, update, and permanently delete the signed-in user's Notes using the provided tools. " +
   "Use tools when saved Notes are relevant; never invent Note content, IDs, versions, or successful actions. " +
   "Edit an existing Note linked in this conversation using get_note then update_note. " +
@@ -21,6 +22,7 @@ export const CHAT_NOTES_INSTRUCTIONS =
   "Only create or update Notes when the user requests saving or editing them. " +
   NOTE_CATEGORY_INSTRUCTIONS +
   CATEGORY_CREATION_INSTRUCTIONS +
+  CATEGORY_UPDATE_INSTRUCTIONS +
   CATEGORY_DELETION_INSTRUCTIONS +
   "When updating a Note, keep its category unless the user requests a category change. " +
   "Only delete a Note when the user explicitly requests deleting that Note; clarify ambiguous targets first. Deletion is permanent. " +
@@ -160,6 +162,10 @@ export function createChatNoteTools(
           create_category: adapt(
             "create_category",
             definitions.create_category,
+          ),
+          update_category: adapt(
+            "update_category",
+            definitions.update_category,
           ),
           delete_category: adapt("delete_category", {
             ...definitions.delete_category,

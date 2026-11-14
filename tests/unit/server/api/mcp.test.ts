@@ -26,6 +26,7 @@ const writes = vi.hoisted(() => ({
     findFirst: vi.fn(),
     findMany: vi.fn(),
     create: vi.fn(),
+    updateMany: vi.fn(),
     deleteMany: vi.fn(),
   },
 }));
@@ -67,6 +68,75 @@ async function connect(owner: string, siteUrl = "https://notes.example") {
 }
 
 describe("remote MCP tools", () => {
+  it("renames only the token owner's Category using browser normalization", async () => {
+    writes.category.updateMany.mockResolvedValue({ count: 1 });
+    for (const owner of ["a", "b"]) {
+      const client = await connect(owner);
+      const { tools } = await client.listTools();
+      expect(
+        tools.find((tool) => tool.name === "update_category")?.annotations,
+      ).toMatchObject({
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      });
+      expect(
+        await client.callTool({
+          name: "update_category",
+          arguments: { id: "category", name: "  Ｎｕｘｔ  " },
+        }),
+      ).toMatchObject({
+        structuredContent: { id: "category", name: "Ｎｕｘｔ" },
+      });
+      expect(writes.category.updateMany).toHaveBeenLastCalledWith({
+        where: { id: "category", userId: owner },
+        data: { name: "Ｎｕｘｔ", nameKey: "nuxt" },
+      });
+    }
+  });
+  it.each([
+    {},
+    { id: "category" },
+    { name: "Nuxt" },
+    { id: "", name: "Nuxt" },
+    { id: "x".repeat(101), name: "Nuxt" },
+    { id: null, name: "Nuxt" },
+    { id: "category", name: " " },
+    { id: "category", name: "a".repeat(21) },
+    { id: "category", name: "😀".repeat(11) },
+    { id: "category", name: "ﷺ".repeat(6) },
+    { id: "category", name: 123 },
+    { id: "category", name: "Nuxt", userId: "other" },
+  ])("rejects invalid Category rename arguments %j", async (args) => {
+    const client = await connect("owner");
+    expect(
+      await client.callTool({ name: "update_category", arguments: args }),
+    ).toMatchObject({ isError: true });
+    expect(writes.category.updateMany).not.toHaveBeenCalled();
+  });
+  it("reports missing and duplicate Categories and hides rename storage errors", async () => {
+    const client = await connect("owner");
+    writes.category.updateMany
+      .mockResolvedValueOnce({ count: 0 })
+      .mockRejectedValueOnce({ code: "P2002" })
+      .mockRejectedValueOnce(new Error("private database details"));
+    for (const message of [
+      "Category not found.",
+      "A Category with this name already exists. Use list_categories to find its ID.",
+      "Could not update Category. Please try again.",
+    ]) {
+      expect(
+        await client.callTool({
+          name: "update_category",
+          arguments: { id: "category", name: "Nuxt" },
+        }),
+      ).toMatchObject({
+        isError: true,
+        content: [{ text: message }],
+      });
+    }
+  });
   it("deletes only the token owner's Category and declares destructive behavior", async () => {
     writes.category.deleteMany.mockResolvedValue({ count: 1 });
     for (const owner of ["a", "b"]) {
@@ -297,6 +367,7 @@ describe("remote MCP tools", () => {
       "get_note",
       "list_categories",
       "list_notes",
+      "update_category",
       "update_note",
     ]);
     expect(

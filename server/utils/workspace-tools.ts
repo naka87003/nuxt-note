@@ -6,10 +6,15 @@ import {
 } from "./note-writes";
 import { readOwnedNote, searchOwnedNotes } from "./note-reads";
 import { listOwnedCategories } from "./category-reads";
-import { createOwnedCategory, deleteOwnedCategory } from "./categories";
+import {
+  createOwnedCategory,
+  deleteOwnedCategory,
+  updateOwnedCategory,
+} from "./categories";
 import {
   CATEGORY_CREATION_INSTRUCTIONS,
   CATEGORY_DELETION_INSTRUCTIONS,
+  CATEGORY_UPDATE_INSTRUCTIONS,
   NOTE_CATEGORY_INSTRUCTIONS,
 } from "./category-instructions";
 import {
@@ -45,6 +50,8 @@ const DELETE_TOOL_ANNOTATIONS = {
   idempotentHint: true,
   openWorldHint: false,
 };
+const CATEGORY_CONFLICT_MESSAGE =
+  "A Category with this name already exists. Use list_categories to find its ID.";
 
 function workspaceTool<S extends z.ZodObject, R>(
   config: WorkspaceToolConfig<S>,
@@ -110,8 +117,29 @@ export function createWorkspaceTools(userId: string, siteUrl: string) {
         result(() => createOwnedCategory(userId, input), {
           missing: "Category not found.",
           failure: "Could not create Category. Please try again.",
-          conflict:
-            "A Category with this name already exists. Use list_categories to find its ID.",
+          conflict: CATEGORY_CONFLICT_MESSAGE,
+        }),
+    ),
+    update_category: workspaceTool(
+      {
+        description:
+          "Rename an existing Category owned by the authenticated user. Returns its ID and trimmed name. Duplicate names (after Unicode normalization and lowercasing) are rejected. " +
+          CATEGORY_UPDATE_INSTRUCTIONS,
+        inputSchema: createCategoryInputSchema
+          .extend({ id: z.string().min(1).max(100) })
+          .strict(),
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: true,
+          idempotentHint: true,
+          openWorldHint: false,
+        },
+      },
+      async ({ id, name }) =>
+        result(() => updateOwnedCategory(userId, id, { name }), {
+          missing: "Category not found.",
+          failure: "Could not update Category. Please try again.",
+          conflict: CATEGORY_CONFLICT_MESSAGE,
         }),
     ),
     delete_category: workspaceTool(

@@ -243,6 +243,7 @@ try {
     "get_note",
     "list_categories",
     "list_notes",
+    "update_category",
     "update_note",
   ]);
   const remoteSearch = await remote.callTool({
