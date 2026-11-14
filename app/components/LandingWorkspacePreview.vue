@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { landingConversations } from "~/utils/landing-conversations";
+
 const props = withDefaults(
   defineProps<{
     mode: "notes" | "chat";
@@ -30,7 +32,7 @@ const previewAriaLabel = computed(() => {
     return "Example Chat workspace with a Generate draft confirmation: AI organizes the conversation into a draft to review and edit before saving";
   }
   if (isChat.value) {
-    return "Example Chat workspace with shared categories and a conversation about useFetch";
+    return "Example Chat workspace summarizing saved Nuxt notes with shared categories";
   }
   return "Example Notes workspace with categories, recent notes, and a Markdown note about Nuxt data fetching";
 });
@@ -94,11 +96,16 @@ const noteGroups = [
   },
 ];
 
-const chatGroups = [
+const chatConversation = computed(() =>
+  props.noteDraft
+    ? landingConversations.useFetch
+    : landingConversations.savedNotes,
+);
+const chatGroups = computed(() => [
   {
     group: "Today",
-    title: "Understanding useFetch",
-    summary: "When to use useFetch and useAsyncData.",
+    title: chatConversation.value.title,
+    summary: chatConversation.value.summary,
     updated: "Nov 3, 10:24",
   },
   {
@@ -119,10 +126,10 @@ const chatGroups = [
     summary: "Keeping server responses fresh.",
     updated: "Sep 14",
   },
-];
+]);
 
 const visibleGroups = computed(() =>
-  (isChat.value ? chatGroups : noteGroups).flatMap((item, index) => {
+  (isChat.value ? chatGroups.value : noteGroups).flatMap((item, index) => {
     const isFirstGroup = index === 0;
     const saved = isFirstGroup && !!props.savedCategory;
     if (isFirstGroup && !isChat.value && interactive.value && !saved) return [];
@@ -291,7 +298,7 @@ const visibleGroups = computed(() =>
                 </div>
               </div>
               <LandingSampleNote v-if="!isChat" />
-              <LandingSampleConversation v-else />
+              <LandingSampleConversation v-else :notes-aware="!noteDraft" />
             </div>
           </slot>
         </div>

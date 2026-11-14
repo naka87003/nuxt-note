@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import {
+  landingConversations,
+  landingFetchExample as fetchExample,
+} from "~/utils/landing-conversations";
 import { contentPreview } from "#shared/utils/content-preview";
 
 type Step = "chat" | "confirm" | "generating" | "edit" | "saving" | "done";
@@ -7,20 +11,13 @@ const confirmingDiscard = ref(false);
 const keepEditingButton = useTemplateRef("keepEditingButton");
 let cancelTrigger: HTMLElement | null = null;
 const initialTitle = "Nuxt data fetching";
-const fetchExample = `\`\`\`ts
-const { data } = await useFetch('/api/notes')
-\`\`\``;
 const categoryFetchExample = `\`\`\`ts
 const selectedCategory = ref('Nuxt')
 const { data } = await useFetch('/api/notes', {
   query: { category: selectedCategory }
 })
 \`\`\``;
-const fetchAnswer = `Use useFetch when your data comes from a URL.
-
-It combines fetching with Nuxt’s async data handling. For custom async logic, use useAsyncData.
-
-${fetchExample}`;
+const conversation = landingConversations.useFetch;
 const categoryAnswer = `Pass the selected category as a reactive query parameter. useFetch will fetch again when it changes.
 
 ${categoryFetchExample}`;
@@ -221,11 +218,14 @@ async function go(next: Step) {
               </div>
             </div>
             <div class="demo-conversation">
-              <h3>Understanding useFetch</h3>
+              <h3>{{ conversation.title }}</h3>
               <p class="demo-question">
-                When should I use useFetch instead of useAsyncData?
+                {{ conversation.question }}
               </p>
-              <LandingMarkdownContent variant="chat" :content="fetchAnswer" />
+              <LandingMarkdownContent
+                variant="chat"
+                :content="conversation.answer"
+              />
               <p class="demo-question">
                 What if the request depends on a selected category?
               </p>

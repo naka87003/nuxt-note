@@ -52,12 +52,12 @@ const features = [
     hint: "Ask → Explore → Keep learning",
     title: "Think with AI",
     description:
-      "Explore a question, untangle a concept, and keep the ideas that matter in your notes.",
+      "Search your saved notes, explore ideas with AI, and create or update notes in the conversation.",
   },
 ];
 const steps = [
   { title: "Capture", description: "Write a thought before it slips away." },
-  { title: "Explore", description: "Ask AI to help you understand more." },
+  { title: "Explore", description: "Ask AI to explore your saved notes." },
   { title: "Keep", description: "Save useful ideas in your own notes." },
 ];
 useSeoMeta({
@@ -67,184 +67,188 @@ useSeoMeta({
 </script>
 
 <template>
-  <div class="landing">
-    <LandingBackgroundDots />
-    <a href="#main-content" class="skip-link">Skip to content</a>
-    <header class="public-header">
-      <NuxtLink to="/" aria-label="Nuxt Note home"><AppBrand /></NuxtLink>
-      <nav aria-label="Main navigation">
-        <div class="section-links">
-          <UButton to="#notes" color="neutral" variant="ghost">Notes</UButton>
-          <UButton to="#ai-chat" color="neutral" variant="ghost">
-            AI Chat
-          </UButton>
-          <UButton to="#features" color="neutral" variant="ghost">
-            Features
-          </UButton>
-        </div>
-        <ThemePicker />
-        <UButton
-          :to="startTo"
-          :loading="opening === 'header'"
-          :disabled="opening !== null"
-          color="neutral"
-          variant="outline"
-          class="sign-in"
-          @click="openNotebook($event, 'header')"
-        >
-          {{ loggedIn ? "Open notebook" : "Sign in" }}
-        </UButton>
-      </nav>
-    </header>
-    <main id="main-content" class="landing-sections">
-      <section class="hero" aria-labelledby="hero-title">
-        <div class="hero-copy">
-          <p class="eyebrow">YOUR IDEAS, WITH ROOM TO GROW</p>
-          <h1 id="hero-title">
-            Keep your ideas.<span>Grow your thinking.</span>
-          </h1>
-          <p class="description">
-            A focused notebook. A thoughtful AI conversation.
-            <br class="medium-break" />
-            One place to capture what you learn and explore what comes next.
-          </p>
-          <div class="hero-actions">
-            <UButton
-              :to="startTo"
-              :loading="opening === 'hero'"
-              :disabled="opening !== null"
-              size="xl"
-              @click="openNotebook($event, 'hero')"
-            >
-              Start your notebook
+  <div class="landing-page">
+    <LandingBackgroundGradient />
+    <div class="landing">
+      <LandingBackgroundDots />
+      <a href="#main-content" class="skip-link">Skip to content</a>
+      <header class="public-header">
+        <NuxtLink to="/" aria-label="Nuxt Note home"><AppBrand /></NuxtLink>
+        <nav aria-label="Main navigation">
+          <div class="section-links">
+            <UButton to="#notes" color="neutral" variant="ghost">Notes</UButton>
+            <UButton to="#ai-chat" color="neutral" variant="ghost">
+              AI Chat
             </UButton>
-            <UButton to="#notes" color="neutral" variant="outline" size="xl">
-              Explore the workspace
+            <UButton to="#features" color="neutral" variant="ghost">
+              Features
             </UButton>
+            <UButton to="#mcp" color="neutral" variant="ghost">MCP</UButton>
           </div>
-          <p class="small-copy">Sign in with GitHub · Your own workspace</p>
-        </div>
-        <LandingNoteIllustration class="hero-art" />
-      </section>
-      <ul class="capabilities" aria-label="Notebook capabilities">
-        <li>Markdown <span>notes</span></li>
-        <li>Categories <span>&amp; search</span></li>
-        <li>AI <span>conversations</span></li>
-      </ul>
-      <section id="notes" class="notes-section" aria-labelledby="notes-title">
-        <div class="section-copy reveal">
-          <p class="eyebrow">YOUR NOTEBOOK, AT A GLANCE</p>
-          <h2 id="notes-title">A clear place for every idea.</h2>
-          <p class="description">
-            Collect the useful things. Give them a home. Find them when you need
-            them.
-          </p>
-        </div>
-        <div class="reveal reveal-preview">
-          <LandingWorkspacePreview mode="notes" />
-        </div>
-      </section>
-      <section
-        id="features"
-        class="features-section"
-        aria-labelledby="features-title"
-      >
-        <h2 id="features-title" class="reveal">
-          Small tools. More room to think.
-        </h2>
-        <p class="description reveal">
-          Writing, organizing, and asking better questions — together.
-        </p>
-        <div class="feature-grid">
-          <article
-            v-for="feature in features"
-            :key="feature.title"
-            class="feature-card reveal"
+          <ThemePicker />
+          <UButton
+            :to="startTo"
+            :loading="opening === 'header'"
+            :disabled="opening !== null"
+            color="neutral"
+            variant="outline"
+            class="sign-in"
+            @click="openNotebook($event, 'header')"
           >
-            <div class="feature-art">
-              <div>
-                <UIcon name="i-lucide-file-text" />
-                <span>{{ feature.label }} </span>
-              </div>
-              <p>{{ feature.line }}</p>
-              <small>{{ feature.hint }}</small>
+            {{ loggedIn ? "Open notebook" : "Sign in" }}
+          </UButton>
+        </nav>
+      </header>
+      <main id="main-content" class="landing-sections">
+        <section class="hero" aria-labelledby="hero-title">
+          <div class="hero-copy">
+            <p class="eyebrow">YOUR IDEAS, WITH ROOM TO GROW</p>
+            <h1 id="hero-title">
+              Keep your ideas.<span>Grow your thinking.</span>
+            </h1>
+            <p class="description">
+              Capture what you learn, explore ideas, and turn useful
+              conversations into notes.
+            </p>
+            <div class="hero-actions">
+              <UButton
+                :to="startTo"
+                :loading="opening === 'hero'"
+                :disabled="opening !== null"
+                size="xl"
+                @click="openNotebook($event, 'hero')"
+              >
+                Start your notebook
+              </UButton>
+              <UButton to="#notes" color="neutral" variant="outline" size="xl">
+                Explore the workspace
+              </UButton>
             </div>
-            <h3>{{ feature.title }}</h3>
-            <p>{{ feature.description }}</p>
-          </article>
-        </div>
-      </section>
-      <section id="ai-chat" class="ai-section" aria-labelledby="ai-title">
-        <div class="ai-copy reveal">
-          <LandingAiIllustration class="ai-art" width="144" height="144" />
-          <p class="eyebrow">A CONVERSATION CAN OPEN A DOOR</p>
-          <h2 id="ai-title">Go a little deeper.</h2>
-          <p class="description">
-            Ask a question, work through a problem, or explore a new idea.
-            Organize notes and conversations with shared categories.
-          </p>
-        </div>
-        <figure class="chat-preview reveal reveal-preview">
-          <LandingWorkspacePreview mode="chat" />
-          <figcaption class="small-copy">
-            The familiar Nuxt Chat experience, inside your notebook.
-          </figcaption>
-        </figure>
-      </section>
-      <section
-        id="chat-to-note"
-        class="chat-note-section"
-        aria-labelledby="chat-note-title"
-      >
-        <div class="section-copy reveal">
-          <p class="eyebrow">
-            <span class="chat-note-eyebrow-desktop">
-              FROM CONVERSATION TO SOMETHING WORTH KEEPING
-            </span>
-            <span class="chat-note-eyebrow-mobile">
-              FROM CONVERSATION TO NOTE
-            </span>
-          </p>
-          <h2 id="chat-note-title">Turn a good conversation into a note.</h2>
-          <p class="description">
-            Turn the useful parts of a conversation into a Markdown draft.
-            Review and edit it before saving to Notes.
-          </p>
-        </div>
-        <div class="reveal reveal-preview">
-          <LandingChatNotePreview />
-        </div>
-      </section>
-      <section class="workflow" aria-labelledby="workflow-title">
-        <h2 id="workflow-title" class="reveal">
-          From a passing thought to something worth keeping.
-        </h2>
-        <ol>
-          <li v-for="(step, index) in steps" :key="step.title" class="reveal">
-            <span class="eyebrow">0{{ index + 1 }}</span>
-            <h3>{{ step.title }}</h3>
-            <p>{{ step.description }}</p>
-          </li>
-        </ol>
-      </section>
-      <section class="closing-cta reveal" aria-labelledby="cta-title">
-        <h2 id="cta-title">Make space for your next idea.</h2>
-        <p class="description">Start with a note. Follow your curiosity.</p>
-        <UButton
-          :to="startTo"
-          :loading="opening === 'closing'"
-          :disabled="opening !== null"
-          size="xl"
-          @click="openNotebook($event, 'closing')"
+            <p class="small-copy">Sign in with GitHub · Your own workspace</p>
+          </div>
+          <LandingNoteIllustration class="hero-art" />
+        </section>
+        <ul class="capabilities" aria-label="Notebook capabilities">
+          <li>Markdown <span>notes</span></li>
+          <li>Categories <span>&amp; search</span></li>
+          <li>AI <span>conversations</span></li>
+        </ul>
+        <section id="notes" class="notes-section" aria-labelledby="notes-title">
+          <div class="section-copy reveal">
+            <p class="eyebrow">YOUR NOTEBOOK, AT A GLANCE</p>
+            <h2 id="notes-title">A clear place for every idea.</h2>
+            <p class="description">
+              Collect the useful things. Give them a home. Find them when you
+              need them.
+            </p>
+          </div>
+          <div class="reveal reveal-preview">
+            <LandingWorkspacePreview mode="notes" />
+          </div>
+        </section>
+        <section
+          id="features"
+          class="features-section"
+          aria-labelledby="features-title"
         >
-          Start your notebook
-        </UButton>
-      </section>
-    </main>
-    <footer class="public-footer">
-      <NuxtLink to="/" aria-label="Nuxt Note home"><AppBrand /></NuxtLink>
-      <p>A small space for notes. More room for ideas.</p>
-    </footer>
+          <h2 id="features-title" class="reveal">
+            Small tools. More room to think.
+          </h2>
+          <p class="description reveal">
+            Writing, organizing, and asking better questions — together.
+          </p>
+          <div class="feature-grid">
+            <article
+              v-for="feature in features"
+              :key="feature.title"
+              class="feature-card reveal"
+            >
+              <div class="feature-art">
+                <div>
+                  <UIcon name="i-lucide-file-text" />
+                  <span>{{ feature.label }} </span>
+                </div>
+                <p>{{ feature.line }}</p>
+                <small>{{ feature.hint }}</small>
+              </div>
+              <h3>{{ feature.title }}</h3>
+              <p>{{ feature.description }}</p>
+            </article>
+          </div>
+        </section>
+        <section id="ai-chat" class="ai-section" aria-labelledby="ai-title">
+          <div class="ai-copy reveal">
+            <LandingAiIllustration class="ai-art" width="144" height="144" />
+            <p class="eyebrow">A CONVERSATION CAN OPEN A DOOR</p>
+            <h2 id="ai-title">Go a little deeper.</h2>
+            <p class="description">
+              Find and summarize your saved notes. Ask questions about them, or
+              create and update notes as you chat.
+            </p>
+          </div>
+          <figure class="chat-preview reveal reveal-preview">
+            <LandingWorkspacePreview mode="chat" />
+            <figcaption class="small-copy">
+              Your saved notes and AI conversations, in one workspace.
+            </figcaption>
+          </figure>
+        </section>
+        <section
+          id="chat-to-note"
+          class="chat-note-section"
+          aria-labelledby="chat-note-title"
+        >
+          <div class="section-copy reveal">
+            <p class="eyebrow">
+              <span class="chat-note-eyebrow-desktop">
+                FROM CONVERSATION TO SOMETHING WORTH KEEPING
+              </span>
+              <span class="chat-note-eyebrow-mobile">
+                FROM CONVERSATION TO NOTE
+              </span>
+            </p>
+            <h2 id="chat-note-title">Turn a good conversation into a note.</h2>
+            <p class="description">
+              Turn the useful parts of a conversation into a Markdown draft.
+              Review and edit it before saving to Notes.
+            </p>
+          </div>
+          <div class="reveal reveal-preview">
+            <LandingChatNotePreview />
+          </div>
+        </section>
+        <LandingMcpSection class="reveal" />
+        <section class="workflow" aria-labelledby="workflow-title">
+          <h2 id="workflow-title" class="reveal">
+            From a passing thought to something worth keeping.
+          </h2>
+          <ol>
+            <li v-for="(step, index) in steps" :key="step.title" class="reveal">
+              <span class="eyebrow">0{{ index + 1 }}</span>
+              <h3>{{ step.title }}</h3>
+              <p>{{ step.description }}</p>
+            </li>
+          </ol>
+        </section>
+        <section class="closing-cta reveal" aria-labelledby="cta-title">
+          <h2 id="cta-title">Make space for your next idea.</h2>
+          <p class="description">Start with a note. Follow your curiosity.</p>
+          <UButton
+            :to="startTo"
+            :loading="opening === 'closing'"
+            :disabled="opening !== null"
+            size="xl"
+            @click="openNotebook($event, 'closing')"
+          >
+            Start your notebook
+          </UButton>
+        </section>
+      </main>
+      <footer class="public-footer">
+        <NuxtLink to="/" aria-label="Nuxt Note home"><AppBrand /></NuxtLink>
+        <p>A small space for notes. More room for ideas.</p>
+      </footer>
+    </div>
   </div>
 </template>
 
@@ -277,6 +281,10 @@ useSeoMeta({
   display: flex;
   flex-direction: column;
   gap: inherit;
+}
+.landing-page {
+  position: relative;
+  isolation: isolate;
 }
 .landing {
   position: relative;
@@ -371,7 +379,6 @@ h2 {
   max-width: 100%;
   height: auto;
   aspect-ratio: 3 / 2;
-  object-fit: contain;
 }
 .hero-actions {
   display: flex;
@@ -499,7 +506,6 @@ h2 {
 .ai-copy .ai-art {
   width: 144px;
   height: 144px;
-  object-fit: contain;
 }
 .chat-preview {
   min-width: 0;
@@ -673,9 +679,6 @@ h2 {
   .description {
     font-size: 16px;
     line-height: 25px;
-  }
-  .medium-break {
-    display: none;
   }
   .hero-actions {
     flex-direction: column;

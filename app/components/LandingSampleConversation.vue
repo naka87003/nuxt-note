@@ -1,20 +1,21 @@
 <script setup lang="ts">
-const answer = `Use useFetch when your data comes from a URL.
+import { landingConversations } from "~/utils/landing-conversations";
 
-It combines fetching with Nuxt’s async data handling. For custom async logic, use useAsyncData.
-
-\`\`\`ts
-const { data } = await useFetch('/api/notes')
-\`\`\``;
+const props = withDefaults(defineProps<{ notesAware?: boolean }>(), {
+  notesAware: false,
+});
+const conversation = computed(() =>
+  props.notesAware
+    ? landingConversations.savedNotes
+    : landingConversations.useFetch,
+);
 </script>
 
 <template>
   <div class="sample-conversation">
-    <h3>Understanding useFetch</h3>
-    <p class="sample-question">
-      When should I use useFetch instead of useAsyncData?
-    </p>
-    <LandingMarkdownContent variant="chat" :content="answer" />
+    <h3>{{ conversation.title }}</h3>
+    <p class="sample-question">{{ conversation.question }}</p>
+    <LandingMarkdownContent variant="chat" :content="conversation.answer" />
     <div class="sample-composer">
       <span class="text-dimmed">Ask anything…</span>
       <span class="sample-send">
@@ -72,5 +73,11 @@ const { data } = await useFetch('/api/notes')
   border-radius: 50%;
   background: var(--ui-primary);
   opacity: 0.5;
+}
+@media (max-width: 767px) {
+  .sample-conversation {
+    --landing-code-white-space: pre-wrap;
+    --landing-code-wrap: anywhere;
+  }
 }
 </style>
