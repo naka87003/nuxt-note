@@ -2,7 +2,8 @@
 
 A Nuxt 4 / Nuxt UI application for private Markdown notes and AI chat, with GitHub
 sign-in, shared categories, search, and Markdown previews. Chat can use saved Notes
-and generate editable Note drafts. Remote agents can access Notes through MCP.
+and generate editable Note drafts, search the web, and read public web pages.
+Remote agents can access Notes through MCP.
 The interface uses English and a dark theme.
 
 Production: [nuxt-note.com](https://nuxt-note.com), hosted on Vercel.

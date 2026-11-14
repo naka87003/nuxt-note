@@ -38,7 +38,16 @@ vi.mock("ai", async (importOriginal) => ({
   streamText: mocks.streamText,
   generateText: mocks.generateText,
 }));
-vi.mock("@ai-sdk/openai", () => ({ createOpenAI: () => () => "model" }));
+vi.mock("@ai-sdk/openai", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@ai-sdk/openai")>()),
+  createOpenAI: () =>
+    Object.assign(() => "model", {
+      responses: () => "model",
+      tools: {
+        webSearch: () => ({ type: "provider", id: "openai.web_search" }),
+      },
+    }),
+}));
 vi.hoisted(() => {
   vi.stubGlobal("defineEventHandler", (handler: unknown) => handler);
   vi.stubGlobal("requireUserSession", mocks.session);
@@ -194,7 +203,9 @@ describe("Chat generation", () => {
       "get_note",
       "list_categories",
       "list_notes",
+      "read_webpage",
       "update_note",
+      "web_search",
     ]);
     expect(input.stopWhen({ steps: Array(8) })).toBe(true);
     expect(input.stopWhen({ steps: Array(7) })).toBe(false);
@@ -242,6 +253,8 @@ describe("Chat generation", () => {
       "get_note",
       "list_categories",
       "list_notes",
+      "read_webpage",
+      "web_search",
     ]);
     expect(input.system).toContain(
       "A previous attempt may already have changed Notes",
@@ -269,6 +282,56 @@ describe("Chat generation", () => {
     expect(
       mocks.push.mock.calls.map(([data]) => JSON.parse(data).type),
     ).toEqual(["start", "text", "done"]);
+  });
+  it("persists and streams deduplicated web sources with the answer", async () => {
+    mocks.streamText.mockReturnValue({
+      fullStream: (async function* () {
+        yield {
+          type: "source",
+          sourceType: "url",
+          url: "https://example.com/article",
+          title: "Article",
+        };
+        yield { type: "text-delta", text: "Web answer." };
+        yield {
+          type: "source",
+          sourceType: "url",
+          url: "https://example.com/article",
+          title: "Article",
+        };
+        yield { type: "finish", finishReason: "stop" };
+      })(),
+    });
+    await run();
+    const content =
+      "Web answer.\n\nSources:\n- [Article](https://example.com/article)";
+    expect(mocks.message.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: { content, status: "completed" } }),
+    );
+    expect(
+      mocks.push.mock.calls
+        .map(([data]) => JSON.parse(data))
+        .filter((part) => part.type === "text")
+        .map((part) => part.text)
+        .join(""),
+    ).toBe(content);
+  });
+  it("does not turn source-only output into a successful answer", async () => {
+    mocks.streamText.mockReturnValue({
+      fullStream: (async function* () {
+        yield {
+          type: "source",
+          sourceType: "url",
+          url: "https://example.com",
+          title: "Source",
+        };
+        yield { type: "finish", finishReason: "stop" };
+      })(),
+    });
+    await run();
+    expect(mocks.message.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: { content: "", status: "failed" } }),
+    );
   });
   it("fails tool execution errors without leaking details", async () => {
     mocks.streamText.mockReturnValue({

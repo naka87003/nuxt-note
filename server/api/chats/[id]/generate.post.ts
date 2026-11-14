@@ -7,6 +7,11 @@ import {
   CHAT_TOOL_STEPS,
   createChatNoteTools,
 } from "../../../utils/chat-tools";
+import {
+  CHAT_WEB_INSTRUCTIONS,
+  createChatWebTools,
+  webSourceLinks,
+} from "../../../utils/web-tools";
 import { getAuthenticatedUserId } from "../../../utils/auth";
 import { getPrisma } from "../../../utils/prisma";
 import { createChatOutput } from "../../../utils/chat-output";
@@ -130,34 +135,40 @@ export default defineEventHandler(async (event) => {
         saveGeneration(userId, id, attemptId, reply.id, content, "generating"),
       publish: (text) => stream.push(JSON.stringify({ type: "text", text })),
     });
+    const sources = new Map<string, string>();
     try {
       await stream.push(JSON.stringify({ type: "start", messageId: reply.id }));
+      const openai = createOpenAI({ apiKey: config.openaiApiKey });
+      const assertActive = async () => {
+        const active = await getPrisma().chat.findFirst({
+          where: { id, userId, generationId: attemptId },
+          select: { id: true },
+        });
+        if (!active) {
+          controller.abort();
+          throw new Error("This response is no longer active.");
+        }
+      };
       const response = streamText({
-        model: createOpenAI({ apiKey: config.openaiApiKey })(
-          config.openaiModel,
-        ),
+        model: openai.responses(config.openaiModel),
         messages: history,
-        tools: createChatNoteTools(userId, config.public.siteUrl, {
-          signal: controller.signal,
-          allowMutations: !isRetry,
-          categoryId,
-          assertActive: async () => {
-            const active = await getPrisma().chat.findFirst({
-              where: { id, userId, generationId: attemptId },
-              select: { id: true },
-            });
-            if (!active) {
-              controller.abort();
-              throw new Error("This response is no longer active.");
-            }
-          },
-        }),
+        tools: {
+          ...createChatNoteTools(userId, config.public.siteUrl, {
+            signal: controller.signal,
+            allowMutations: !isRetry,
+            categoryId,
+            assertActive,
+          }),
+          ...createChatWebTools({ signal: controller.signal, assertActive }),
+          web_search: openai.tools.webSearch(),
+        },
         stopWhen: stepCountIs(CHAT_TOOL_STEPS),
         // Reserve the final step for an answer instead of another operation.
         prepareStep: ({ stepNumber }) =>
           stepNumber === CHAT_TOOL_STEPS - 1 ? { toolChoice: "none" } : {},
         system:
           CHAT_NOTES_INSTRUCTIONS +
+          CHAT_WEB_INSTRUCTIONS +
           (isRetry
             ? "This is a retry of an interrupted response. A previous attempt may already have changed Notes. Only read tools are available. Check current Notes and explain the current state. Ask the user to send a new message for any further changes; never claim a previous action succeeded without verification. "
             : "") +
@@ -179,14 +190,20 @@ export default defineEventHandler(async (event) => {
         if (part.type === "text-delta") {
           await output.append(part.text);
           if (controller.signal.aborted) break;
+        } else if (part.type === "source" && part.sourceType === "url") {
+          sources.set(part.url, part.title || part.url);
         } else if (part.type === "error") throw part.error;
         else if (part.type === "tool-error")
-          throw new Error("Could not execute a Note tool.");
-        else if (part.type === "finish")
+          throw new Error("Could not execute a Chat tool.");
+        else if (part.type === "finish") {
+          const references = webSourceLinks(sources);
+          if (output.content.trim() && references)
+            await output.append(references);
           status =
             part.finishReason === "stop" && output.content.trim()
               ? "completed"
               : "failed";
+        }
       }
     } catch {
       status = "failed";
