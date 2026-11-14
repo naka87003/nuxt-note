@@ -67,9 +67,11 @@ const refreshConversation = useChatRefresh(chat, activeId, sending, (id) =>
 const {
   data: initialChat,
   error,
+  status,
   refresh,
 } = await useAsyncData(`chat-session:${useId()}`, () => refreshConversation(), {
   deep: true,
+  lazy: true,
 });
 // Hydration can use the server snapshot without executing the loader again.
 chat.value = initialChat.value ?? null;
@@ -253,8 +255,11 @@ async function remove() {
 
 <template>
   <div class="chat-page">
+    <ContentLoading
+      v-if="!chat && chatId && (status === 'idle' || status === 'pending')"
+    />
     <UAlert
-      v-if="error"
+      v-else-if="error && !chat"
       title="Could not open this chat"
       color="error"
       class="m-4 w-auto"

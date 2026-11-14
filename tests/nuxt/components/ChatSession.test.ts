@@ -2,7 +2,7 @@ import { mockNuxtImport, mountSuspended } from "@nuxt/test-utils/runtime";
 import { flushPromises } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick, ref } from "vue";
-import { clearNuxtData, clearNuxtState } from "#imports";
+import { clearNuxtData, clearNuxtState, refreshNuxtData } from "#imports";
 import ChatSession from "~/components/ChatSession.vue";
 import ChatComposer from "~/components/ChatComposer.vue";
 import type { Conversation } from "~/composables/useChatGeneration";
@@ -71,7 +71,10 @@ beforeEach(() => {
     generate: vi.fn(),
   };
   mocks.generation.mockReset().mockImplementation(() => flow);
-  mocks.refresh.mockReset().mockImplementation(() => async () => conversation);
+  mocks.refresh.mockReset().mockImplementation((chat) => async () => {
+    chat.value = conversation;
+    return conversation;
+  });
 });
 
 async function mountSession() {
@@ -90,6 +93,56 @@ async function mountSession() {
 }
 
 describe("ChatSession", () => {
+  it("keeps the conversation and draft mounted during a background refresh", async () => {
+    let resolve!: (value: Conversation) => void;
+    const load = vi
+      .fn()
+      .mockImplementationOnce(async () => conversation)
+      .mockImplementation(
+        () =>
+          new Promise<Conversation>((done) => {
+            resolve = done;
+          }),
+      );
+    mocks.refresh.mockImplementation((chat) => async () => {
+      const result = await load();
+      chat.value = result;
+      return result;
+    });
+    const wrapper = await mountSession();
+    await wrapper.get("textarea").setValue("Unsent question");
+    const textarea = wrapper.get("textarea").element;
+    const refreshing = refreshNuxtData();
+    await flushPromises();
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(wrapper.find('[role="status"]').exists()).toBe(false);
+    expect(wrapper.get("textarea").element).toBe(textarea);
+    expect(wrapper.text()).toContain("Answer");
+    resolve(conversation);
+    await refreshing;
+    expect(wrapper.get("textarea").element.value).toBe("Unsent question");
+  });
+  it("shows loading instead of the conversation and composer until the request completes", async () => {
+    let resolve!: (value: Conversation) => void;
+    mocks.refresh.mockImplementation((chat) => async () => {
+      const result = await new Promise<Conversation>((done) => {
+        resolve = done;
+      });
+      chat.value = result;
+      return result;
+    });
+    const wrapper = await mountSession();
+    expect(wrapper.get('[role="status"]').text()).toBe("Loading…");
+    expect(wrapper.find(".chat-session").exists()).toBe(false);
+    expect(wrapper.find("textarea").exists()).toBe(false);
+
+    resolve(conversation);
+    await flushPromises();
+    expect(wrapper.find('[role="status"]').exists()).toBe(false);
+    expect(wrapper.text()).toContain("Answer");
+    expect(wrapper.find("textarea").exists()).toBe(true);
+  });
+
   it("prefills a new chat with a Note link and waits for the user's question", async () => {
     flow.persisted.value = false;
     mocks.refresh.mockImplementation(() => async () => null);

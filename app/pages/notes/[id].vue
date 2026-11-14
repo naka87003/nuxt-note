@@ -13,8 +13,9 @@ const { state, location } = useWorkspace();
 const {
   data: note,
   error,
+  status,
   refresh,
-} = await useFetch(() => `/api/notes/${route.params.id}`);
+} = await useFetch(() => `/api/notes/${route.params.id}`, { lazy: true });
 
 const editing = ref(false);
 const deletion = ref(false);
@@ -72,15 +73,18 @@ async function remove() {
 
 <template>
   <div class="note-page">
+    <ContentLoading
+      v-if="!note && (status === 'idle' || status === 'pending')"
+    />
     <NoteEditor
-      v-if="editing && note"
+      v-else-if="editing && note"
       :note="note"
       @saved="saved"
       @cancel="editing = false"
     />
     <div v-else class="note-reader">
       <UAlert
-        v-if="error"
+        v-if="error && !note"
         title="Could not open this note"
         description="The note may be unavailable. Return to the list or try again."
         color="error"

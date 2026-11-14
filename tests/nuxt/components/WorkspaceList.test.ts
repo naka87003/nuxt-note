@@ -1,6 +1,11 @@
 import { mountSuspended } from "@nuxt/test-utils/runtime";
 import { beforeEach, describe, expect, it } from "vitest";
-import { clearNuxtState, useNuxtApp, useUserSession } from "#imports";
+import {
+  clearNuxtState,
+  useNuxtApp,
+  useRouter,
+  useUserSession,
+} from "#imports";
 import WorkspaceList from "~/components/WorkspaceList.vue";
 
 const item = {
@@ -43,6 +48,35 @@ function mountList(
 }
 
 describe("WorkspaceList", () => {
+  it.each([
+    ["chats", "notes"],
+    ["notes", "chats"],
+  ])("hides stale %s items while loading %s", async (from, to) => {
+    const wrapper = await mountList({
+      props: { ...baseProps, items: [item] },
+      route: `/${from}`,
+    });
+    expect(wrapper.findAll(".content-list-item")).toHaveLength(1);
+
+    await wrapper.setProps({ loading: true });
+    await useRouter().push(`/${to}`);
+    expect(wrapper.get('[role="status"]').text()).toBe("Loading…");
+    expect(wrapper.get(".list-scroll").attributes("aria-busy")).toBe("true");
+    expect(wrapper.findAll(".content-list-item")).toHaveLength(0);
+    expect(wrapper.text()).not.toContain("Example");
+    expect(wrapper.text()).not.toContain(`1 ${to}`);
+
+    await wrapper.setProps({
+      loading: false,
+      items: [{ ...item, id: "loaded-item", title: "Loaded item" }],
+    });
+    expect(wrapper.find('[role="status"]').exists()).toBe(false);
+    expect(wrapper.get(".list-scroll").attributes("aria-busy")).toBe("false");
+    expect(wrapper.get(".content-list-item").attributes("href")).toContain(
+      `/${to}/loaded-item`,
+    );
+  });
+
   it.each([
     [{ loading: true }, "Loading…"],
     [{ failed: true }, "Could not load your content"],

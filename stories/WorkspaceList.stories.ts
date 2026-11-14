@@ -97,5 +97,8 @@ export const WithNotes: Story = {
 };
 export const Empty: Story = {};
 export const Loading: Story = { args: { loading: true } };
+export const LoadingWithPreviousItems: Story = {
+  args: { ...WithNotes.args, loading: true },
+};
 export const Failed: Story = { args: { failed: true } };
 export const NoSearchResults: Story = { args: { search: "missing note" } };

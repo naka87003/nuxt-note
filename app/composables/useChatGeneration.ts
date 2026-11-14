@@ -215,9 +215,13 @@ export function useChatGeneration(
       await generate();
     }
   }
-  onMounted(() => {
+  function resumeUnansweredQuestion() {
     if (lastQuestion.value && !lastReply.value && !chat.value?.generationId)
       void generate();
+  }
+  onMounted(() => {
+    if (chat.value) resumeUnansweredQuestion();
+    else watch(chat, resumeUnansweredQuestion, { once: true });
   });
   onBeforeUnmount(() => {
     disposed = true;

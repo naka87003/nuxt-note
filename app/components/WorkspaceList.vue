@@ -140,7 +140,7 @@ function date(value: string) {
           </UTooltip>
         </div>
         <div class="list-heading-actions">
-          <span class="shrink-0 text-xs text-dimmed">
+          <span v-if="!loading" class="shrink-0 text-xs text-dimmed">
             {{ itemCountLabel }}
           </span>
           <UButton
@@ -180,21 +180,19 @@ function date(value: string) {
         {{ listDescription }}
       </p>
     </div>
-    <div ref="list" class="list-scroll" @scroll="onScroll">
-      <UAlert v-if="failed" color="error" title="Could not load your content">
+    <div ref="list" class="list-scroll" :aria-busy="loading" @scroll="onScroll">
+      <ContentLoading v-if="loading" class="flex-none px-0" />
+      <UAlert
+        v-else-if="failed"
+        color="error"
+        title="Could not load your content"
+      >
         <template #description>
           <UButton color="neutral" variant="link" @click="emit('retry')">
             Try again
           </UButton>
         </template>
       </UAlert>
-      <p
-        v-else-if="loading && !items.length"
-        class="py-5 text-sm text-dimmed"
-        role="status"
-      >
-        Loading…
-      </p>
       <p v-else-if="!items.length" class="py-5 text-sm text-dimmed">
         {{ emptyMessage }}
       </p>

@@ -3,7 +3,10 @@ import { mountComposable } from "../helpers/mount-composable";
 import { ref } from "vue";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { ChatMessage } from "#shared/types/chat";
-import { useChatGeneration } from "~/composables/useChatGeneration";
+import {
+  useChatGeneration,
+  type Conversation,
+} from "~/composables/useChatGeneration";
 
 const refreshNuxtData = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 mockNuxtImport("refreshNuxtData", () => refreshNuxtData);
@@ -236,5 +239,34 @@ it("starts an unanswered saved question when mounted", async () => {
     expect(chat.value.messages.at(-1)?.content).toBe("Answer");
     expect(chat.value.title).toBe("Summary");
   });
+  expect(generate).toHaveBeenCalledTimes(1);
+});
+
+it("starts an unanswered question loaded after mounting only once", async () => {
+  const chat = ref<Conversation | null>(null);
+  await mountComposable(() => useChatGeneration(chat, vi.fn()));
+  expect(generate).not.toHaveBeenCalled();
+  const saved: Conversation = {
+    id: "delayed-chat",
+    title: "Loaded chat",
+    generationId: null,
+    messages: [
+      {
+        id: "question",
+        role: "user",
+        content: "Question",
+        status: "completed",
+        replyToId: null,
+        createdAt: new Date().toISOString(),
+      },
+    ],
+  };
+  chat.value = structuredClone(saved);
+  await vi.waitFor(() => {
+    expect(chat.value?.messages.at(-1)?.content).toBe("Answer");
+  });
+  // A later refresh must not automatically retry an unanswered snapshot.
+  chat.value = structuredClone(saved);
+  await new Promise<void>((resolve) => queueMicrotask(resolve));
   expect(generate).toHaveBeenCalledTimes(1);
 });
