@@ -25,6 +25,7 @@ export const noteContentShape = {
 export const noteContentSchema = z.object(noteContentShape, {
   error: "Invalid note",
 });
+
 export type NoteContentInput = z.infer<typeof noteContentSchema>;
 
 // Limits apply before trimming, matching browser maxlength and existing API input.
@@ -67,27 +68,40 @@ const noteCategoryIdSchema = z
 export const createNoteInputSchema = noteContentSchema.extend({
   categoryId: noteCategoryIdSchema.optional(),
 });
+
 export const noteVersionShape = {
   id: z.string().min(1).max(100),
   updatedAt: z.iso
     .datetime({ precision: 3 })
     .describe("Exact updatedAt returned when reading the Note"),
 };
+
 export const updateNoteBodySchema = noteContentSchema.extend({
   categoryId: noteCategoryIdSchema,
   updatedAt: noteVersionShape.updatedAt,
 });
+
 export const deleteNoteBodySchema = z
   .object({
     updatedAt: noteVersionShape.updatedAt,
   })
   .strict();
+
 export const deleteNoteInputSchema = z.object(noteVersionShape).strict();
+
 export const noteToolCategoryIdSchema = noteCategoryIdSchema
   .unwrap()
   .max(100)
   .nullable()
   .optional();
+
+export const updateNoteCategoryInputSchema = z
+  .object({
+    ...noteVersionShape,
+    categoryId: noteToolCategoryIdSchema.unwrap(),
+  })
+  .strict();
+
 export const updateNoteInputSchema = noteContentSchema
   .extend({
     ...noteVersionShape,

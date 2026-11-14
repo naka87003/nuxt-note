@@ -13,6 +13,7 @@ const reads = vi.hoisted(() => ({
 const writes = vi.hoisted(() => ({
   createOwnedNote: vi.fn(),
   updateOwnedNote: vi.fn(),
+  updateOwnedNoteCategory: vi.fn(),
   deleteOwnedNote: vi.fn(),
 }));
 vi.mock("../../../../server/utils/note-reads", () => reads);
@@ -57,6 +58,10 @@ beforeEach(() => {
   reads.readOwnedNote.mockResolvedValue(note);
   writes.createOwnedNote.mockResolvedValue(note);
   writes.updateOwnedNote.mockResolvedValue(note);
+  writes.updateOwnedNoteCategory.mockResolvedValue({
+    ...note,
+    markdown: undefined,
+  });
   writes.deleteOwnedNote.mockResolvedValue({ id: "note", deleted: true });
 });
 describe("in-app Note tools", () => {
@@ -393,6 +398,165 @@ describe("in-app Note tools", () => {
       expect(await execute()).toHaveProperty("error");
     },
   );
+  it.each([null, "category"])(
+    "changes only the category to %j using a listed version without reading the body",
+    async (categoryId) => {
+      reads.searchOwnedNotes.mockResolvedValue({
+        notes: [{ id: "note", updatedAt: new Date(version) }],
+        nextOffset: null,
+      });
+      const { tools, assertActive } = setup();
+      const args = { ...input, categoryId };
+      expect(
+        await tools.update_note_category!.execute!(args, context),
+      ).toHaveProperty("error");
+      await tools.list_notes.execute!({}, context);
+      expect(
+        await tools.update_note_category!.execute!(
+          { ...args, updatedAt: "2026-11-13T00:00:01.000Z" },
+          context,
+        ),
+      ).toHaveProperty("error");
+      expect(await tools.update_note!.execute!(update, context)).toHaveProperty(
+        "error",
+      );
+      expect(await tools.delete_note!.execute!(input, context)).toHaveProperty(
+        "error",
+      );
+      expect(
+        await tools.update_note_category!.execute!(args, context),
+      ).toMatchObject({
+        structuredContent: {
+          updatedAt: version,
+          url: "https://notes.example/notes/note",
+        },
+      });
+      expect(writes.updateOwnedNoteCategory).toHaveBeenCalledExactlyOnceWith(
+        "owner",
+        args,
+      );
+      expect(reads.readOwnedNote).not.toHaveBeenCalled();
+      expect(assertActive).toHaveBeenCalled();
+      expect(
+        await tools.update_note_category!.execute!(args, context),
+      ).toHaveProperty("error");
+    },
+  );
+  it("keeps earlier page versions and refreshes Notes returned by a later list", async () => {
+    const { tools } = setup();
+    const newerVersion = "2026-11-13T00:00:01.000Z";
+    reads.searchOwnedNotes
+      .mockResolvedValueOnce({
+        notes: [{ id: "note", updatedAt: new Date(version) }],
+        nextOffset: 1,
+      })
+      .mockResolvedValueOnce({
+        notes: [{ id: "second", updatedAt: new Date(version) }],
+        nextOffset: null,
+      });
+    const firstPage = (await tools.list_notes.execute!(
+      { limit: 1 },
+      context,
+    )) as {
+      structuredContent: { nextOffset: number };
+    };
+    await tools.list_notes.execute!(
+      { limit: 1, offset: firstPage.structuredContent.nextOffset },
+      context,
+    );
+    const args = { ...input, categoryId: null };
+    expect(
+      await tools.update_note_category!.execute!(args, context),
+    ).toHaveProperty("structuredContent");
+    expect(writes.updateOwnedNoteCategory).toHaveBeenCalledExactlyOnceWith(
+      "owner",
+      args,
+    );
+    reads.searchOwnedNotes.mockResolvedValueOnce({
+      notes: [{ id: "second", updatedAt: new Date(newerVersion) }],
+      nextOffset: null,
+    });
+    await tools.list_notes.execute!({}, context);
+    expect(
+      await tools.update_note_category!.execute!(
+        { ...args, id: "second" },
+        context,
+      ),
+    ).toHaveProperty("error");
+    expect(
+      await tools.update_note_category!.execute!(
+        {
+          ...args,
+          id: "second",
+          updatedAt: newerVersion,
+        },
+        context,
+      ),
+    ).toHaveProperty("structuredContent");
+    expect(reads.readOwnedNote).not.toHaveBeenCalled();
+  });
+  it("consumes category and full-read versions on conflict and permits reassessment from a fresh list", async () => {
+    const { tools } = setup();
+    const args = { ...input, categoryId: null };
+    await tools.get_note.execute!({ id: "note" }, context);
+    writes.updateOwnedNoteCategory.mockRejectedValueOnce({ statusCode: 409 });
+    expect(
+      await tools.update_note_category!.execute!(args, context),
+    ).toMatchObject({ isError: true });
+    expect(
+      await tools.update_note_category!.execute!(args, context),
+    ).toHaveProperty("error");
+    expect(await tools.update_note!.execute!(update, context)).toHaveProperty(
+      "error",
+    );
+    expect(await tools.delete_note!.execute!(input, context)).toHaveProperty(
+      "error",
+    );
+    reads.searchOwnedNotes.mockResolvedValue({
+      notes: [{ id: "note", updatedAt: new Date(version) }],
+      nextOffset: null,
+    });
+    await tools.list_notes.execute!({}, context);
+    expect(
+      await tools.update_note_category!.execute!(args, context),
+    ).toHaveProperty("structuredContent");
+    expect(writes.updateOwnedNoteCategory).toHaveBeenCalledTimes(2);
+  });
+  it("isolates category versions and invalidates them after a failed read", async () => {
+    const a = setup("a").tools;
+    const b = setup("b").tools;
+    const args = { ...input, categoryId: null };
+    await a.get_note.execute!({ id: "note" }, context);
+    expect(
+      await b.update_note_category!.execute!(args, context),
+    ).toHaveProperty("error");
+    reads.readOwnedNote.mockRejectedValueOnce({ statusCode: 404 });
+    await a.get_note.execute!({ id: "note" }, context);
+    expect(
+      await a.update_note_category!.execute!(args, context),
+    ).toHaveProperty("error");
+    expect(writes.updateOwnedNoteCategory).not.toHaveBeenCalled();
+  });
+  it("validates category-only changes and stops after cancellation or generation ownership loss", async () => {
+    const { tools, controller } = setup();
+    const args = { ...input, categoryId: null };
+    await expect(
+      tools.update_note_category!.execute!(
+        { ...args, markdown: "body" } as never,
+        context,
+      ),
+    ).rejects.toThrow();
+    controller.abort();
+    await expect(
+      tools.update_note_category!.execute!(args, context),
+    ).rejects.toThrow();
+    const inactive = setup();
+    inactive.assertActive.mockRejectedValue(new Error("no longer active"));
+    await expect(
+      inactive.tools.update_note_category!.execute!(args, context),
+    ).rejects.toThrow();
+    expect(writes.updateOwnedNoteCategory).not.toHaveBeenCalled();
+  });
   it("blocks another deletion after a conflict even if the model reads again", async () => {
     const { tools } = setup();
     writes.deleteOwnedNote.mockRejectedValue({ statusCode: 409 });
@@ -478,9 +642,13 @@ describe("in-app Note tools", () => {
   });
 });
 
-it.each([false, true])(
-  "edits a Note through the AI SDK loop (known link from creation: %s)",
-  async (knownLink) => {
+it.each([
+  [false, false],
+  [true, false],
+  [false, true],
+])(
+  "edits a Note through the AI SDK loop (known link: %s, category only: %s)",
+  async (knownLink, categoryOnly) => {
     if (knownLink) {
       const creator = setup().tools;
       await creator.create_note!.execute!(
@@ -491,7 +659,7 @@ it.each([false, true])(
     // Every new chat message receives a fresh tool instance and must read again.
     const { tools } = setup();
     reads.searchOwnedNotes.mockResolvedValue({
-      notes: [{ id: "note", title: "Title" }],
+      notes: [{ id: "note", title: "Title", updatedAt: new Date(version) }],
       nextOffset: null,
     });
     const usage = {
@@ -522,12 +690,20 @@ it.each([false, true])(
     const model = new MockLanguageModelV4({
       doStream: [
         ...(knownLink ? [] : [toolStep("list_notes", { q: "Title" }, 1)]),
+        ...(categoryOnly
+          ? []
+          : [
+              toolStep(
+                "get_note",
+                { id: knownLink ? "https://notes.example/notes/note" : "note" },
+                2,
+              ),
+            ]),
         toolStep(
-          "get_note",
-          { id: knownLink ? "https://notes.example/notes/note" : "note" },
-          2,
+          categoryOnly ? "update_note_category" : "update_note",
+          categoryOnly ? { ...input, categoryId: null } : update,
+          3,
         ),
-        toolStep("update_note", update, 3),
         {
           stream: simulateReadableStream({
             chunks: [
@@ -564,14 +740,21 @@ it.each([false, true])(
             },
             { role: "user", content: "先ほど作成したノートに説明を追記して" },
           ]
-        : [{ role: "user", content: "Find Title and update its content." }],
+        : [
+            {
+              role: "user",
+              content: categoryOnly
+                ? "Find Title and move it to Uncategorized."
+                : "Find Title and update its content.",
+            },
+          ],
       stopWhen: stepCountIs(8),
       maxRetries: 0,
     });
     const parts = [];
     for await (const part of result.fullStream) parts.push(part);
     expect(parts.filter((part) => part.type === "tool-result")).toHaveLength(
-      knownLink ? 2 : 3,
+      knownLink || categoryOnly ? 2 : 3,
     );
     expect(
       parts.filter(
@@ -581,11 +764,20 @@ it.each([false, true])(
     expect(await result.text).toBe(
       "Updated [Title](https://notes.example/notes/note).",
     );
-    expect(writes.updateOwnedNote).toHaveBeenCalledExactlyOnceWith(
-      "owner",
-      update,
-    );
-    expect(model.doStreamCalls).toHaveLength(knownLink ? 3 : 4);
+    if (categoryOnly) {
+      expect(writes.updateOwnedNoteCategory).toHaveBeenCalledExactlyOnceWith(
+        "owner",
+        { ...input, categoryId: null },
+      );
+      expect(reads.readOwnedNote).not.toHaveBeenCalled();
+      expect(writes.updateOwnedNote).not.toHaveBeenCalled();
+    } else {
+      expect(writes.updateOwnedNote).toHaveBeenCalledExactlyOnceWith(
+        "owner",
+        update,
+      );
+    }
+    expect(model.doStreamCalls).toHaveLength(knownLink || categoryOnly ? 3 : 4);
     if (knownLink) expect(reads.searchOwnedNotes).not.toHaveBeenCalled();
     expect(JSON.stringify(model.doStreamCalls.at(-1)!.prompt)).toContain(
       "https://notes.example/notes/note",

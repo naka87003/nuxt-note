@@ -322,6 +322,7 @@ describe("Chat generation", () => {
       "read_webpage",
       "update_category",
       "update_note",
+      "update_note_category",
       "web_search",
     ]);
     expect(input.stopWhen({ steps: Array(8) })).toBe(true);

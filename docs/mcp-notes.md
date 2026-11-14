@@ -45,7 +45,11 @@ accepts a Note ID, a same-site absolute Note URL, or a `/notes/<id>` path. Links
 are resolved locally to IDs; the tool never fetches external URLs. The remote MCP
 `get_note` input remains a Note ID.
 
-Chat reads the exact Note version before updating or deleting it. Concurrent
+For category-only changes, use `update_note_category` with required `id`,
+`categoryId`, and `updatedAt`; `categoryId: null` makes the Note Uncategorized.
+Chat accepts the exact version from `list_notes` or `get_note`, so the full body
+does not need to be fetched or resent. The result omits Markdown.
+Chat still requires `get_note` before editing content or deleting a Note. Concurrent
 changes prevent the write; a deletion conflict requires a new user confirmation
 message. Successful creates and updates return a clickable Note link.
 
@@ -110,17 +114,18 @@ running and `.env.mcp.local` configured from `.env.mcp.example` (or set
 check discovers the available tools and reads one Note, without printing its contents.
 Ordinary users only configure their agent and do not need this repository or file.
 
-| Tool              | Arguments                                                              | Result                                                               |
-| ----------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `create_category` | Required `name`                                                        | Created Category ID and name                                         |
-| `update_category` | Required `id`, `name`                                                  | Updated Category ID and name                                         |
-| `list_categories` | No arguments                                                           | All existing Category IDs and names, including empty Categories      |
-| `list_notes`      | Optional `q`, `category`, `limit`, `offset`                            | IDs, titles, category IDs, update times, text previews, `nextOffset` |
-| `get_note`        | `id` from a search result                                              | ID, title, Markdown, category ID, creation/update times              |
-| `create_note`     | Required `title`, `markdown`; optional `categoryId`                    | ID, title, Markdown, category ID, creation/update times, URL         |
-| `update_note`     | Required `id`, `title`, `markdown`, `updatedAt`; optional `categoryId` | Updated Note with creation/update times and URL                      |
-| `delete_category` | Required `id`                                                          | Deleted Category ID and `deleted: true`                              |
-| `delete_note`     | Required `id`, `updatedAt`                                             | Deleted Note ID and `deleted: true`                                  |
+| Tool                   | Arguments                                                              | Result                                                               |
+| ---------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `create_category`      | Required `name`                                                        | Created Category ID and name                                         |
+| `update_category`      | Required `id`, `name`                                                  | Updated Category ID and name                                         |
+| `list_categories`      | No arguments                                                           | All existing Category IDs and names, including empty Categories      |
+| `list_notes`           | Optional `q`, `category`, `limit`, `offset`                            | IDs, titles, category IDs, update times, text previews, `nextOffset` |
+| `get_note`             | `id` from a search result                                              | ID, title, Markdown, category ID, creation/update times              |
+| `create_note`          | Required `title`, `markdown`; optional `categoryId`                    | ID, title, Markdown, category ID, creation/update times, URL         |
+| `update_note`          | Required `id`, `title`, `markdown`, `updatedAt`; optional `categoryId` | Updated Note with creation/update times and URL                      |
+| `update_note_category` | Required `id`, `categoryId` (nullable), `updatedAt`                    | Updated Note metadata and URL; no Markdown                           |
+| `delete_category`      | Required `id`                                                          | Deleted Category ID and `deleted: true`                              |
+| `delete_note`          | Required `id`, `updatedAt`                                             | Deleted Note ID and `deleted: true`                                  |
 
 Search is literal and case-insensitive across title and Markdown body, with the
 same 50-character search limit as the UI. `%`, `_`, and backslashes are literal.

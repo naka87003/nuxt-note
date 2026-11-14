@@ -369,6 +369,7 @@ describe("remote MCP tools", () => {
       "list_notes",
       "update_category",
       "update_note",
+      "update_note_category",
     ]);
     expect(
       tools
@@ -669,6 +670,153 @@ describe("remote MCP tools", () => {
     expect(
       writes.note.update.mock.calls.map(([args]) => args.where.userId).sort(),
     ).toEqual(["a", "b"]);
+  });
+  const categoryInput = {
+    id: "note",
+    categoryId: "owned",
+    updatedAt: "2026-11-13T00:00:00.000Z",
+  };
+  it.each([null, "owned"])(
+    "changes only the category to %j without selecting the body",
+    async (categoryId) => {
+      const client = await connect("owner");
+      const { tools } = await client.listTools();
+      const definition = tools.find(
+        (tool) => tool.name === "update_note_category",
+      );
+      expect(definition?.inputSchema.required?.slice().sort()).toEqual([
+        "categoryId",
+        "id",
+        "updatedAt",
+      ]);
+      expect(definition?.annotations).toMatchObject({
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+      });
+      writes.category.findFirst.mockResolvedValue({ id: "owned" });
+      writes.note.update.mockResolvedValue({
+        id: "note",
+        title: "Title",
+        categoryId,
+        updatedAt: new Date("2026-11-13T00:00:00.001Z"),
+      });
+      const clock = vi
+        .spyOn(Date, "now")
+        .mockReturnValue(new Date(categoryInput.updatedAt).getTime());
+      try {
+        const result = await client.callTool({
+          name: "update_note_category",
+          arguments: { ...categoryInput, categoryId },
+        });
+        expect(result.isError).toBeFalsy();
+        expect(result.structuredContent).toMatchObject({
+          categoryId,
+          url: "https://notes.example/notes/note",
+          updatedAt: "2026-11-13T00:00:00.001Z",
+        });
+        expect(writes.note.update).toHaveBeenCalledExactlyOnceWith({
+          where: {
+            id: "note",
+            userId: "owner",
+            updatedAt: new Date(categoryInput.updatedAt),
+          },
+          data: { categoryId, updatedAt: new Date("2026-11-13T00:00:00.001Z") },
+          select: {
+            id: true,
+            title: true,
+            categoryId: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        });
+        if (categoryId)
+          expect(writes.category.findFirst).toHaveBeenCalledWith({
+            where: { id: categoryId, userId: "owner" },
+            select: { id: true },
+          });
+        else expect(writes.category.findFirst).not.toHaveBeenCalled();
+        expect(reads.readOwnedNote).not.toHaveBeenCalled();
+        expect(writes.note.findFirst).not.toHaveBeenCalled();
+      } finally {
+        clock.mockRestore();
+      }
+    },
+  );
+  it("rejects a foreign category before updating a Note category", async () => {
+    const client = await connect("owner");
+    writes.category.findFirst.mockResolvedValue(null);
+    expect(
+      await client.callTool({
+        name: "update_note_category",
+        arguments: categoryInput,
+      }),
+    ).toMatchObject({
+      isError: true,
+      content: [{ text: "Note or category not found." }],
+    });
+    expect(writes.note.update).not.toHaveBeenCalled();
+  });
+  it.each([null, { id: "note" }])(
+    "distinguishes inaccessible Notes from category update conflicts: %j",
+    async (existing) => {
+      const client = await connect("owner");
+      writes.note.update.mockRejectedValue({ code: "P2025" });
+      writes.note.findFirst.mockResolvedValue(existing);
+      expect(
+        await client.callTool({
+          name: "update_note_category",
+          arguments: { ...categoryInput, categoryId: null },
+        }),
+      ).toMatchObject({
+        isError: true,
+        content: [
+          {
+            text: existing
+              ? expect.stringContaining("Note has changed.")
+              : "Note or category not found.",
+          },
+        ],
+      });
+      expect(writes.note.update).toHaveBeenCalledTimes(1);
+      expect(writes.note.findFirst).toHaveBeenCalledWith({
+        where: { id: "note", userId: "owner" },
+        select: { id: true },
+      });
+    },
+  );
+  it("hides storage errors during category-only updates", async () => {
+    const client = await connect("owner");
+    writes.note.update.mockRejectedValue(new Error("private database details"));
+    expect(
+      await client.callTool({
+        name: "update_note_category",
+        arguments: { ...categoryInput, categoryId: null },
+      }),
+    ).toMatchObject({
+      isError: true,
+      content: [{ text: "Could not update Note category. Please try again." }],
+    });
+  });
+  it.each([
+    {},
+    { ...categoryInput, categoryId: undefined },
+    { ...categoryInput, categoryId: "" },
+    { ...categoryInput, categoryId: "x".repeat(101) },
+    { ...categoryInput, categoryId: 1 },
+    { ...categoryInput, id: "" },
+    { ...categoryInput, updatedAt: undefined },
+    { ...categoryInput, updatedAt: "2026-02-30T00:00:00.000Z" },
+    { ...categoryInput, title: "Changed" },
+    { ...categoryInput, markdown: "Changed" },
+    { ...categoryInput, userId: "other" },
+  ])("rejects invalid category-only update input %j", async (args) => {
+    const client = await connect("owner");
+    expect(
+      (await client.callTool({ name: "update_note_category", arguments: args }))
+        .isError,
+    ).toBe(true);
+    expect(writes.note.update).not.toHaveBeenCalled();
   });
   const deleteInput = {
     id: "note",

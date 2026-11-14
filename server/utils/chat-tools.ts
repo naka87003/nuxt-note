@@ -14,7 +14,7 @@ export const CHAT_NOTES_INSTRUCTIONS =
   "You can list, create, rename, and delete Categories using the provided tools. " +
   "You can search, read, create, update, and permanently delete the signed-in user's Notes using the provided tools. " +
   "Use tools when saved Notes are relevant; never invent Note content, IDs, versions, or successful actions. " +
-  "Edit an existing Note linked in this conversation using get_note then update_note. " +
+  "Edit the content of an existing Note linked in this conversation using get_note then update_note. " +
   "When the user asks to edit a Note you previously created or linked, use that link from the conversation as the get_note id argument; it accepts Note URLs as well as IDs. " +
   "You do not need browser access or a new search to read a known Note link. If the reference is unclear, search Notes or ask which Note the user means. " +
   "Determine your current capabilities from the available tools rather than earlier assistant messages. " +
@@ -26,7 +26,8 @@ export const CHAT_NOTES_INSTRUCTIONS =
   CATEGORY_DELETION_INSTRUCTIONS +
   "When updating a Note, keep its category unless the user requests a category change. " +
   "Only delete a Note when the user explicitly requests deleting that Note; clarify ambiguous targets first. Deletion is permanent. " +
-  "Read an existing Note with get_note before updating or deleting it, and use its exact updatedAt. " +
+  "Read an existing Note with get_note before editing its content or deleting it, and use its exact updatedAt. " +
+  "For category-only changes, use update_note_category with the exact id and updatedAt from list_notes or get_note; no full body is needed. Use null for Uncategorized. On category conflict, list or read again and reassess the requested change before retrying. " +
   "On update conflict, read again and reconcile changes; never blindly retry with a new timestamp. " +
   "On deletion conflict, read again and ask the user to confirm deletion of the changed Note in a new message. " +
   "Present successfully created or updated Notes as clickable Markdown links using the returned title and url. " +
@@ -66,6 +67,7 @@ export function createChatNoteTools(
   const definitions = createWorkspaceTools(userId, siteUrl);
   let categoryId = options.categoryId;
   const versions = new Map<string, string>();
+  const categoryVersions = new Map<string, string>();
   let deletionConflict = false;
 
   function adapt<S extends z.ZodObject, R>(
@@ -85,7 +87,11 @@ export function createChatNoteTools(
         options.signal.throwIfAborted();
         // Validate here as well so direct calls cannot bypass defaults/limits.
         const parsed = definition.inputSchema.parse(input);
-        if (name === "update_note" || name === "delete_note") {
+        if (
+          name === "update_note" ||
+          name === "update_note_category" ||
+          name === "delete_note"
+        ) {
           const { id, updatedAt } = parsed as {
             id: string;
             updatedAt: string;
@@ -95,20 +101,32 @@ export function createChatNoteTools(
               error:
                 "Ask the user to confirm deletion of the changed Note in a new message before retrying.",
             };
-          if (versions.get(id) !== updatedAt)
+          const expectedVersion =
+            name === "update_note_category"
+              ? categoryVersions.get(id)
+              : versions.get(id);
+          if (expectedVersion !== updatedAt)
             return {
               error:
-                "Use get_note to read the Note first, then pass its exact updatedAt.",
+                name === "update_note_category"
+                  ? "Use list_notes or get_note first, then pass its exact id and updatedAt."
+                  : "Use get_note to read the Note first, then pass its exact updatedAt.",
             };
           // A subsequent write must read again, including after a conflict.
           versions.delete(id);
+          categoryVersions.delete(id);
         }
         const result = await definition.execute(parsed);
         // Dates must reach the model in the same ISO format as the MCP result.
         const serialized = JSON.parse(JSON.stringify(result));
+        if (name === "list_notes" && !serialized.isError) {
+          for (const note of serialized.structuredContent.notes)
+            categoryVersions.set(note.id, note.updatedAt);
+        }
         if (name === "get_note" && !serialized.isError) {
           const note = serialized.structuredContent;
           versions.set(note.id, note.updatedAt);
+          categoryVersions.set(note.id, note.updatedAt);
         }
         if (
           name === "delete_note" &&
@@ -154,6 +172,7 @@ export function createChatNoteTools(
             ],
           };
         versions.delete(id);
+        categoryVersions.delete(id);
         return definitions.get_note.execute({ id });
       },
     }),
@@ -185,6 +204,10 @@ export function createChatNoteTools(
               ),
           }),
           update_note: adapt("update_note", definitions.update_note),
+          update_note_category: adapt(
+            "update_note_category",
+            definitions.update_note_category,
+          ),
           delete_note: adapt("delete_note", definitions.delete_note),
         }
       : {}),

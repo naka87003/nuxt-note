@@ -1,3 +1,4 @@
+import type { Prisma } from "../../generated/prisma/client";
 import { normalizeNoteContent } from "./notes";
 import { ownedCategory } from "./categories";
 import { getPrisma } from "./prisma";
@@ -5,6 +6,7 @@ import { createError } from "nuxt/server";
 import {
   createNoteInputSchema,
   updateNoteInputSchema,
+  updateNoteCategoryInputSchema,
   deleteNoteInputSchema,
 } from "./input-schemas";
 import { parseInput } from "./parse-input";
@@ -45,20 +47,53 @@ export async function updateOwnedNote(userId: string, body: unknown) {
     input.categoryId === undefined
       ? undefined
       : await ownedCategory(userId, input.categoryId);
+  return updateNoteVersion(
+    userId,
+    input,
+    {
+      ...content,
+      ...(categoryId === undefined ? {} : { categoryId }),
+    },
+    savedNoteSelect,
+  );
+}
+
+export async function updateOwnedNoteCategory(userId: string, body: unknown) {
+  const input = parseInput(updateNoteCategoryInputSchema, body);
+  const categoryId = await ownedCategory(userId, input.categoryId);
+  return updateNoteVersion(
+    userId,
+    input,
+    { categoryId },
+    {
+      id: true,
+      title: true,
+      categoryId: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  );
+}
+
+async function updateNoteVersion<S extends Prisma.NoteSelect>(
+  userId: string,
+  input: { id: string; updatedAt: string },
+  data: { title?: string; markdown?: string; categoryId?: string | null },
+  select: S,
+) {
   const db = getPrisma();
   const expectedUpdatedAt = new Date(input.updatedAt);
   try {
     return await db.note.update({
       where: { id: input.id, userId, updatedAt: expectedUpdatedAt },
       data: {
-        ...content,
-        ...(categoryId === undefined ? {} : { categoryId }),
+        ...data,
         // Advance even if two requests arrive within the same millisecond.
         updatedAt: new Date(
           Math.max(Date.now(), expectedUpdatedAt.getTime() + 1),
         ),
       },
-      select: savedNoteSelect,
+      select,
     });
   } catch (error) {
     if (

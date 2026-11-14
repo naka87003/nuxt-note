@@ -3,6 +3,7 @@ import {
   createOwnedNote,
   deleteOwnedNote,
   updateOwnedNote,
+  updateOwnedNoteCategory,
 } from "./note-writes";
 import { readOwnedNote, searchOwnedNotes } from "./note-reads";
 import { listOwnedCategories } from "./category-reads";
@@ -24,6 +25,7 @@ import {
   deleteNoteInputSchema,
   noteToolCategoryIdSchema,
   updateNoteInputSchema,
+  updateNoteCategoryInputSchema,
 } from "./input-schemas";
 
 interface WorkspaceToolConfig<S extends z.ZodObject> {
@@ -258,6 +260,35 @@ export function createWorkspaceTools(userId: string, siteUrl: string) {
             failure: "Could not update Note. Please try again.",
             conflict:
               "Note has changed. Use get_note to read it again and reconcile your changes before retrying with the new updatedAt. Do not automatically retry by replacing updatedAt.",
+          },
+        ),
+    ),
+    update_note_category: workspaceTool(
+      {
+        description:
+          "Change only an existing Note's category, preserving its title and Markdown. Use only when the user requests a category change. Use the exact id and updatedAt from list_notes or get_note; the full body is unnecessary. Resolve category IDs with list_categories or create_category; null makes the Note Uncategorized. On conflict, list or read again and reassess the requested change; never blindly retry with a newer timestamp. Return the saved title and url as a clickable link.",
+        inputSchema: updateNoteCategoryInputSchema,
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: true,
+          idempotentHint: false,
+          openWorldHint: false,
+        },
+      },
+      async (input) =>
+        result(
+          async () => {
+            const note = await updateOwnedNoteCategory(userId, input);
+            return {
+              ...note,
+              url: new URL(`/notes/${encodeURIComponent(note.id)}`, site).href,
+            };
+          },
+          {
+            missing: "Note or category not found.",
+            failure: "Could not update Note category. Please try again.",
+            conflict:
+              "Note has changed. Use list_notes or get_note again and reassess the requested category change before retrying. Do not automatically retry by replacing updatedAt.",
           },
         ),
     ),
