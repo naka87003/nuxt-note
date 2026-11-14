@@ -50,3 +50,15 @@ export function categoryConflict(error: unknown): never {
     });
   throw error;
 }
+
+export async function createOwnedCategory(userId: string, input: unknown) {
+  const data = categoryName(input);
+  try {
+    return await getPrisma().category.create({
+      data: { ...data, userId },
+      select: { id: true, name: true },
+    });
+  } catch (error) {
+    categoryConflict(error);
+  }
+}

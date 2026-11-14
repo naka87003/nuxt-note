@@ -8,7 +8,7 @@ import { parseInput } from "../../../../server/utils/parse-input";
 import { categoryName } from "../../../../server/utils/categories";
 import { contentQuery } from "../../../../server/utils/content-query";
 import { messageInput } from "../../../../server/utils/chat-generation";
-import { createNoteTools } from "../../../../server/utils/note-tools";
+import { createWorkspaceTools } from "../../../../server/utils/workspace-tools";
 
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
@@ -146,7 +146,7 @@ describe("input validation compatibility", () => {
   );
 
   it("uses the same UTF-16 limits for MCP and API note content", () => {
-    const tools = createNoteTools("owner", "https://notes.example");
+    const tools = createWorkspaceTools("owner", "https://notes.example");
     for (const input of [
       { title: "😀".repeat(25) + "a", markdown: "" },
       { title: "", markdown: "😀".repeat(2500) + "a" },

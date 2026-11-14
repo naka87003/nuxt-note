@@ -28,18 +28,25 @@ export const noteContentSchema = z.object(noteContentShape, {
 export type NoteContentInput = z.infer<typeof noteContentSchema>;
 
 // Limits apply before trimming, matching browser maxlength and existing API input.
-export const categoryNameSchema = z
-  .object({ name: z.string() })
-  .refine(
-    ({ name }) =>
-      !!name.trim() &&
-      name.length <= INPUT_LIMITS.categoryName &&
-      name.trim().normalize("NFKC").toLowerCase().length <= 100,
-  )
-  .transform(({ name }) => ({
+export const createCategoryInputSchema = z.object({
+  name: limitedText(INPUT_LIMITS.categoryName, "Category name")
+    .refine((name) => !!name.trim(), {
+      error: "Category name must not be blank",
+    })
+    .refine(
+      (name) => name.trim().normalize("NFKC").toLowerCase().length <= 100,
+      {
+        error: "Normalized category name must be at most 100 characters",
+      },
+    ),
+});
+
+export const categoryNameSchema = createCategoryInputSchema.transform(
+  ({ name }) => ({
     name: name.trim(),
     nameKey: name.trim().normalize("NFKC").toLowerCase(),
-  }));
+  }),
+);
 
 export const categoryIdSchema = z
   .string({ error: "Invalid category" })

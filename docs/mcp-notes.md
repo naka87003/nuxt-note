@@ -12,7 +12,7 @@ The remote endpoint calls the shared server-side Note operations directly.
 
 ## Use Notes from the in-app Chat
 
-The signed-in app Chat can use the same six tools for Notes and existing Categories automatically. Ask it to
+The signed-in app Chat can use the same seven tools for Notes and Categories automatically. Ask it to
 search and summarize saved Notes, save new content, edit an existing Note, or
 permanently delete an identified Note. No Agent access token or MCP client setup
 is required: Chat uses the browser login session and the same owner-scoped Note
@@ -23,8 +23,9 @@ When creating a Note, Chat uses the user’s explicit Category choice first
 that clearly matches the content. It uses `list_categories` to discover IDs and
 names, including Categories with no Notes. Without a match, the Note is
 uncategorized; an explicitly requested missing Category also falls back to
-uncategorized. The “organize into a Note” draft uses the same priority.
-Category creation, editing, and deletion are not exposed through Chat or MCP.
+uncategorized unless the user requests creating it. The “organize into a Note” draft uses the same priority.
+When explicitly asked to create a Category, Chat and MCP can use `create_category`
+and then save a Note with its returned ID. Category editing and deletion are not exposed.
 Remote agents receive the same selection guidance in `create_note`; any current
 chat Category must come from their own context, since MCP has no app Chat session.
 
@@ -32,6 +33,7 @@ Examples:
 
 - “Find my Notes about Nuxt and summarize them.”
 - “Save this explanation as a new Note.”
+- “Create a Category named Nuxt and save this explanation in it.”
 - “Add this example to my Nuxt Note.”
 - “Delete the Note titled Old draft.”
 
@@ -108,6 +110,7 @@ Ordinary users only configure their agent and do not need this repository or fil
 
 | Tool              | Arguments                                                              | Result                                                               |
 | ----------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `create_category` | Required `name`                                                        | Created Category ID and name                                         |
 | `list_categories` | No arguments                                                           | All existing Category IDs and names, including empty Categories      |
 | `list_notes`      | Optional `q`, `category`, `limit`, `offset`                            | IDs, titles, category IDs, update times, text previews, `nextOffset` |
 | `get_note`        | `id` from a search result                                              | ID, title, Markdown, category ID, creation/update times              |
@@ -126,7 +129,7 @@ most 50 UTF-16 code units and a Markdown body of at most 5,000, matching the UI.
 Both strings are required; empty content is allowed. Titles are trimmed and a
 blank title becomes `Untitled note`. Omit `categoryId` or pass null for an
 uncategorized Note; otherwise use an existing category ID belonging to the token
-owner (from `list_categories`). Missing and foreign categories return the
+owner (from `list_categories` or a successful `create_category`). Missing and foreign categories return the
 same error without creating a Note. Extra fields, including `userId` and `id`,
 are rejected. Ownership comes only from the authenticated token.
 
@@ -140,7 +143,15 @@ app's origin.
 Creation is non-idempotent: repeating a successful call creates another Note.
 The tool is annotated as a non-read-only, non-destructive, non-idempotent action.
 Ask the agent to save a new Note explicitly, then use `get_note` on the returned
-ID to verify it. Creating categories is not exposed.
+ID to verify it.
+
+`create_category` accepts a non-blank `name` of at most 20 UTF-16 code units.
+The name is trimmed; duplicates are rejected using NFKC normalization and
+case-insensitive comparison, matching the app. On a duplicate, use
+`list_categories` to find the existing ID. Extra fields, including `userId`,
+are rejected. Ownership comes from the authenticated token or Chat session.
+Creation is available to every valid token and is annotated as non-read-only,
+non-destructive, and non-idempotent. Chat retries do not expose this write tool.
 
 ## Update an existing Note
 
@@ -192,13 +203,14 @@ same request has no additional effect on stored data, even though its response d
 ## Authentication and deletion
 
 Each token has 256 bits of randomness, no expiration date, and access to only
-its issuing user's Notes for searching, reading, creation, updates, and permanent deletion. The database stores its SHA-256 hash and metadata,
+its issuing user's Notes for searching, reading, creation, updates, and permanent deletion, plus Category listing and creation. The database stores its SHA-256 hash and metadata,
 not the raw token. Token lists never return either the secret or hash. Token creation
 and token deletion require the browser login session. Bearer tokens do not authorize
 those operations, browser Note API routes, or Chat endpoints.
 
 There are no per-token scopes or permission choices. Every valid token grants
-search, read, create, update, and permanent delete access to its owner's Notes.
+search, read, create, update, and permanent delete access to its owner's Notes,
+plus Category listing and creation.
 Reconnect the agent after tool changes to refresh its tool list.
 
 Every MCP request checks that the token hash exists and derives

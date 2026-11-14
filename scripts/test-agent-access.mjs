@@ -236,6 +236,7 @@ try {
     }),
   );
   assert.deepEqual((await remote.listTools()).tools.map((t) => t.name).sort(), [
+    "create_category",
     "create_note",
     "delete_note",
     "get_note",

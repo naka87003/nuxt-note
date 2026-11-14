@@ -1,11 +1,12 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { createNoteTools } from "./note-tools";
+import { createWorkspaceTools } from "./workspace-tools";
 import { NOTE_CATEGORY_INSTRUCTIONS } from "./category-instructions";
 
 export const CHAT_TOOL_STEPS = 8;
 
 export const CHAT_NOTES_INSTRUCTIONS =
+  "You can list and create Categories using the provided tools. " +
   "You can search, read, create, update, and permanently delete the signed-in user's Notes using the provided tools. " +
   "Use tools when saved Notes are relevant; never invent Note content, IDs, versions, or successful actions. " +
   "Edit an existing Note linked in this conversation using get_note then update_note. " +
@@ -54,7 +55,7 @@ export function createChatNoteTools(
     categoryId?: string | null;
   },
 ) {
-  const definitions = createNoteTools(userId, siteUrl);
+  const definitions = createWorkspaceTools(userId, siteUrl);
   const versions = new Map<string, string>();
   let deletionConflict = false;
 
@@ -149,6 +150,10 @@ export function createChatNoteTools(
     }),
     ...(options.allowMutations
       ? {
+          create_category: adapt(
+            "create_category",
+            definitions.create_category,
+          ),
           create_note: adapt("create_note", {
             ...definitions.create_note,
             execute: (input) =>

@@ -22,7 +22,7 @@ const writes = vi.hoisted(() => ({
     deleteMany: vi.fn(),
     findFirst: vi.fn(),
   },
-  category: { findFirst: vi.fn(), findMany: vi.fn() },
+  category: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn() },
 }));
 vi.mock("../../../../server/utils/prisma", () => ({ getPrisma: () => writes }));
 const clients: Client[] = [];
@@ -62,6 +62,108 @@ async function connect(owner: string, siteUrl = "https://notes.example") {
 }
 
 describe("remote MCP tools", () => {
+  it("creates normalized categories for each token owner and exposes safe annotations", async () => {
+    writes.category.create.mockImplementation(async ({ data }) => ({
+      id: `${data.userId}-category`,
+      name: data.name,
+    }));
+    for (const owner of ["a", "b"]) {
+      const client = await connect(owner);
+      const result = await client.callTool({
+        name: "create_category",
+        arguments: { name: "  Ｎｕｘｔ  " },
+      });
+      expect(result).toMatchObject({
+        structuredContent: { id: `${owner}-category`, name: "Ｎｕｘｔ" },
+      });
+      expect(writes.category.create).toHaveBeenCalledWith({
+        data: { name: "Ｎｕｘｔ", nameKey: "nuxt", userId: owner },
+        select: { id: true, name: true },
+      });
+      const { tools } = await client.listTools();
+      expect(
+        tools.find((tool) => tool.name === "create_category")?.annotations,
+      ).toMatchObject({
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      });
+    }
+  });
+  it.each(["a".repeat(20), "😀".repeat(10)])(
+    "accepts a category name at the UTF-16 limit: %s",
+    async (name) => {
+      writes.category.create.mockResolvedValue({ id: "category", name });
+      const client = await connect("owner");
+      expect(
+        await client.callTool({ name: "create_category", arguments: { name } }),
+      ).toMatchObject({
+        structuredContent: { id: "category", name },
+      });
+      expect(writes.category.create).toHaveBeenCalledWith({
+        data: {
+          name,
+          nameKey: name.normalize("NFKC").toLowerCase(),
+          userId: "owner",
+        },
+        select: { id: true, name: true },
+      });
+      const { tools } = await client.listTools();
+      expect(
+        tools.find((tool) => tool.name === "create_category")?.inputSchema,
+      ).toMatchObject({
+        type: "object",
+        required: ["name"],
+        additionalProperties: false,
+        properties: { name: { type: "string", maxLength: 20 } },
+      });
+    },
+  );
+  it.each([
+    {},
+    { name: " " },
+    { name: "a".repeat(21) },
+    { name: "😀".repeat(11) },
+    { name: "ﷺ".repeat(6) },
+    { name: 123 },
+    { name: "Nuxt", userId: "other" },
+    { name: "Nuxt", id: "chosen" },
+  ])("rejects invalid category creation arguments %j", async (args) => {
+    const client = await connect("owner");
+    expect(
+      await client.callTool({ name: "create_category", arguments: args }),
+    ).toMatchObject({ isError: true });
+    expect(writes.category.create).not.toHaveBeenCalled();
+  });
+  it("reports duplicate categories and hides database errors", async () => {
+    const client = await connect("owner");
+    writes.category.create
+      .mockRejectedValueOnce({ code: "P2002" })
+      .mockRejectedValueOnce(new Error("private database details"));
+    expect(
+      await client.callTool({
+        name: "create_category",
+        arguments: { name: "Nuxt" },
+      }),
+    ).toMatchObject({
+      isError: true,
+      content: [
+        {
+          text: "A Category with this name already exists. Use list_categories to find its ID.",
+        },
+      ],
+    });
+    expect(
+      await client.callTool({
+        name: "create_category",
+        arguments: { name: "Nuxt" },
+      }),
+    ).toMatchObject({
+      isError: true,
+      content: [{ text: "Could not create Category. Please try again." }],
+    });
+  });
   it("lists all categories, including empty categories, scoped to each token owner", async () => {
     writes.category.findMany.mockImplementation(async ({ where }) => [
       { id: `${where.userId}-category`, name: "Empty category" },
@@ -119,6 +221,7 @@ describe("remote MCP tools", () => {
     const client = await connect("owner");
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([
+      "create_category",
       "create_note",
       "delete_note",
       "get_note",

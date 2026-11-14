@@ -27,7 +27,7 @@ const note = {
 const input = { id: "note", updatedAt: version };
 const update = { ...input, title: "Updated", markdown: "# Changed" };
 const context = { toolCallId: "call", messages: [] };
-const categories = vi.hoisted(() => ({ findMany: vi.fn() }));
+const categories = vi.hoisted(() => ({ findMany: vi.fn(), create: vi.fn() }));
 vi.mock("../../../../server/utils/prisma", () => ({
   getPrisma: () => ({ category: categories }),
 }));
@@ -55,6 +55,54 @@ beforeEach(() => {
   writes.deleteOwnedNote.mockResolvedValue({ id: "note", deleted: true });
 });
 describe("in-app Note tools", () => {
+  it("creates a category and uses its ID for a Note ahead of the chat default", async () => {
+    categories.create.mockResolvedValue({
+      id: "new-category",
+      name: "Ｎｕｘｔ",
+    });
+    const { tools, assertActive } = setup("owner", true, "chat-category");
+    expect(
+      await tools.create_category!.execute!({ name: "  Ｎｕｘｔ  " }, context),
+    ).toMatchObject({
+      structuredContent: { id: "new-category", name: "Ｎｕｘｔ" },
+    });
+    expect(categories.create).toHaveBeenCalledWith({
+      data: { name: "Ｎｕｘｔ", nameKey: "nuxt", userId: "owner" },
+      select: { id: true, name: true },
+    });
+    await tools.create_note!.execute!(
+      { title: "Title", markdown: "Body", categoryId: "new-category" },
+      context,
+    );
+    expect(writes.createOwnedNote).toHaveBeenCalledWith("owner", {
+      title: "Title",
+      markdown: "Body",
+      categoryId: "new-category",
+    });
+    expect(assertActive).toHaveBeenCalledTimes(2);
+  });
+  it("validates category creation and stops after cancellation or ownership loss", async () => {
+    const { tools, controller } = setup();
+    await expect(
+      tools.create_category!.execute!(
+        { name: "Nuxt", userId: "other" } as never,
+        context,
+      ),
+    ).rejects.toThrow();
+    await expect(
+      tools.create_category!.execute!({ name: " " }, context),
+    ).rejects.toThrow();
+    controller.abort();
+    await expect(
+      tools.create_category!.execute!({ name: "Nuxt" }, context),
+    ).rejects.toThrow();
+    const inactive = setup();
+    inactive.assertActive.mockRejectedValue(new Error("no longer active"));
+    await expect(
+      inactive.tools.create_category!.execute!({ name: "Nuxt" }, context),
+    ).rejects.toThrow();
+    expect(categories.create).not.toHaveBeenCalled();
+  });
   it("lists existing categories for the session owner even during retries", async () => {
     categories.findMany.mockResolvedValue([{ id: "empty", name: "Empty" }]);
     const { tools, assertActive } = setup("owner", false);

@@ -312,6 +312,7 @@ describe("Chat generation", () => {
     await run();
     const input = mocks.streamText.mock.calls[0]![0];
     expect(Object.keys(input.tools).sort()).toEqual([
+      "create_category",
       "create_note",
       "delete_note",
       "get_note",

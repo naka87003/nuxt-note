@@ -80,6 +80,8 @@ describe("shared categories", () => {
     {},
     { name: "  " },
     { name: "a".repeat(21) },
+    { name: "😀".repeat(11) },
+    { name: "ﷺ".repeat(6) },
     { name: 4 },
   ])("rejects malformed category names %j", async (body) => {
     mocks.body.mockResolvedValue(body);
