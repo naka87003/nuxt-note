@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getNoteDateGroup,
   groupNotesByUpdatedAt,
-} from "../../../../shared/utils/note-date-groups";
+} from "#shared/utils/note-date-groups";
 
 const now = new Date("2026-11-03T03:00:00Z");
 const DAY = 86_400_000;

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@nuxtjs/storybook";
 import { ref } from "vue";
 import { expect, userEvent, within } from "storybook/test";
-import NoteEditorForm from "../app/components/NoteEditorForm.vue";
+import NoteEditorForm from "@/components/NoteEditorForm.vue";
 import { categoryOptions, markdown } from "./fixtures/content";
 
 const meta = {

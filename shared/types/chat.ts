@@ -1,5 +1,5 @@
 export type ChatStatus = "completed" | "generating" | "stopped" | "failed";
-export type { ChatStreamEvent } from "../schemas/chat-stream";
+export type { ChatStreamEvent } from "#shared/schemas/chat-stream";
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";

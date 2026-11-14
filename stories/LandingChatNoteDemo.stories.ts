@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@nuxtjs/storybook";
 import { expect, userEvent, within } from "storybook/test";
-import LandingChatNoteDemo from "../app/components/LandingChatNoteDemo.vue";
+import LandingChatNoteDemo from "@/components/LandingChatNoteDemo.vue";
 import { landingDecorators, waitForLandingAssets } from "./fixtures/landing";
 
 async function confirmGeneration(canvasElement: HTMLElement) {

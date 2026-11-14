@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from "@nuxtjs/storybook";
 import { useNuxtData, useState } from "#imports";
 import { watchEffect } from "vue";
-import type { CategoriesResponse } from "../shared/types/workspace";
-import { useWorkspace } from "../app/composables/useWorkspace";
-import WorkspaceList from "../app/components/WorkspaceList.vue";
+import type { CategoriesResponse } from "#shared/types/workspace";
+import { useWorkspace } from "@/composables/useWorkspace";
+import WorkspaceList from "@/components/WorkspaceList.vue";
 
 type ListArgs = InstanceType<typeof WorkspaceList>["$props"] & {
   search: string;

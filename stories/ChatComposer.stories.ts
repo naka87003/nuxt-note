@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@nuxtjs/storybook";
 import { ref } from "vue";
-import ChatComposer from "../app/components/ChatComposer.vue";
+import ChatComposer from "@/components/ChatComposer.vue";
 
 const meta = {
   title: "Chat/Composer",

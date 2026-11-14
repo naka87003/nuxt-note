@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { effectScope, nextTick, ref } from "vue";
-import { useWorkspaceListQuery } from "../../../../app/composables/useWorkspaceListQuery";
+import { useWorkspaceListQuery } from "@/composables/useWorkspaceListQuery";
 
 let scope: ReturnType<typeof effectScope>;
 

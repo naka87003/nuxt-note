@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderMarkdown } from "./render-markdown";
-import { createNoteMarkdownParser } from "../../../../app/utils/markdown";
+import { createNoteMarkdownParser } from "@/utils/markdown";
 import { textContent } from "@comark/nuxt/utils";
 import type { ElementNode } from "@comark/nuxt/parse";
 

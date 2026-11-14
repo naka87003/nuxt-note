@@ -1,4 +1,4 @@
-import { chatStreamEventSchema } from "../../shared/schemas/chat-stream";
+import { chatStreamEventSchema } from "#shared/schemas/chat-stream";
 
 function parseEvent(data: string) {
   try {

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@nuxtjs/storybook";
 import { expect, userEvent, waitFor, within } from "storybook/test";
-import AgentSetupExamples from "../app/components/AgentSetupExamples.vue";
+import AgentSetupExamples from "@/components/AgentSetupExamples.vue";
 
 const meta = {
   title: "Settings/Agent setup examples",

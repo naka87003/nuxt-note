@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@nuxtjs/storybook";
-import LandingWorkspacePreview from "../app/components/LandingWorkspacePreview.vue";
+import LandingWorkspacePreview from "@/components/LandingWorkspacePreview.vue";
 import { landingDecorators, waitForLandingAssets } from "./fixtures/landing";
 
 const meta = {

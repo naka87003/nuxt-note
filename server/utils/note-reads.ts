@@ -1,7 +1,7 @@
 import { createError } from "nuxt/server";
 import { getPrisma } from "./prisma";
 import { contentQuery } from "./content-query";
-import { contentPreview } from "../../shared/utils/content-preview";
+import { contentPreview } from "#shared/utils/content-preview";
 
 export async function searchOwnedNotes(
   userId: string,

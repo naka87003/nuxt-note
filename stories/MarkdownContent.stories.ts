@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@nuxtjs/storybook";
-import MarkdownContent from "../app/components/MarkdownContent.vue";
+import MarkdownContent from "@/components/MarkdownContent.vue";
 import { markdown } from "./fixtures/content";
 
 const meta = {

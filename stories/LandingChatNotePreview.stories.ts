@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@nuxtjs/storybook";
 import { expect, within } from "storybook/test";
-import LandingChatNotePreview from "../app/components/LandingChatNotePreview.vue";
+import LandingChatNotePreview from "@/components/LandingChatNotePreview.vue";
 import { landingDecorators, waitForLandingAssets } from "./fixtures/landing";
 
 const meta = {

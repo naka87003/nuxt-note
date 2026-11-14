@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
-import { readChatStream } from "../../../../app/utils/chat-stream";
-import type { ChatStreamEvent } from "../../../../shared/types/chat";
+import { readChatStream } from "@/utils/chat-stream";
+import type { ChatStreamEvent } from "#shared/types/chat";
 
 it.each([1, 7, 10_000])(
   "reads events and UTF-8 characters split across chunks of %i bytes",
