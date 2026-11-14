@@ -78,3 +78,12 @@ It searches and reads one Note without printing its contents.
 | `node scripts/test-notebook-import.mjs` | Docker                  | Checks preview, ownership, rollback and repeat imports using synthetic CSV files |
 
 The disposable integration scripts in the table are separate from `pnpm test`. They do not load application credentials or target the configured application database. Real GitHub OAuth remains a manual check. See [development](../docs/development.md) and [Notebook migration](../docs/notebook-migration.md) for details.
+
+Browser Note updates and deletions use the same owner-scoped, version-checked
+operations as Chat and MCP. Unit tests cover missing/invalid versions, atomic
+concurrent writes, and 404/409 handling. Nuxt component tests cover preserving
+local drafts, explicit overwrite confirmation without full-content comparison,
+repeated conflicts, cancellation, and reopening deletion confirmation after
+refreshing the latest content. The disposable `pnpm test:chat` HTTP smoke also
+checks version validation, stale writes, concurrent saves, and confirmed-version
+overwrite against PostgreSQL.

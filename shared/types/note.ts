@@ -5,6 +5,7 @@ export interface NoteDraft {
 }
 export interface SavedNote extends NoteDraft {
   id: string;
+  updatedAt: string;
 }
 
 export interface NoteDraftTransfer {

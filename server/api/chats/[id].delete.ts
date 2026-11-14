@@ -1,13 +1,8 @@
-import { createError } from "nuxt/server";
-import { getPrisma } from "../../utils/prisma";
 import { getAuthenticatedUserId } from "../../utils/auth";
+import { deleteOwnedChat } from "../../utils/chat-writes";
+
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);
-  const id = getRouterParam(event, "id");
-  if (!id)
-    throw createError({ statusCode: 404, statusMessage: "Chat not found" });
-  const result = await getPrisma().chat.deleteMany({ where: { id, userId } });
-  if (!result.count)
-    throw createError({ statusCode: 404, statusMessage: "Chat not found" });
+  await deleteOwnedChat(userId, getRouterParam(event, "id"));
   setResponseStatus(event, 204);
 });

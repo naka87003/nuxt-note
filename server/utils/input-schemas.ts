@@ -67,16 +67,22 @@ const noteCategoryIdSchema = z
 export const createNoteInputSchema = noteContentSchema.extend({
   categoryId: noteCategoryIdSchema.optional(),
 });
-export const updateNoteBodySchema = noteContentSchema.extend({
-  categoryId: noteCategoryIdSchema,
-});
-
 export const noteVersionShape = {
   id: z.string().min(1).max(100),
   updatedAt: z.iso
     .datetime({ precision: 3 })
-    .describe("Exact updatedAt returned by get_note"),
+    .describe("Exact updatedAt returned when reading the Note"),
 };
+export const updateNoteBodySchema = noteContentSchema.extend({
+  categoryId: noteCategoryIdSchema,
+  updatedAt: noteVersionShape.updatedAt,
+});
+export const deleteNoteBodySchema = z
+  .object({
+    updatedAt: noteVersionShape.updatedAt,
+  })
+  .strict();
+export const deleteNoteInputSchema = z.object(noteVersionShape).strict();
 export const noteToolCategoryIdSchema = noteCategoryIdSchema
   .unwrap()
   .max(100)

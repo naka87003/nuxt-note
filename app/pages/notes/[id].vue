@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SavedNote } from "#shared/types/note";
+import { assertNavigationSucceeded } from "~/utils/navigation";
 
 definePageMeta({
   key: (route) => String(route.params.id),
@@ -19,8 +20,11 @@ const {
 
 const editing = ref(false);
 const deletion = ref(false);
+const deleteTarget = ref<SavedNote | null>(null);
 const busy = ref(false);
 const failure = ref("");
+const deleted = ref(false);
+const toast = useToast();
 
 const { data: categories } = useNuxtData<{
   items: { id: string; name: string }[];
@@ -35,38 +39,91 @@ const categoryName = computed(
 async function saved(result: SavedNote) {
   const previousCategory = note.value?.categoryId;
   if (note.value) note.value = { ...note.value, ...result };
+  const savedSnapshot = note.value;
   editing.value = false;
-  if (result.categoryId !== previousCategory)
-    await navigateTo(
-      location(route.path, result.categoryId ?? "uncategorized"),
-      {
-        replace: true,
-      },
-    );
-  await Promise.all([
-    refresh(),
-    refreshNuxtData("workspace-list"),
-    refreshNuxtData("workspace-categories"),
-  ]);
+  try {
+    if (result.categoryId !== previousCategory) {
+      assertNavigationSucceeded(
+        await navigateTo(
+          location(route.path, result.categoryId ?? "uncategorized"),
+          { replace: true },
+        ),
+      );
+    }
+    await Promise.all([
+      refresh(),
+      refreshNuxtData("workspace-list"),
+      refreshNuxtData("workspace-categories"),
+    ]);
+    if (error.value) throw error.value;
+  } catch {
+    if (!note.value) note.value = savedSnapshot;
+    toast.add({
+      title: "Note saved",
+      description:
+        "The note was saved, but the view could not be refreshed. Reload to see the latest content.",
+      color: "warning",
+    });
+  }
+}
+
+function startDeletion() {
+  if (busy.value || error.value || !note.value) return;
+  failure.value = "";
+  deleteTarget.value = { ...note.value };
+  deletion.value = true;
+}
+
+async function loadLatestAfterDeletionConflict() {
+  await refresh();
+  if (!error.value && note.value)
+    failure.value =
+      "Review the latest content below, then choose Delete again if you still want to delete it.";
 }
 
 async function remove() {
-  if (busy.value || !note.value) return;
+  if (busy.value || !deletion.value || !deleteTarget.value) return;
   busy.value = true;
   failure.value = "";
   try {
-    await $fetch(`/api/notes/${note.value.id}`, { method: "DELETE" });
-    deletion.value = false;
-    state.value.notes.selected = "";
-    await navigateTo(location("/notes"));
+    await $fetch(`/api/notes/${deleteTarget.value.id}`, {
+      method: "DELETE",
+      body: { updatedAt: deleteTarget.value.updatedAt },
+      retry: 0,
+    });
+  } catch (cause) {
+    const code = (cause as { statusCode?: number }).statusCode;
+    if (code === 409 || code === 404) {
+      deletion.value = false;
+      deleteTarget.value = null;
+      await refresh();
+      failure.value =
+        code === 404 || error.value?.statusCode === 404
+          ? "This note was deleted or is no longer available."
+          : error.value
+            ? "Deletion stopped because this note changed. Could not load the latest version. Try loading it again before deleting."
+            : "This note was updated elsewhere and was not deleted. Review the latest content below, then choose Delete again if you still want to delete it.";
+    } else {
+      failure.value = "Could not delete the note. Please try again.";
+    }
+    return;
+  } finally {
+    busy.value = false;
+  }
+  deleted.value = true;
+  deletion.value = false;
+  deleteTarget.value = null;
+  note.value = undefined;
+  state.value.notes.selected = "";
+  try {
+    assertNavigationSucceeded(await navigateTo(location("/notes")));
     await Promise.all([
       refreshNuxtData("workspace-list"),
       refreshNuxtData("workspace-categories"),
     ]);
   } catch {
-    failure.value = "Could not delete the note. Please try again.";
-  } finally {
-    busy.value = false;
+    failure.value =
+      "The note was deleted, but the view could not be refreshed. Return to the note list or reload.";
   }
 }
 </script>
@@ -83,6 +140,34 @@ async function remove() {
       @cancel="editing = false"
     />
     <div v-else class="note-reader">
+      <UAlert
+        v-if="failure && !deletion"
+        :title="deleted ? 'Note deleted' : 'Deletion stopped'"
+        :description="failure"
+        color="warning"
+        role="alert"
+        class="note-reader-error"
+      >
+        <template v-if="deleted || error" #actions>
+          <UButton
+            v-if="deleted"
+            :to="location('/notes')"
+            color="neutral"
+            variant="outline"
+          >
+            Back to notes
+          </UButton>
+          <UButton
+            v-else
+            color="neutral"
+            variant="outline"
+            :disabled="status === 'pending'"
+            @click="loadLatestAfterDeletionConflict"
+          >
+            Load latest version
+          </UButton>
+        </template>
+      </UAlert>
       <UAlert
         v-if="error && !note"
         title="Could not open this note"
@@ -129,10 +214,8 @@ async function remove() {
               color="neutral"
               variant="soft"
               class="min-w-16 justify-center"
-              @click="
-                failure = '';
-                deletion = true;
-              "
+              :disabled="busy || !!error"
+              @click="startDeletion"
             >
               Delete
             </UButton>
@@ -189,7 +272,9 @@ async function remove() {
           class="mb-4"
           role="alert"
         />
-        <p>Permanently delete “{{ note?.title }}”? This cannot be undone.</p>
+        <p>
+          Permanently delete “{{ deleteTarget?.title }}”? This cannot be undone.
+        </p>
       </template>
       <template #footer>
         <UButton
@@ -201,7 +286,13 @@ async function remove() {
         >
           Cancel
         </UButton>
-        <UButton color="error" class="min-h-11" :loading="busy" @click="remove">
+        <UButton
+          color="error"
+          class="min-h-11"
+          :loading="busy"
+          :disabled="busy"
+          @click="remove"
+        >
           Delete note
         </UButton>
       </template>

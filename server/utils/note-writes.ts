@@ -2,7 +2,11 @@ import { normalizeNoteContent } from "./notes";
 import { ownedCategory } from "./categories";
 import { getPrisma } from "./prisma";
 import { createError } from "nuxt/server";
-import { createNoteInputSchema, updateNoteInputSchema } from "./input-schemas";
+import {
+  createNoteInputSchema,
+  updateNoteInputSchema,
+  deleteNoteInputSchema,
+} from "./input-schemas";
 import { parseInput } from "./parse-input";
 
 const savedNoteSelect = {
@@ -24,10 +28,8 @@ async function throwNoteWriteError(userId: string, id: string): Promise<never> {
   throw createError({ statusCode: 409, statusMessage: "Note has changed" });
 }
 
-export async function deleteOwnedNote(
-  userId: string,
-  input: { id: string; updatedAt: string },
-) {
+export async function deleteOwnedNote(userId: string, body: unknown) {
+  const input = parseInput(deleteNoteInputSchema, body);
   const db = getPrisma();
   const deleted = await db.note.deleteMany({
     where: { id: input.id, userId, updatedAt: new Date(input.updatedAt) },

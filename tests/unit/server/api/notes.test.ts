@@ -8,7 +8,7 @@ import remove from "../../../../server/api/notes/[id].delete";
 
 const mocks = vi.hoisted(() => ({
   create: vi.fn(),
-  updateMany: vi.fn(),
+  update: vi.fn(),
   deleteMany: vi.fn(),
   findMany: vi.fn(),
   findFirst: vi.fn(),
@@ -35,6 +35,7 @@ vi.hoisted(() => {
 });
 const ownerId = "11111111-1111-4111-8111-111111111111";
 const otherId = "22222222-2222-4222-8222-222222222222";
+const version = "2026-11-13T00:00:00.000Z";
 const event = {} as Parameters<typeof create>[0];
 
 beforeEach(() => {
@@ -47,7 +48,7 @@ beforeEach(() => {
     markdown: "# Hello",
     userId: otherId,
   });
-  mocks.create.mockResolvedValue({ id: "note" });
+  mocks.create.mockResolvedValue({ id: "note", updatedAt: new Date(version) });
   mocks.param.mockReturnValue("note");
 });
 
@@ -63,7 +64,10 @@ describe("notes API ownership and validation", () => {
     );
   });
   it("assigns ownership from the session and defaults a blank title", async () => {
-    await expect(create(event)).resolves.toEqual({ id: "note" });
+    await expect(create(event)).resolves.toEqual({
+      id: "note",
+      updatedAt: new Date(version),
+    });
     expect(mocks.create).toHaveBeenCalledWith({
       data: {
         title: "Untitled note",
@@ -254,110 +258,165 @@ describe("note categories and search", () => {
 });
 
 describe("saved-note mutations", () => {
+  const input = {
+    title: "  ",
+    markdown: "# Changed",
+    categoryId: null,
+    updatedAt: version,
+  };
   beforeEach(() => {
     mocks.findFirst.mockResolvedValue({ id: "note" });
-    mocks.updateMany.mockResolvedValue({ count: 1 });
+    mocks.update.mockImplementation(async ({ data }) => ({
+      id: "note",
+      ...data,
+    }));
     mocks.deleteMany.mockResolvedValue({ count: 1 });
-    mocks.body.mockResolvedValue({
-      title: "  ",
-      markdown: "# Changed",
-      categoryId: null,
-      userId: otherId,
-    });
+    mocks.body.mockResolvedValue(input);
   });
-  it("updates the session owner's note with a normalized title and explicit category", async () => {
-    await expect(update(event)).resolves.toMatchObject({
+  it("updates the session owner's exact version and advances updatedAt", async () => {
+    const result = await update(event);
+    expect(result).toMatchObject({
       id: "note",
       title: "Untitled note",
+      markdown: "# Changed",
+      categoryId: null,
     });
-    expect(mocks.updateMany).toHaveBeenCalledWith({
-      where: { id: "note", userId: ownerId },
-      data: { title: "Untitled note", markdown: "# Changed", categoryId: null },
+    expect(mocks.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "note", userId: ownerId, updatedAt: new Date(version) },
+        data: {
+          title: "Untitled note",
+          markdown: "# Changed",
+          categoryId: null,
+          updatedAt: expect.any(Date),
+        },
+      }),
+    );
+    expect(result.updatedAt.getTime()).toBeGreaterThan(
+      new Date(version).getTime(),
+    );
+  });
+  it("ignores caller ownership and ID fields in favor of the session and route", async () => {
+    mocks.body.mockResolvedValue({ ...input, id: "foreign", userId: otherId });
+    await update(event);
+    expect(mocks.update.mock.calls[0]![0].where).toEqual({
+      id: "note",
+      userId: ownerId,
+      updatedAt: new Date(version),
     });
   });
-  it("requires a category field on browser updates", async () => {
-    mocks.body.mockResolvedValue({ title: "Title", markdown: "" });
+  it("requires an explicit category on browser updates", async () => {
+    mocks.body.mockResolvedValue({
+      title: "Title",
+      markdown: "",
+      updatedAt: version,
+    });
     await expect(update(event)).rejects.toMatchObject({
       statusCode: 400,
       statusMessage: "Category is required",
     });
-    expect(mocks.category).not.toHaveBeenCalled();
-    expect(mocks.updateMany).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
   });
-  it("allows manually edited Note bodies longer than the AI draft limit", async () => {
+  it("allows manually edited bodies longer than the AI draft limit", async () => {
     const markdown = "# Edited note\n\n" + "あ".repeat(3001);
-    mocks.body.mockResolvedValue({
-      title: "Edited note",
-      markdown,
-      categoryId: null,
-    });
+    mocks.body.mockResolvedValue({ ...input, markdown });
     await update(event);
-    expect(mocks.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ markdown }),
-      }),
+    expect(mocks.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ markdown }) }),
     );
   });
   it("validates reassignment ownership", async () => {
-    mocks.body.mockResolvedValue({
-      title: "Note",
-      markdown: "",
-      categoryId: "owned",
-    });
+    mocks.body.mockResolvedValue({ ...input, categoryId: "owned" });
     mocks.category.mockResolvedValue({ id: "owned" });
     await update(event);
     expect(mocks.category).toHaveBeenCalledWith({
       where: { id: "owned", userId: ownerId },
       select: { id: true },
     });
-    expect(mocks.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { title: "Note", markdown: "", categoryId: "owned" },
-      }),
-    );
+    expect(mocks.update.mock.calls[0]![0].data.categoryId).toBe("owned");
   });
   it("rejects a foreign category without changing the note", async () => {
-    mocks.body.mockResolvedValue({
-      title: "Note",
-      markdown: "",
-      categoryId: "foreign",
-    });
+    mocks.body.mockResolvedValue({ ...input, categoryId: "foreign" });
     mocks.category.mockResolvedValue(null);
     await expect(update(event)).rejects.toMatchObject({ statusCode: 404 });
-    expect(mocks.updateMany).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
   });
   it.each([
     null,
     [],
     {},
-    { title: "x".repeat(51), markdown: "", categoryId: null },
-    { title: "x", markdown: 42, categoryId: null },
-    { title: "x", markdown: "あ".repeat(5001), categoryId: null },
-    { title: "x", markdown: "" },
+    { ...input, title: "x".repeat(51) },
+    { ...input, markdown: 42 },
+    { ...input, markdown: "あ".repeat(5001) },
   ])("rejects invalid updates %j", async (body) => {
     mocks.body.mockResolvedValue(body);
     await expect(update(event)).rejects.toMatchObject({ statusCode: 400 });
-    expect(mocks.updateMany).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
   });
-  it("hides foreign or missing notes before reading an update body", async () => {
-    mocks.findFirst.mockResolvedValue(null);
-    await expect(update(event)).rejects.toMatchObject({ statusCode: 404 });
-    expect(mocks.body).not.toHaveBeenCalled();
-    expect(mocks.updateMany).not.toHaveBeenCalled();
+  it.each([
+    undefined,
+    null,
+    "not-a-date",
+    "2026-02-30T00:00:00.000Z",
+    "2026-11-13T00:00:00Z",
+  ])(
+    "rejects missing or malformed versions for both update and deletion: %j",
+    async (updatedAt) => {
+      mocks.body.mockResolvedValue({ ...input, updatedAt });
+      await expect(update(event)).rejects.toMatchObject({ statusCode: 400 });
+      mocks.body.mockResolvedValue({ updatedAt });
+      await expect(remove(event)).rejects.toMatchObject({ statusCode: 400 });
+      expect(mocks.update).not.toHaveBeenCalled();
+      expect(mocks.deleteMany).not.toHaveBeenCalled();
+    },
+  );
+  it.each([404, 409])(
+    "distinguishes missing/foreign notes from changed notes on update: %s",
+    async (statusCode) => {
+      mocks.update.mockRejectedValue({ code: "P2025" });
+      mocks.findFirst.mockResolvedValue(
+        statusCode === 404 ? null : { id: "note" },
+      );
+      await expect(update(event)).rejects.toMatchObject({ statusCode });
+      expect(mocks.findFirst).toHaveBeenCalledWith({
+        where: { id: "note", userId: ownerId },
+        select: { id: true },
+      });
+    },
+  );
+  it("allows only one concurrent update of the same version", async () => {
+    let current = version;
+    mocks.update.mockImplementation(async ({ where, data }) => {
+      if (where.updatedAt.toISOString() !== current) throw { code: "P2025" };
+      current = data.updatedAt.toISOString();
+      return { id: "note", ...data };
+    });
+    const results = await Promise.allSettled([update(event), update(event)]);
+    expect(
+      results.filter((result) => result.status === "fulfilled"),
+    ).toHaveLength(1);
+    expect(
+      results.find((result) => result.status === "rejected"),
+    ).toMatchObject({ reason: { statusCode: 409 } });
   });
-  it("handles deletion racing an update", async () => {
-    mocks.updateMany.mockResolvedValue({ count: 0 });
-    await expect(update(event)).rejects.toMatchObject({ statusCode: 404 });
-  });
-  it("deletes only a session-owned note", async () => {
+  it("deletes only the session-owned, exact version", async () => {
+    mocks.body.mockResolvedValue({ updatedAt: version });
     await remove(event);
     expect(mocks.deleteMany).toHaveBeenCalledWith({
-      where: { id: "note", userId: ownerId },
+      where: { id: "note", userId: ownerId, updatedAt: new Date(version) },
     });
     expect(mocks.status).toHaveBeenCalledWith(event, 204);
   });
-  it("returns 404 when deletion matches no owned note", async () => {
-    mocks.deleteMany.mockResolvedValue({ count: 0 });
-    await expect(remove(event)).rejects.toMatchObject({ statusCode: 404 });
-  });
+  it.each([404, 409])(
+    "distinguishes missing/foreign notes from changed notes on deletion: %s",
+    async (statusCode) => {
+      mocks.body.mockResolvedValue({ updatedAt: version });
+      mocks.deleteMany.mockResolvedValue({ count: 0 });
+      mocks.findFirst.mockResolvedValue(
+        statusCode === 404 ? null : { id: "note" },
+      );
+      await expect(remove(event)).rejects.toMatchObject({ statusCode });
+      expect(mocks.status).not.toHaveBeenCalled();
+    },
+  );
 });

@@ -294,10 +294,14 @@ try {
   );
   assert.equal(
     (
-      await api(notePath, noteBody, {
-        method: "PATCH",
-        headers: { Cookie: foreign, "Content-Type": "application/json" },
-      })
+      await api(
+        notePath,
+        { ...noteBody, updatedAt: newNote.updatedAt },
+        {
+          method: "PATCH",
+          headers: { Cookie: foreign, "Content-Type": "application/json" },
+        },
+      )
     ).status,
     404,
   );
@@ -308,6 +312,7 @@ try {
     title: "  ",
     markdown: "## Updated\n\n| A | B |\n| - | - |\n| 1 | 2 |",
     categoryId: category.id,
+    updatedAt: newNote.updatedAt,
   };
   assert.equal((await api(notePath, changed, { method: "PATCH" })).status, 200);
   const updatedNote = await (await api(notePath)).json();
@@ -317,23 +322,80 @@ try {
   assert(
     Date.parse(updatedNote.updatedAt) >= Date.parse(updatedNote.createdAt),
   );
+  // Missing versions and stale writes never change the saved record.
+  assert.equal(
+    (await api(notePath, noteBody, { method: "PATCH" })).status,
+    400,
+  );
+  assert.equal(
+    (await api(notePath, undefined, { method: "DELETE" })).status,
+    400,
+  );
+  assert.equal((await api(notePath, changed, { method: "PATCH" })).status, 409);
   assert.equal(
     (
-      await api(notePath, undefined, {
-        method: "DELETE",
-        headers: { Cookie: foreign },
-      })
+      await api(
+        notePath,
+        { updatedAt: newNote.updatedAt },
+        { method: "DELETE" },
+      )
+    ).status,
+    409,
+  );
+  assert.deepEqual(await (await api(notePath)).json(), updatedNote);
+  const concurrent = await Promise.all(
+    ["Tab A", "Tab B"].map((title) =>
+      api(
+        notePath,
+        { ...changed, title, updatedAt: updatedNote.updatedAt },
+        { method: "PATCH" },
+      ),
+    ),
+  );
+  assert.deepEqual(
+    concurrent.map((response) => response.status).sort(),
+    [200, 409],
+  );
+  // An explicit overwrite is conditional on the version the user just reviewed.
+  const reviewed = await (await api(notePath)).json();
+  assert.equal(
+    (
+      await api(
+        notePath,
+        { ...changed, updatedAt: reviewed.updatedAt },
+        { method: "PATCH" },
+      )
+    ).status,
+    200,
+  );
+  const finalNote = await (await api(notePath)).json();
+  assert.equal(
+    (
+      await api(
+        notePath,
+        { updatedAt: finalNote.updatedAt },
+        {
+          method: "DELETE",
+          headers: { Cookie: foreign, "Content-Type": "application/json" },
+        },
+      )
     ).status,
     404,
   );
   assert.equal(
-    (await api(notePath, undefined, { method: "DELETE" })).status,
+    (
+      await api(
+        notePath,
+        { updatedAt: finalNote.updatedAt },
+        { method: "DELETE" },
+      )
+    ).status,
     204,
   );
   assert.equal((await api(notePath)).status, 404);
   assert.equal((await api(notePath, changed, { method: "PATCH" })).status, 404);
   console.log(
-    "Notes HTTP smoke passed: create/update/category/default title/delete, auth and owner isolation.",
+    "Notes HTTP smoke passed: create/update/category/default title/delete, version validation, stale and concurrent writes, explicit overwrite, auth and owner isolation.",
   );
   console.log(
     "Chat HTTP smoke passed: auth, create/send idempotency, streaming, concurrency, disconnect/partial save, retry, provider failure, owner isolation.",

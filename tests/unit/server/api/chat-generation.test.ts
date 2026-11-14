@@ -314,6 +314,7 @@ describe("Chat generation", () => {
     expect(Object.keys(input.tools).sort()).toEqual([
       "create_category",
       "create_note",
+      "delete_category",
       "delete_note",
       "get_note",
       "list_categories",

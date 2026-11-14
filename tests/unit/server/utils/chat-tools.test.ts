@@ -27,7 +27,11 @@ const note = {
 const input = { id: "note", updatedAt: version };
 const update = { ...input, title: "Updated", markdown: "# Changed" };
 const context = { toolCallId: "call", messages: [] };
-const categories = vi.hoisted(() => ({ findMany: vi.fn(), create: vi.fn() }));
+const categories = vi.hoisted(() => ({
+  findMany: vi.fn(),
+  create: vi.fn(),
+  deleteMany: vi.fn(),
+}));
 vi.mock("../../../../server/utils/prisma", () => ({
   getPrisma: () => ({ category: categories }),
 }));
@@ -55,6 +59,92 @@ beforeEach(() => {
   writes.deleteOwnedNote.mockResolvedValue({ id: "note", deleted: true });
 });
 describe("in-app Note tools", () => {
+  it("deletes a Category for the active session owner", async () => {
+    categories.deleteMany.mockResolvedValue({ count: 1 });
+    const { tools, assertActive } = setup("owner");
+    expect(
+      await tools.delete_category!.execute!({ id: "category" }, context),
+    ).toMatchObject({
+      structuredContent: { id: "category", deleted: true },
+    });
+    expect(categories.deleteMany).toHaveBeenCalledWith({
+      where: { id: "category", userId: "owner" },
+    });
+    expect(assertActive).toHaveBeenCalledOnce();
+  });
+  it("clears a successfully deleted Chat category before creating another Note in the same turn", async () => {
+    categories.deleteMany.mockResolvedValue({ count: 1 });
+    writes.createOwnedNote.mockImplementation(async (_owner, input) => {
+      if (input.categoryId === "chat-category")
+        throw Object.assign(new Error(), { statusCode: 404 });
+      return { ...note, categoryId: input.categoryId ?? null };
+    });
+    const { tools } = setup("owner", true, "chat-category");
+    await tools.delete_category!.execute!({ id: "chat-category" }, context);
+    expect(
+      await tools.create_note!.execute!(
+        { title: "Title", markdown: "Body" },
+        context,
+      ),
+    ).toMatchObject({
+      structuredContent: { categoryId: null },
+    });
+    expect(writes.createOwnedNote).toHaveBeenLastCalledWith("owner", {
+      title: "Title",
+      markdown: "Body",
+    });
+    await tools.create_note!.execute!(
+      { title: "Explicit", markdown: "Body", categoryId: "other" },
+      context,
+    );
+    expect(writes.createOwnedNote).toHaveBeenLastCalledWith("owner", {
+      title: "Explicit",
+      markdown: "Body",
+      categoryId: "other",
+    });
+  });
+  it.each([
+    ["other", 1],
+    ["chat-category", 0],
+  ])(
+    "keeps the Chat category after deletion of %s with count %s",
+    async (id, count) => {
+      categories.deleteMany.mockResolvedValue({ count });
+      const { tools } = setup("owner", true, "chat-category");
+      await tools.delete_category!.execute!({ id }, context);
+      await tools.create_note!.execute!(
+        { title: "Title", markdown: "Body" },
+        context,
+      );
+      expect(writes.createOwnedNote).toHaveBeenCalledWith("owner", {
+        title: "Title",
+        markdown: "Body",
+        categoryId: "chat-category",
+      });
+    },
+  );
+  it("validates Category deletion and stops after cancellation or ownership loss", async () => {
+    const { tools, controller } = setup();
+    await expect(
+      tools.delete_category!.execute!(
+        { id: "category", userId: "other" } as never,
+        context,
+      ),
+    ).rejects.toThrow();
+    await expect(
+      tools.delete_category!.execute!({ id: "" }, context),
+    ).rejects.toThrow();
+    controller.abort();
+    await expect(
+      tools.delete_category!.execute!({ id: "category" }, context),
+    ).rejects.toThrow();
+    const inactive = setup();
+    inactive.assertActive.mockRejectedValue(new Error("no longer active"));
+    await expect(
+      inactive.tools.delete_category!.execute!({ id: "category" }, context),
+    ).rejects.toThrow();
+    expect(categories.deleteMany).not.toHaveBeenCalled();
+  });
   it("creates a category and uses its ID for a Note ahead of the chat default", async () => {
     categories.create.mockResolvedValue({
       id: "new-category",

@@ -12,7 +12,7 @@ The remote endpoint calls the shared server-side Note operations directly.
 
 ## Use Notes from the in-app Chat
 
-The signed-in app Chat can use the same seven tools for Notes and Categories automatically. Ask it to
+The signed-in app Chat can use the same eight tools for Notes and Categories automatically. Ask it to
 search and summarize saved Notes, save new content, edit an existing Note, or
 permanently delete an identified Note. No Agent access token or MCP client setup
 is required: Chat uses the browser login session and the same owner-scoped Note
@@ -25,7 +25,9 @@ names, including Categories with no Notes. Without a match, the Note is
 uncategorized; an explicitly requested missing Category also falls back to
 uncategorized unless the user requests creating it. The “organize into a Note” draft uses the same priority.
 When explicitly asked to create a Category, Chat and MCP can use `create_category`
-and then save a Note with its returned ID. Category editing and deletion are not exposed.
+and then save a Note with its returned ID. They can also delete an explicitly identified Category with `delete_category`.
+Its Notes and Chats become Uncategorized; their content and messages are preserved.
+Category renaming is not exposed.
 Remote agents receive the same selection guidance in `create_note`; any current
 chat Category must come from their own context, since MCP has no app Chat session.
 
@@ -116,6 +118,7 @@ Ordinary users only configure their agent and do not need this repository or fil
 | `get_note`        | `id` from a search result                                              | ID, title, Markdown, category ID, creation/update times              |
 | `create_note`     | Required `title`, `markdown`; optional `categoryId`                    | ID, title, Markdown, category ID, creation/update times, URL         |
 | `update_note`     | Required `id`, `title`, `markdown`, `updatedAt`; optional `categoryId` | Updated Note with creation/update times and URL                      |
+| `delete_category` | Required `id`                                                          | Deleted Category ID and `deleted: true`                              |
 | `delete_note`     | Required `id`, `updatedAt`                                             | Deleted Note ID and `deleted: true`                                  |
 
 Search is literal and case-insensitive across title and Markdown body, with the
@@ -152,6 +155,17 @@ case-insensitive comparison, matching the app. On a duplicate, use
 are rejected. Ownership comes from the authenticated token or Chat session.
 Creation is available to every valid token and is annotated as non-read-only,
 non-destructive, and non-idempotent. Chat retries do not expose this write tool.
+
+## Delete a Category
+
+`delete_category` accepts an existing Category `id` from `list_categories`.
+Use only for an explicit deletion request; clarify ambiguous targets first.
+Deletion removes the Category and its assignments permanently. Both Notes and
+Chats become Uncategorized; no Notes, Chats, or messages are deleted.
+Missing and foreign Categories return the same error. Extra fields, including
+`userId`, are rejected. The tool is available to every valid token and annotated
+as non-read-only, destructive, and idempotent. Repeating a successful deletion
+returns not found without further changes. Chat retries do not expose it.
 
 ## Update an existing Note
 

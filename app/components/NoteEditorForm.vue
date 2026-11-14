@@ -11,6 +11,7 @@ const props = defineProps<{
   saved?: boolean;
   failure?: string;
   overLimit?: boolean;
+  saveBlocked?: boolean;
   categoryOptions: { label: string; value: string }[];
 }>();
 const saveDisabled = computed(
@@ -19,6 +20,7 @@ const saveDisabled = computed(
       props.saving ||
       props.saved ||
       props.overLimit ||
+      props.saveBlocked ||
       (props.note && !props.dirty)
     ),
 );

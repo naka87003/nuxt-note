@@ -7,13 +7,14 @@ export function categoryName(body: unknown) {
   const parsed = categoryNameSchema.safeParse(body);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
-    if (issue?.code === "invalid_type")
+    if (issue?.code === "invalid_type") {
       throw createError({
         statusCode: 400,
         statusMessage: issue.path.length
           ? "Invalid category name"
           : "Invalid category",
       });
+    }
     throw createError({
       statusCode: 400,
       statusMessage: `Use 1–${INPUT_LIMITS.categoryName} characters for the category name`,
@@ -43,11 +44,12 @@ export function categoryConflict(error: unknown): never {
     typeof error === "object" &&
     "code" in error &&
     error.code === "P2002"
-  )
+  ) {
     throw createError({
       statusCode: 409,
       statusMessage: "A category with this name already exists",
     });
+  }
   throw error;
 }
 
@@ -61,4 +63,38 @@ export async function createOwnedCategory(userId: string, input: unknown) {
   } catch (error) {
     categoryConflict(error);
   }
+}
+
+export async function updateOwnedCategory(
+  userId: string,
+  id: string,
+  input: unknown,
+) {
+  const data = categoryName(input);
+  try {
+    const result = await getPrisma().category.updateMany({
+      where: { id, userId },
+      data,
+    });
+    if (!result.count) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: "Category not found",
+      });
+    }
+    return { id, name: data.name };
+  } catch (error) {
+    categoryConflict(error);
+  }
+}
+
+export async function deleteOwnedCategory(userId: string, id: string) {
+  // Foreign keys set both Notes and Chats to Uncategorized without deleting content.
+  const result = await getPrisma().category.deleteMany({
+    where: { id, userId },
+  });
+  if (!result.count) {
+    throw createError({ statusCode: 404, statusMessage: "Category not found" });
+  }
+  return { id, deleted: true };
 }

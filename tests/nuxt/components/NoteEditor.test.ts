@@ -9,7 +9,11 @@ import {
 } from "#imports";
 import NoteEditor from "~/components/NoteEditor.vue";
 import NoteEditorForm from "~/components/NoteEditorForm.vue";
+import { defineComponent } from "vue";
 import { INPUT_LIMITS } from "#shared/utils/input-limits";
+
+import { useNoteEditor } from "~/composables/useNoteEditor";
+import { mountComposable } from "../helpers/mount-composable";
 
 const { request, leave, update } = vi.hoisted(() => ({
   request: vi.fn().mockResolvedValue(null),
@@ -21,13 +25,16 @@ mockNuxtImport("onBeforeRouteLeave", () => leave);
 mockNuxtImport("onBeforeRouteUpdate", () => update);
 const savedNote = {
   id: "note-1",
+  updatedAt: "2026-11-13T00:00:00.000Z",
   title: "Original",
   markdown: "Body",
   categoryId: null,
 };
 
 beforeEach(() => {
-  request.mockReset().mockResolvedValue({ id: "note-1" });
+  request
+    .mockReset()
+    .mockResolvedValue({ id: "note-1", updatedAt: "2026-11-13T00:00:01.000Z" });
   leave.mockReset();
   update.mockReset();
   useNuxtApp().$unsavedChanges.resolve(false);
@@ -70,10 +77,12 @@ describe("NoteEditor", () => {
         existing ? "/api/notes/note-1" : "/api/notes",
         {
           method: existing ? "PATCH" : "POST",
+          retry: 0,
           body: {
             title: "Changed",
             markdown: "Changed body",
             categoryId: "work",
+            ...(existing ? { updatedAt: savedNote.updatedAt } : {}),
           },
         },
       );
@@ -81,6 +90,7 @@ describe("NoteEditor", () => {
         [
           {
             id: "note-1",
+            updatedAt: "2026-11-13T00:00:01.000Z",
             title: "Changed",
             markdown: "Changed body",
             categoryId: "work",
@@ -132,6 +142,25 @@ describe("NoteEditor", () => {
     expect(wrapper.emitted("saved")).toHaveLength(1);
   });
 
+  it("allows changing a removed category and retrying a new Note without losing its draft", async () => {
+    request.mockRejectedValueOnce({ statusCode: 404 });
+    const wrapper = await mountSuspended(NoteEditor);
+    await edit(wrapper);
+    const form = wrapper.getComponent(NoteEditorForm);
+    form.vm.$emit("update:category", "removed");
+    form.vm.$emit("save");
+    await flushPromises();
+    expect(wrapper.text()).toContain(
+      "selected category is no longer available",
+    );
+    expect(form.props("saveBlocked")).toBe(false);
+    form.vm.$emit("update:category", "uncategorized");
+    form.vm.$emit("save");
+    await flushPromises();
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(wrapper.emitted("saved")).toHaveLength(1);
+  });
+
   it("does not replace a local draft when the saved note refreshes", async () => {
     const wrapper = await mountSuspended(NoteEditor, {
       props: { note: savedNote },
@@ -142,12 +171,16 @@ describe("NoteEditor", () => {
         ...savedNote,
         title: "Background update",
         markdown: "Remote body",
+        updatedAt: "2026-11-13T00:00:02.000Z",
       },
     });
     const form = wrapper.getComponent(NoteEditorForm);
     expect(form.props("title")).toBe("Changed");
     expect(form.props("markdown")).toBe("Body");
     expect(form.props("dirty")).toBe(true);
+    form.vm.$emit("save");
+    await flushPromises();
+    expect(request.mock.calls[0]![1].body.updatedAt).toBe(savedNote.updatedAt);
   });
 
   it("protects unsaved edits when cancelling until discard is confirmed", async () => {
@@ -224,4 +257,198 @@ describe("NoteEditor", () => {
     await flushPromises();
     expect(request).not.toHaveBeenCalled();
   });
+});
+
+const modal = defineComponent({
+  props: ["open", "title"],
+  template:
+    '<section v-if="open" role="dialog"><h2>{{ title }}</h2><slot name="body"/><slot name="footer"/></section>',
+});
+const latestNote = {
+  ...savedNote,
+  title: "Remote title",
+  markdown: "Remote body",
+  updatedAt: "2026-11-13T00:00:02.000Z",
+};
+async function conflictEditor(prepareError?: unknown) {
+  request.mockRejectedValueOnce({ statusCode: 409 });
+  if (prepareError) request.mockRejectedValueOnce(prepareError);
+  else request.mockResolvedValueOnce(latestNote);
+  const wrapper = await mountSuspended(NoteEditor, {
+    props: { note: savedNote },
+    global: { stubs: { UModal: modal } },
+  });
+  await edit(wrapper);
+  wrapper
+    .getComponent(NoteEditorForm)
+    .vm.$emit("update:markdown", "Local body");
+  wrapper.getComponent(NoteEditorForm).vm.$emit("update:category", "work");
+  await flushPromises();
+  wrapper.getComponent(NoteEditorForm).vm.$emit("save");
+  await flushPromises();
+  return wrapper;
+}
+function action(
+  wrapper: Awaited<ReturnType<typeof conflictEditor>>,
+  label: string,
+) {
+  return wrapper.findAll("button").find((button) => button.text() === label)!;
+}
+describe("NoteEditor conflicts", () => {
+  it("preserves the draft and requires an explicit confirmation without displaying either full Note", async () => {
+    const wrapper = await conflictEditor();
+    const form = wrapper.getComponent(NoteEditorForm);
+    expect(form.props()).toMatchObject({
+      title: "Changed",
+      markdown: "Local body",
+      category: "work",
+      dirty: true,
+      saveBlocked: false,
+    });
+    const dialog = wrapper.get('[role="dialog"]');
+    expect(dialog.text()).toContain("Overwrite this note?");
+    expect(dialog.text()).not.toContain(latestNote.markdown);
+    expect(dialog.text()).not.toContain("Local body");
+    expect(dialog.findAll("button").map((button) => button.text())).toEqual([
+      "Keep editing",
+      "Overwrite and save",
+    ]);
+    form.vm.$emit("save");
+    await flushPromises();
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(wrapper.emitted("saved")).toBeUndefined();
+    await action(wrapper, "Keep editing").trigger("click");
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+    expect(form.props("markdown")).toBe("Local body");
+    expect(request).toHaveBeenCalledTimes(2);
+    await edit(wrapper, "More local edits");
+    const newVersion = "2026-11-13T00:00:03.000Z";
+    request.mockResolvedValueOnce({ ...latestNote, updatedAt: newVersion });
+    form.vm.$emit("save");
+    await flushPromises();
+    expect(request).toHaveBeenLastCalledWith("/api/notes/note-1", { retry: 0 });
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(true);
+    request.mockResolvedValueOnce({
+      id: "note-1",
+      updatedAt: "2026-11-13T00:00:04.000Z",
+    });
+    await action(wrapper, "Overwrite and save").trigger("click");
+    await flushPromises();
+    expect(request).toHaveBeenLastCalledWith("/api/notes/note-1", {
+      method: "PATCH",
+      retry: 0,
+      body: {
+        title: "More local edits",
+        markdown: "Local body",
+        categoryId: "work",
+        updatedAt: newVersion,
+      },
+    });
+    expect(wrapper.emitted("saved")).toHaveLength(1);
+  });
+  it("requires a new confirmation when another update races an overwrite", async () => {
+    const wrapper = await conflictEditor();
+    const newerVersion = "2026-11-13T00:00:03.000Z";
+    request
+      .mockRejectedValueOnce({ statusCode: 409 })
+      .mockResolvedValueOnce({ ...latestNote, updatedAt: newerVersion });
+    await action(wrapper, "Overwrite and save").trigger("click");
+    await flushPromises();
+    expect(request).toHaveBeenCalledTimes(4);
+    expect(
+      request.mock.calls.filter(([, options]) => options.method === "PATCH"),
+    ).toHaveLength(2);
+    expect(request.mock.calls[2]![1].body.updatedAt).toBe(latestNote.updatedAt);
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(true);
+    expect(wrapper.emitted("saved")).toBeUndefined();
+    expect(wrapper.getComponent(NoteEditorForm).props("markdown")).toBe(
+      "Local body",
+    );
+    request.mockResolvedValueOnce({
+      id: "note-1",
+      updatedAt: "2026-11-13T00:00:04.000Z",
+    });
+    await action(wrapper, "Overwrite and save").trigger("click");
+    await flushPromises();
+    expect(request.mock.calls.at(-1)![1].body.updatedAt).toBe(newerVersion);
+  });
+  it("preserves the draft when preparing confirmation fails and offers a manual retry", async () => {
+    const wrapper = await conflictEditor(new Error("offline"));
+    expect(wrapper.text()).toContain("Could not prepare overwrite");
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+    expect(wrapper.getComponent(NoteEditorForm).props("markdown")).toBe(
+      "Local body",
+    );
+    request.mockResolvedValueOnce(latestNote);
+    wrapper.getComponent(NoteEditorForm).vm.$emit("save");
+    await flushPromises();
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(true);
+    expect(
+      request.mock.calls.filter(([, options]) => options.method === "PATCH"),
+    ).toHaveLength(1);
+  });
+  it("keeps the confirmation and draft after a failed overwrite, and blocks duplicate submissions", async () => {
+    const wrapper = await conflictEditor();
+    let reject!: (error: Error) => void;
+    request.mockImplementationOnce(
+      () =>
+        new Promise((_, fail) => {
+          reject = fail;
+        }),
+    );
+    await action(wrapper, "Overwrite and save").trigger("click");
+    await flushPromises();
+    expect(
+      action(wrapper, "Keep editing").attributes("disabled"),
+    ).toBeDefined();
+    expect(
+      action(wrapper, "Overwrite and save").attributes("disabled"),
+    ).toBeDefined();
+    await action(wrapper, "Overwrite and save").trigger("click");
+    expect(request).toHaveBeenCalledTimes(3);
+    reject(new Error("offline"));
+    await flushPromises();
+    expect(wrapper.get('[role="dialog"]').text()).toContain(
+      "Could not save your note",
+    );
+    expect(wrapper.getComponent(NoteEditorForm).props("markdown")).toBe(
+      "Local body",
+    );
+    expect(wrapper.emitted("saved")).toBeUndefined();
+  });
+  it("preserves a deleted Note's draft and prevents further writes", async () => {
+    const wrapper = await conflictEditor({ statusCode: 404 });
+    expect(wrapper.text()).toContain("deleted or is no longer available");
+    expect(wrapper.getComponent(NoteEditorForm).props()).toMatchObject({
+      markdown: "Local body",
+      saveBlocked: true,
+    });
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+    wrapper.getComponent(NoteEditorForm).vm.$emit("save");
+    await flushPromises();
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+});
+
+it("keeps save success when the success callback throws instead of treating it as an API conflict", async () => {
+  const callbackError = Object.assign(new Error("View failed"), {
+    statusCode: 409,
+  });
+  const { result } = await mountComposable(() =>
+    useNoteEditor({
+      note: savedNote,
+      categoryId: null,
+      onSaved: () => {
+        throw callbackError;
+      },
+    }),
+  );
+  await expect(result.save()).rejects.toBe(callbackError);
+  expect(result.saved.value).toBe(true);
+  expect(result.saving.value).toBe(false);
+  expect(result.failure.value).toBe("");
+  expect(result.confirmation.value).toBe(false);
+  await result.save();
+  expect(request).toHaveBeenCalledTimes(1);
 });

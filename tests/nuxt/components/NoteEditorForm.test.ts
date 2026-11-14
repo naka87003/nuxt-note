@@ -59,6 +59,7 @@ describe("NoteEditorForm", () => {
     { saving: true },
     { saved: true },
     { overLimit: true },
+    { saveBlocked: true },
     { note: true, dirty: false },
   ])("prevents saving while unavailable: %j", async (props) => {
     const wrapper = await mountSuspended(NoteEditorForm, {

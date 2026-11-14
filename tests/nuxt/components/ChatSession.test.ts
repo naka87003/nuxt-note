@@ -1,11 +1,20 @@
 import { mockNuxtImport, mountSuspended } from "@nuxt/test-utils/runtime";
 import { flushPromises } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { nextTick, ref } from "vue";
-import { clearNuxtData, clearNuxtState, refreshNuxtData } from "#imports";
+import { nextTick, ref, type Ref } from "vue";
+import {
+  clearNuxtData,
+  clearNuxtState,
+  refreshNuxtData,
+  useNuxtData,
+  useRouter,
+  useUserSession,
+} from "#imports";
 import ChatSession from "~/components/ChatSession.vue";
 import ChatComposer from "~/components/ChatComposer.vue";
 import type { Conversation } from "~/composables/useChatGeneration";
+
+import type { CategoriesResponse } from "#shared/types/workspace";
 
 const mocks = vi.hoisted(() => ({
   generation: vi.fn(),
@@ -56,7 +65,7 @@ beforeEach(() => {
     id: "chat",
     title: "Conversation",
     generationId: null,
-    messages: [reply],
+    messages: [{ ...reply }],
   };
   flow = {
     draft: ref(""),
@@ -77,9 +86,10 @@ beforeEach(() => {
   });
 });
 
-async function mountSession() {
+async function mountSession(route?: string) {
   return await mountSuspended(ChatSession, {
     props: { chatId: "chat" },
+    ...(route ? { route } : {}),
     global: {
       stubs: {
         UModal: modal,
@@ -322,5 +332,119 @@ describe("ChatSession", () => {
       false,
     );
     expect(wrapper.getComponent(ChatComposer).props("disabled")).toBe(true);
+  });
+});
+
+async function categorySession() {
+  useUserSession().session.value = {
+    id: "test-session",
+    user: {
+      id: "owner",
+      githubLogin: "fixture",
+      name: "Fixture",
+      avatarUrl: "",
+    },
+  };
+  const categories = useNuxtData<CategoriesResponse>(
+    "workspace-categories",
+  ).data;
+  categories.value = {
+    items: [{ id: "work", name: "Work", _count: { notes: 0, chats: 1 } }],
+    totals: { notes: 0, chats: 1 },
+    uncategorized: { notes: 0, chats: 0 },
+  };
+  conversation.categoryId = "work";
+  const load = vi
+    .fn()
+    .mockResolvedValueOnce(conversation)
+    .mockResolvedValue({
+      ...conversation,
+      categoryId: null,
+      messages: [{ ...reply }],
+    });
+  let chat!: Ref<Conversation | null>;
+  mocks.refresh.mockImplementation((current) => {
+    chat = current;
+    return async () => {
+      const snapshot = await load();
+      current.value = snapshot;
+      return snapshot;
+    };
+  });
+  const wrapper = await mountSession("/chats/chat?category=work");
+  await flushPromises();
+  return { wrapper, categories, load, chat };
+}
+function withoutWorkCategory(categories: Ref<CategoriesResponse | undefined>) {
+  categories.value = {
+    ...categories.value!,
+    items: [],
+    uncategorized: { notes: 0, chats: 1 },
+  };
+}
+describe("Chat category deletion", () => {
+  it("reloads a deleted current category after generation and moves the route to Uncategorized", async () => {
+    const { wrapper, categories, load, chat } = await categorySession();
+    await wrapper.get("textarea").setValue("Next question draft");
+    const composer = wrapper.get("textarea").element;
+    flow.sending.value = true;
+    flow.busy.value = true;
+    chat.value!.messages[0]!.content = "Partial response";
+    chat.value!.messages[0]!.status = "generating";
+    withoutWorkCategory(categories);
+    await flushPromises();
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(chat.value!.messages[0]!.content).toBe("Partial response");
+    expect(useRouter().currentRoute.value.query.category).toBe("work");
+    flow.sending.value = false;
+    flow.busy.value = false;
+    await flushPromises();
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(chat.value?.categoryId).toBeNull();
+    await vi.waitFor(() => {
+      expect(useRouter().currentRoute.value.query.category).toBe(
+        "uncategorized",
+      );
+    });
+    expect(wrapper.text()).toContain("Uncategorized");
+    expect(chat.value!.messages[0]).toMatchObject({
+      content: "Answer",
+      status: "completed",
+    });
+    expect(wrapper.get("textarea").element).toBe(composer);
+    expect(wrapper.get("textarea").element.value).toBe("Next question draft");
+    expect(request).not.toHaveBeenCalled();
+  });
+  it("does not reload history when the current category still exists", async () => {
+    const { categories, load } = await categorySession();
+    flow.sending.value = true;
+    categories.value = {
+      ...categories.value!,
+      items: [...categories.value!.items],
+    };
+    flow.sending.value = false;
+    await flushPromises();
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(useRouter().currentRoute.value.query.category).toBe("work");
+  });
+  it("does not assume a missing category is deleted if the server still assigns it", async () => {
+    const { categories, load, chat } = await categorySession();
+    load.mockResolvedValueOnce(conversation);
+    withoutWorkCategory(categories);
+    await flushPromises();
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(chat.value?.categoryId).toBe("work");
+    expect(useRouter().currentRoute.value.query.category).toBe("work");
+  });
+  it("keeps the conversation and shows reload guidance if category synchronization fails", async () => {
+    const { wrapper, categories, load, chat } = await categorySession();
+    load.mockRejectedValueOnce(new Error("offline"));
+    withoutWorkCategory(categories);
+    await flushPromises();
+    expect(chat.value?.categoryId).toBe("work");
+    expect(wrapper.text()).toContain("Could not reload this chat's category");
+    expect(wrapper.text()).toContain("Answer");
+    expect(useRouter().currentRoute.value.query.category).toBe("work");
+    expect(request).not.toHaveBeenCalled();
   });
 });

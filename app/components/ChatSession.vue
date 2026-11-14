@@ -191,15 +191,36 @@ const canCreateNote = computed(
 );
 
 watch(
-  () => chat.value?.id,
+  [() => chat.value?.id, () => chat.value?.categoryId],
   async () => {
     if (!chat.value || route.path !== `/chats/${chat.value.id}`) return;
     const filter = chat.value.categoryId ?? "uncategorized";
     state.value.filter = filter;
-    if (route.query.category !== filter)
+    if (route.query.category !== filter) {
       await navigateTo(location(route.path, filter), { replace: true });
+    }
   },
   { immediate: true },
+);
+
+watch(
+  [() => categories.value?.items, () => chat.value?.categoryId, sending],
+  () => {
+    const currentCategory = chat.value?.categoryId;
+    if (
+      sending.value ||
+      !currentCategory ||
+      !categories.value ||
+      categories.value.items.some((item) => item.id === currentCategory)
+    ) {
+      return;
+    }
+    // Recheck the server after a shared Category disappears, outside the stream.
+    void refreshConversation().catch(() => {
+      navigationFailure.value =
+        "Could not reload this chat's category. Please reload the page.";
+    });
+  },
 );
 
 function assign() {

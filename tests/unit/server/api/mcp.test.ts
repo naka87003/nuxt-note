@@ -22,7 +22,12 @@ const writes = vi.hoisted(() => ({
     deleteMany: vi.fn(),
     findFirst: vi.fn(),
   },
-  category: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn() },
+  category: {
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    deleteMany: vi.fn(),
+  },
 }));
 vi.mock("../../../../server/utils/prisma", () => ({ getPrisma: () => writes }));
 const clients: Client[] = [];
@@ -62,6 +67,70 @@ async function connect(owner: string, siteUrl = "https://notes.example") {
 }
 
 describe("remote MCP tools", () => {
+  it("deletes only the token owner's Category and declares destructive behavior", async () => {
+    writes.category.deleteMany.mockResolvedValue({ count: 1 });
+    for (const owner of ["a", "b"]) {
+      const client = await connect(owner);
+      const { tools } = await client.listTools();
+      expect(
+        tools.find((t) => t.name === "delete_category")?.annotations,
+      ).toMatchObject({
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      });
+      expect(
+        await client.callTool({
+          name: "delete_category",
+          arguments: { id: "category" },
+        }),
+      ).toMatchObject({
+        structuredContent: { id: "category", deleted: true },
+      });
+      expect(writes.category.deleteMany).toHaveBeenLastCalledWith({
+        where: { id: "category", userId: owner },
+      });
+    }
+    expect(writes.note.deleteMany).not.toHaveBeenCalled();
+  });
+  it.each([
+    { id: "" },
+    { id: "x".repeat(101) },
+    {},
+    { id: null },
+    { id: "category", userId: "other" },
+  ])("rejects invalid Category deletion arguments %j", async (args) => {
+    const client = await connect("owner");
+    expect(
+      await client.callTool({ name: "delete_category", arguments: args }),
+    ).toMatchObject({ isError: true });
+    expect(writes.category.deleteMany).not.toHaveBeenCalled();
+  });
+  it("hides missing or foreign Categories and sanitizes deletion errors", async () => {
+    const client = await connect("owner");
+    writes.category.deleteMany
+      .mockResolvedValueOnce({ count: 0 })
+      .mockRejectedValueOnce(new Error("private database details"));
+    expect(
+      await client.callTool({
+        name: "delete_category",
+        arguments: { id: "foreign" },
+      }),
+    ).toMatchObject({
+      isError: true,
+      content: [{ text: "Category not found." }],
+    });
+    expect(
+      await client.callTool({
+        name: "delete_category",
+        arguments: { id: "category" },
+      }),
+    ).toMatchObject({
+      isError: true,
+      content: [{ text: "Could not delete Category. Please try again." }],
+    });
+  });
   it("creates normalized categories for each token owner and exposes safe annotations", async () => {
     writes.category.create.mockImplementation(async ({ data }) => ({
       id: `${data.userId}-category`,
@@ -223,6 +292,7 @@ describe("remote MCP tools", () => {
     expect(tools.map((t) => t.name).sort()).toEqual([
       "create_category",
       "create_note",
+      "delete_category",
       "delete_note",
       "get_note",
       "list_categories",
