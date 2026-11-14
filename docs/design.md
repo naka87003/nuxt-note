@@ -9,7 +9,7 @@ It uses local components and is synchronized with the implementation manually.
 - [Workspace](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=92-1008)
 - [Responsive layouts](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=106-1023)
 - [Landing page](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=92-1009)
-- [Landing refresh: desktop](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=475-4705), [1024px](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=514-4789), [768px](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=514-5326), [390px](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=514-5855) on the LP Draft page
+- [Landing page: desktop](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=475-4705), [1024px](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=514-4789), [768px](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=514-5326), [390px](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=514-5855) on the Production page
 - [Agent access](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=428-4067)
 - [Note editing and saving](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=364-3863)
 - [Chat generation and recovery](https://www.figma.com/design/gkpXsU7QuoSzpXxo3QC99n?node-id=364-3864)
