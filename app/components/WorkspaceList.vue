@@ -149,7 +149,7 @@ function date(value: string) {
             variant="outline"
             icon="i-lucide-plus"
             size="sm"
-            class="shrink-0 font-bold"
+            class="ms-auto shrink-0 font-bold"
           >
             {{ mode === "notes" ? "New note" : "New Chat" }}
           </UButton>
