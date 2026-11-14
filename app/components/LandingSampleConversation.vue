@@ -74,10 +74,4 @@ const conversation = computed(() =>
   background: var(--ui-primary);
   opacity: 0.5;
 }
-@media (max-width: 767px) {
-  .sample-conversation {
-    --landing-code-white-space: pre-wrap;
-    --landing-code-wrap: anywhere;
-  }
-}
 </style>
