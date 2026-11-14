@@ -92,37 +92,11 @@ async function remove() {
           </UButton>
         </template>
       </UAlert>
-      <article v-else-if="note">
+      <article v-else-if="note" class="note-reader-article">
         <div class="note-reader-toolbar">
-          <p
-            class="note-reader-meta flex flex-wrap items-baseline gap-x-1 text-xs text-dimmed"
+          <div
+            class="flex max-w-full flex-wrap justify-end gap-2 note-reader-actions"
           >
-            <span class="wrap-break-word">{{ categoryName }}</span>
-            <span aria-hidden="true">·</span>
-            <span>
-              Created
-              <NuxtTime
-                :datetime="note.createdAt"
-                locale="en-US"
-                month="short"
-                day="numeric"
-              />
-            </span>
-            <span aria-hidden="true">·</span>
-            <span>
-              Updated
-              <NuxtTime
-                :datetime="note.updatedAt"
-                locale="en-US"
-                month="short"
-                day="numeric"
-                hour="2-digit"
-                minute="2-digit"
-                hour-cycle="h23"
-              />
-            </span>
-          </p>
-          <div class="ml-auto flex shrink-0 gap-2 note-reader-actions">
             <UButton
               color="primary"
               variant="solid"
@@ -161,6 +135,34 @@ async function remove() {
           </div>
         </div>
         <div class="note-reader-body space-y-6">
+          <p
+            class="note-reader-meta flex flex-wrap items-baseline gap-x-1 text-xs text-dimmed"
+          >
+            <span class="wrap-break-word">{{ categoryName }}</span>
+            <span aria-hidden="true">·</span>
+            <span>
+              Created
+              <NuxtTime
+                :datetime="note.createdAt"
+                locale="en-US"
+                month="short"
+                day="numeric"
+              />
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>
+              Updated
+              <NuxtTime
+                :datetime="note.updatedAt"
+                locale="en-US"
+                month="short"
+                day="numeric"
+                hour="2-digit"
+                minute="2-digit"
+                hour-cycle="h23"
+              />
+            </span>
+          </p>
           <h1 class="wrap-break-word text-2xl font-semibold">
             {{ note.title }}
           </h1>
@@ -204,30 +206,37 @@ async function remove() {
 </template>
 
 <style scoped>
-.note-reader {
+.note-page,
+.note-reader,
+.note-reader-article {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
+}
+.note-reader {
   overflow-y: auto;
 }
 .note-reader-toolbar {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
   min-height: 64px;
   padding: 12px 24px;
   border-bottom: 1px solid var(--ui-border);
-  justify-content: space-between;
+  justify-content: flex-end;
+  flex-shrink: 0;
 }
 .note-reader-meta {
-  flex: 1 1 240px;
-  min-width: 0;
   overflow-wrap: anywhere;
 }
 .note-reader-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   padding: 32px;
 }
 .note-reader-error {
+  flex-shrink: 0;
   width: auto;
   margin: 32px;
 }
@@ -243,17 +252,7 @@ async function remove() {
     margin: 60px 16px 16px;
   }
   .note-reader-toolbar {
-    padding: 8px 16px;
+    padding: 8px 16px 8px 72px;
   }
-  .note-reader-meta {
-    flex-basis: 100%;
-    order: 1;
-  }
-}
-.note-page {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  flex-direction: column;
 }
 </style>

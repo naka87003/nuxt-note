@@ -265,13 +265,10 @@ const visibleGroups = computed(() =>
             <div class="sample-content">
               <div class="sample-toolbar">
                 <span class="back-label">← Back</span>
-                <small v-if="!isChat" class="sample-note-meta">
-                  Nuxt · Created Nov 1 · Updated Nov 3, 10:24
-                </small>
                 <div class="sample-actions">
-                  <span v-if="isChat" class="sample-primary"
-                    >Generate draft</span
-                  >
+                  <span v-if="isChat" class="sample-primary">
+                    Generate draft
+                  </span>
                   <div class="sample-secondary-actions">
                     <span :class="isChat ? 'sample-soft' : 'sample-primary'">
                       <template v-if="isChat">
@@ -546,6 +543,7 @@ small {
   margin: 4px 0;
 }
 .sample-content {
+  min-height: 0;
   font-size: 16px;
   line-height: 1.7;
   flex: 1;
@@ -554,11 +552,10 @@ small {
   min-width: 0;
 }
 .sample-toolbar {
+  position: relative;
   display: flex;
   flex-shrink: 0;
-  flex-wrap: wrap;
-  gap: 12px;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   min-height: 64px;
   padding: 12px 24px;
@@ -567,7 +564,6 @@ small {
 .sample-actions {
   display: flex;
   gap: 8px;
-  margin-left: auto;
   flex-wrap: wrap;
   justify-content: flex-end;
   min-width: 0;
@@ -586,10 +582,6 @@ small {
 .sample-secondary-actions {
   display: flex;
   gap: inherit;
-  min-width: 0;
-}
-.sample-note-meta {
-  flex: 1 1 180px;
   min-width: 0;
 }
 .back-label {
@@ -632,12 +624,27 @@ small {
   .header-actions > .mobile-preview-menu {
     display: inline-block;
   }
-  .back-label {
-    display: block;
+  .sample-toolbar {
+    padding: 8px 16px 8px 72px;
   }
-  .sample-note-meta {
-    flex-basis: 100%;
-    order: 1;
+  .back-label {
+    position: absolute;
+    top: 8px;
+    left: 0;
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding-inline: 12px;
+    font-size: 14px;
+    line-height: 20px;
+  }
+  .sample-toolbar .sample-primary,
+  .sample-toolbar .sample-soft {
+    min-height: 44px;
+  }
+  .sample-secondary-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 }
 </style>

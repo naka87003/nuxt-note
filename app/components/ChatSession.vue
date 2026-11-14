@@ -257,7 +257,7 @@ async function remove() {
       v-if="error"
       title="Could not open this chat"
       color="error"
-      class="m-4"
+      class="m-4 w-auto"
     >
       <template #description>
         <UButton color="neutral" variant="link" @click="refresh()">
