@@ -60,7 +60,12 @@ async function deleteToken() {
     await $fetch(`/api/agent-tokens/${deleteId.value}`, { method: "DELETE" });
     if (deleteId.value === issued.value?.id) issued.value = null;
     deleteId.value = "";
-    toast.add({ title: "Token deleted", color: "success" });
+    toast.add({
+      title: "Token deleted",
+      color: "success",
+      icon: "i-lucide-check",
+      progress: false,
+    });
     await refresh();
   } catch {
     deleteFailure.value = "Could not delete the token. Please try again.";
