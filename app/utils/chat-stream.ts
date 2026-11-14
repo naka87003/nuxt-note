@@ -1,4 +1,12 @@
-import type { ChatStreamEvent } from "../../shared/types/chat";
+import { chatStreamEventSchema } from "../../shared/schemas/chat-stream";
+
+function parseEvent(data: string) {
+  try {
+    return chatStreamEventSchema.parse(JSON.parse(data));
+  } catch {
+    throw new Error("Invalid response data. Please try again.");
+  }
+}
 
 // The chat endpoint sends one JSON event per SSE data line. Network chunks
 // can split a line or contain several events, independently of token boundaries.
@@ -14,8 +22,9 @@ export async function* readChatStream(body: ReadableStream<Uint8Array>) {
       const lines = buffer.split("\n");
       buffer = lines.pop() ?? "";
       for (const line of lines) {
-        if (line.startsWith("data:"))
-          yield JSON.parse(line.slice(5).trim()) as ChatStreamEvent;
+        if (line.startsWith("data:")) {
+          yield parseEvent(line.slice(5).trim());
+        }
       }
     }
   } finally {

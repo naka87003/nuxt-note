@@ -20,18 +20,18 @@ import {
   lockIdleChat,
   messageOrder,
   recoverGeneration,
-  requestId,
   requireChat,
   saveGeneration,
 } from "../../../utils/chat-generation";
+import { generateChatInputSchema } from "../../../utils/input-schemas";
+import { parseInput } from "../../../utils/parse-input";
 
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);
   const id = getRouterParam(event, "id")!;
   await requireChat(userId, id);
-  const body = await readBody(event);
-  const messageId = requestId(body?.messageId);
-  const attemptId = requestId(body?.attemptId);
+  const body: unknown = await readBody(event);
+  const { messageId, attemptId } = parseInput(generateChatInputSchema, body);
   const config = useRuntimeConfig(event);
   if (!config.openaiApiKey || !config.openaiModel)
     throw createError({

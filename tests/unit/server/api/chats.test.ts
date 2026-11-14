@@ -69,6 +69,26 @@ describe("Chat API authentication", () => {
   );
 });
 describe("chat ownership and category assignment", () => {
+  it.each([
+    null,
+    [],
+    {},
+    { categoryId: "" },
+    { categoryId: 42 },
+    { categoryId: [] },
+  ])(
+    "rejects invalid category changes before looking up a category: %j",
+    async (body) => {
+      mocks.chat.findFirst.mockResolvedValue({ id: "item" });
+      mocks.body.mockResolvedValue(body);
+      await expect(assignChat(event)).rejects.toMatchObject({
+        statusCode: 400,
+        statusMessage: "Invalid category",
+      });
+      expect(mocks.category.findFirst).not.toHaveBeenCalled();
+      expect(mocks.chat.updateMany).not.toHaveBeenCalled();
+    },
+  );
   it("returns a preview from the first user message without exposing messages", async () => {
     mocks.chat.findMany.mockResolvedValue([
       {

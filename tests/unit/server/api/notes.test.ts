@@ -94,6 +94,42 @@ describe("notes API ownership and validation", () => {
     await expect(create(event)).rejects.toMatchObject({ statusCode: 400 });
     expect(mocks.create).not.toHaveBeenCalled();
   });
+  it.each([
+    [{ title: 42, markdown: "" }, "Title must be a string"],
+    [{ title: "Title" }, "Markdown body is required"],
+    [{ title: "Title", markdown: false }, "Markdown body must be a string"],
+    [
+      { title: "x".repeat(51), markdown: "" },
+      "Title must be at most 50 characters",
+    ],
+    [
+      { title: "😀".repeat(25) + "x", markdown: "" },
+      "Title must be at most 50 characters",
+    ],
+    [
+      { title: "Title", markdown: "x".repeat(5001) },
+      "Markdown body must be at most 5000 characters",
+    ],
+    [
+      { title: "Title", markdown: "", categoryId: 42 },
+      "Category ID must be a string or null",
+    ],
+    [
+      { title: "Title", markdown: "", categoryId: "" },
+      "Category ID must not be empty",
+    ],
+  ])(
+    "explains the invalid field before looking up categories: %j",
+    async (body, statusMessage) => {
+      mocks.body.mockResolvedValue(body);
+      await expect(create(event)).rejects.toMatchObject({
+        statusCode: 400,
+        statusMessage,
+      });
+      expect(mocks.category).not.toHaveBeenCalled();
+      expect(mocks.create).not.toHaveBeenCalled();
+    },
+  );
   it.each([create, list, read, update, remove])(
     "requires authentication before touching data",
     async (handler) => {
@@ -238,6 +274,15 @@ describe("saved-note mutations", () => {
       where: { id: "note", userId: ownerId },
       data: { title: "Untitled note", markdown: "# Changed", categoryId: null },
     });
+  });
+  it("requires a category field on browser updates", async () => {
+    mocks.body.mockResolvedValue({ title: "Title", markdown: "" });
+    await expect(update(event)).rejects.toMatchObject({
+      statusCode: 400,
+      statusMessage: "Category is required",
+    });
+    expect(mocks.category).not.toHaveBeenCalled();
+    expect(mocks.updateMany).not.toHaveBeenCalled();
   });
   it("allows manually edited Note bodies longer than the AI draft limit", async () => {
     const markdown = "# Edited note\n\n" + "あ".repeat(3001);

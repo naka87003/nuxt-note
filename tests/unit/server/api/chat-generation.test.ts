@@ -111,6 +111,120 @@ beforeEach(() => {
   });
 });
 describe("Chat generation", () => {
+  it.each([
+    [{ content: 42 }, "Message must be a string"],
+    [{ content: null }, "Message must be a string"],
+    [{ content: undefined }, "Message is required"],
+    [{ content: "" }, "Message must not be empty"],
+    [{ content: " \n " }, "Message must not be empty"],
+    [{ content: "x".repeat(2001) }, "Message must be at most 2000 characters"],
+    [
+      { content: "😀".repeat(1000) + "a" },
+      "Message must be at most 2000 characters",
+    ],
+    [{ messageId: "invalid", content: 42 }, "Invalid request ID"],
+  ])(
+    "returns the same schema error for chat creation and message addition: %j",
+    async (invalid, statusMessage) => {
+      mocks.body.mockResolvedValue({
+        chatId: attemptId,
+        messageId: questionId,
+        ...invalid,
+      });
+      for (const handler of [createChat, sendMessage]) {
+        await expect(handler(event)).rejects.toMatchObject({
+          statusCode: 400,
+          statusMessage,
+        });
+      }
+      expect(mocks.chat.create).not.toHaveBeenCalled();
+      expect(mocks.message.create).not.toHaveBeenCalled();
+      expect(mocks.$transaction).not.toHaveBeenCalled();
+    },
+  );
+  it.each([
+    null,
+    [],
+    {},
+    { messageId: questionId },
+    { messageId: "invalid", attemptId },
+    { messageId: questionId, attemptId: 42 },
+  ])(
+    "rejects invalid generation requests before starting work: %j",
+    async (body) => {
+      mocks.body.mockResolvedValue(body);
+      await expect(generate(event)).rejects.toMatchObject({ statusCode: 400 });
+      expect(mocks.$transaction).not.toHaveBeenCalled();
+      expect(mocks.message.upsert).not.toHaveBeenCalled();
+      expect(mocks.streamText).not.toHaveBeenCalled();
+    },
+  );
+  it.each([
+    null,
+    [],
+    {},
+    { chatId: attemptId, messageId: "invalid", content: "hello" },
+    { chatId: "invalid", messageId: questionId, content: "hello" },
+    { chatId: attemptId, messageId: questionId, content: 42 },
+    { chatId: attemptId, messageId: questionId, content: " " },
+    {
+      chatId: attemptId,
+      messageId: questionId,
+      content: "😀".repeat(1000) + "a",
+    },
+    {
+      chatId: attemptId,
+      messageId: questionId,
+      content: "hello",
+      categoryId: 42,
+    },
+    {
+      chatId: attemptId,
+      messageId: questionId,
+      content: "hello",
+      categoryId: "",
+    },
+  ])(
+    "rejects invalid chat creation before database access: %j",
+    async (body) => {
+      mocks.body.mockResolvedValue(body);
+      await expect(createChat(event)).rejects.toMatchObject({
+        statusCode: 400,
+      });
+      expect(mocks.chat.findFirst).not.toHaveBeenCalled();
+      expect(mocks.category.findFirst).not.toHaveBeenCalled();
+      expect(mocks.chat.create).not.toHaveBeenCalled();
+    },
+  );
+  it.each([undefined, null, "owned"])(
+    "creates a chat with category %j using normalized, owner-scoped input",
+    async (categoryId) => {
+      mocks.body.mockResolvedValue({
+        chatId: attemptId,
+        messageId: questionId,
+        content: " hello\n",
+        categoryId,
+        userId: "foreign",
+      });
+      mocks.chat.findFirst.mockResolvedValue(null);
+      mocks.category.findFirst.mockResolvedValue({ id: "owned" });
+      await expect(createChat(event)).resolves.toEqual({
+        id: attemptId,
+        messageId: questionId,
+      });
+      expect(mocks.chat.create).toHaveBeenCalledWith({
+        data: {
+          id: attemptId,
+          userId: owner,
+          categoryId: categoryId ?? null,
+          title: null,
+          messages: {
+            create: { id: questionId, content: "hello", role: "user" },
+          },
+        },
+      });
+    },
+  );
   it.each([generate, sendMessage, createChat, summarizeTitle])(
     "requires authentication before touching chat data",
     async (handler) => {

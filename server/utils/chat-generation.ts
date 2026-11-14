@@ -1,13 +1,16 @@
-import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import { createError } from "nuxt/server";
 import type { Prisma } from "../../generated/prisma/client";
 import { getPrisma } from "./prisma";
+import { messageInputSchema } from "./input-schemas";
+import { parseInput } from "./parse-input";
 
 export const GENERATION_TIMEOUT = 120_000;
+
 export const messageOrder = [
   { createdAt: "asc" as const },
   { id: "asc" as const },
 ];
+
 export const messageSelection = {
   id: true,
   role: true,
@@ -17,38 +20,18 @@ export const messageSelection = {
   createdAt: true,
 } as const;
 
-export function requestId(value: unknown): string {
-  if (
-    typeof value !== "string" ||
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      value,
-    )
-  )
-    throw createError({ statusCode: 400, statusMessage: "Invalid request ID" });
-  return value;
-}
 export function messageInput(body: unknown) {
-  if (!body || typeof body !== "object" || Array.isArray(body))
-    throw createError({ statusCode: 400, statusMessage: "Invalid message" });
-  const data = body as Record<string, unknown>;
-  const id = requestId(data.messageId);
-  if (
-    typeof data.content !== "string" ||
-    !data.content.trim() ||
-    data.content.length > INPUT_LIMITS.chatMessage
-  )
-    throw createError({
-      statusCode: 400,
-      statusMessage: `Use 1–${INPUT_LIMITS.chatMessage.toLocaleString("en-US")} characters for the message`,
-    });
-  return { id, content: data.content.trim() };
+  const input = parseInput(messageInputSchema, body);
+  return { id: input.messageId, content: input.content };
 }
+
 export async function requireChat(userId: string, id: string) {
   const chat = await getPrisma().chat.findFirst({ where: { id, userId } });
   if (!chat)
     throw createError({ statusCode: 404, statusMessage: "Chat not found" });
   return chat;
 }
+
 // A database row lock serializes sends/generation across tabs and server processes.
 export async function lockIdleChat(
   tx: Prisma.TransactionClient,
@@ -65,6 +48,7 @@ export async function lockIdleChat(
       statusMessage: "A response is already being generated",
     });
 }
+
 export async function recoverGeneration(userId: string, id: string) {
   await getPrisma().$transaction(async (tx) => {
     const expired = await tx.chat.updateMany({
@@ -85,6 +69,7 @@ export async function recoverGeneration(userId: string, id: string) {
       });
   });
 }
+
 // Only the attempt that still owns the chat may write or release its lock.
 export async function saveGeneration(
   userId: string,

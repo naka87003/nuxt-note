@@ -1,36 +1,35 @@
 import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import { createError } from "nuxt/server";
 import { getPrisma } from "./prisma";
+import { categoryIdSchema, categoryNameSchema } from "./input-schemas";
 
 export function categoryName(body: unknown) {
-  if (!body || typeof body !== "object" || Array.isArray(body))
-    throw createError({ statusCode: 400, statusMessage: "Invalid category" });
-  const { name } = body as Record<string, unknown>;
-  if (typeof name !== "string")
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Invalid category name",
-    });
-  const trimmed = name.trim();
-  const nameKey = trimmed.normalize("NFKC").toLowerCase();
-  if (
-    !trimmed ||
-    name.length > INPUT_LIMITS.categoryName ||
-    nameKey.length > 100
-  )
+  const parsed = categoryNameSchema.safeParse(body);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    if (issue?.code === "invalid_type")
+      throw createError({
+        statusCode: 400,
+        statusMessage: issue.path.length
+          ? "Invalid category name"
+          : "Invalid category",
+      });
     throw createError({
       statusCode: 400,
       statusMessage: `Use 1–${INPUT_LIMITS.categoryName} characters for the category name`,
     });
-  return { name: trimmed, nameKey };
+  }
+  return parsed.data;
 }
 
 export async function ownedCategory(userId: string, value: unknown) {
-  if (value === null || value === undefined) return null;
-  if (typeof value !== "string" || !value)
+  const parsed = categoryIdSchema.safeParse(value);
+  if (!parsed.success) {
     throw createError({ statusCode: 400, statusMessage: "Invalid category" });
+  }
+  if (parsed.data == null) return null;
   const category = await getPrisma().category.findFirst({
-    where: { id: value, userId },
+    where: { id: parsed.data, userId },
     select: { id: true },
   });
   if (!category)

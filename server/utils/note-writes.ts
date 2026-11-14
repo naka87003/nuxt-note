@@ -1,7 +1,9 @@
-import { noteContent } from "./notes";
+import { normalizeNoteContent } from "./notes";
 import { ownedCategory } from "./categories";
 import { getPrisma } from "./prisma";
 import { createError } from "nuxt/server";
+import { createNoteInputSchema, updateNoteInputSchema } from "./input-schemas";
+import { parseInput } from "./parse-input";
 
 const savedNoteSelect = {
   id: true,
@@ -34,17 +36,9 @@ export async function deleteOwnedNote(
   return throwNoteWriteError(userId, input.id);
 }
 
-export async function updateOwnedNote(
-  userId: string,
-  input: {
-    id: string;
-    title: string;
-    markdown: string;
-    updatedAt: string;
-    categoryId?: string | null;
-  },
-) {
-  const content = noteContent(input);
+export async function updateOwnedNote(userId: string, body: unknown) {
+  const input = parseInput(updateNoteInputSchema, body);
+  const content = normalizeNoteContent(input);
   const categoryId =
     input.categoryId === undefined
       ? undefined
@@ -77,11 +71,9 @@ export async function updateOwnedNote(
 }
 
 export async function createOwnedNote(userId: string, body: unknown) {
-  const content = noteContent(body);
-  const categoryId = await ownedCategory(
-    userId,
-    (body as Record<string, unknown>).categoryId,
-  );
+  const input = parseInput(createNoteInputSchema, body);
+  const content = normalizeNoteContent(input);
+  const categoryId = await ownedCategory(userId, input.categoryId);
   return getPrisma().note.create({
     data: { ...content, userId, categoryId },
     select: savedNoteSelect,

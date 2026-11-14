@@ -1,21 +1,18 @@
-import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import { createError } from "nuxt/server";
+import { contentQuerySchema } from "./input-schemas";
 
 export function contentQuery(
   query: Record<string, unknown>,
   field: "markdown" | "messages",
 ) {
-  const category = query.category;
-  const q = query.q;
-  if (
-    (category !== undefined && typeof category !== "string") ||
-    (q !== undefined &&
-      (typeof q !== "string" || q.length > INPUT_LIMITS.search))
-  )
+  const parsed = contentQuerySchema.safeParse(query);
+  if (!parsed.success) {
     throw createError({
       statusCode: 400,
       statusMessage: "Invalid filter or search",
     });
+  }
+  const { category, q } = parsed.data;
   // PostgreSQL LIKE metacharacters are literal search text, including backslashes.
   const text = typeof q === "string" ? q.replace(/[\\%_]/g, "\\$&") : "";
   const contains = { contains: text, mode: "insensitive" as const };

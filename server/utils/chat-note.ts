@@ -2,10 +2,28 @@ import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import type { NoteDraft } from "#shared/types/note";
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText, Output } from "ai";
+import { z } from "zod";
+import { noteContentSchema, noteContentShape } from "./input-schemas";
 
 export const NOTE_DRAFT_INPUT_LIMIT = 100_000;
 export const NOTE_DRAFT_TIMEOUT = 120_000;
 export const NOTE_DRAFT_BODY_LIMIT = 3_000;
+
+// Validate shape and non-empty content before checking size, so oversized drafts
+// can still be sent through the single shortening attempt. Trim before limits.
+const draftOutputSchema = z.object({
+  title: z.string().trim().min(1),
+  markdown: z.string().trim().min(1),
+  // Invalid category selections historically resolve to uncategorized; retain
+  // their presence and let the owner-scoped category list resolve their value.
+  explicitCategoryId: z.unknown().optional(),
+  suggestedCategoryId: z.unknown().optional(),
+});
+const draftContentSchema = noteContentSchema.extend({
+  markdown: noteContentShape.markdown.refine(
+    (value) => Array.from(value).length <= NOTE_DRAFT_BODY_LIMIT,
+  ),
+});
 
 const instructions =
   "Return only a JSON object with string fields title and markdown, without an outer code fence. " +
@@ -51,12 +69,16 @@ export async function createChatNoteDraft(
       providerOptions: { openai: { store: false } },
     });
     if (result.finishReason !== "stop") throw new Error("Incomplete draft");
-    const value: unknown = result.output;
-    if (!value || typeof value !== "object" || Array.isArray(value))
-      throw new Error("Invalid draft");
-    const { title, markdown } = value as Record<string, unknown>;
+    const parsed = draftOutputSchema.safeParse(result.output);
+    if (!parsed.success) {
+      throw new Error(
+        parsed.error.issues[0]?.path.length === 0
+          ? "Invalid draft"
+          : "Empty draft",
+      );
+    }
+    const { title, markdown, ...selection } = parsed.data;
     if (attempt === 0) {
-      const selection = value as Record<string, unknown>;
       const existingId = (id: unknown) =>
         typeof id === "string" &&
         categoryContext.categories.some((category) => category.id === id)
@@ -67,20 +89,9 @@ export async function createChatNoteDraft(
         : (existingId(categoryContext.chatCategoryId) ??
           existingId(selection.suggestedCategoryId));
     }
-    if (
-      typeof title !== "string" ||
-      !title.trim() ||
-      typeof markdown !== "string" ||
-      !markdown.trim()
-    )
-      throw new Error("Empty draft");
-    const draft = { title: title.trim(), markdown: markdown.trim() };
-    if (
-      draft.title.length <= INPUT_LIMITS.noteTitle &&
-      draft.markdown.length <= INPUT_LIMITS.noteBody &&
-      Array.from(draft.markdown).length <= NOTE_DRAFT_BODY_LIMIT
-    )
-      return { ...draft, categoryId };
+    const draft = { title, markdown };
+    const content = draftContentSchema.safeParse(draft);
+    if (content.success) return { ...content.data, categoryId };
     prompt = JSON.stringify({
       draft,
     });

@@ -46,6 +46,43 @@ async function setup(messages: ChatMessage[] = []) {
   return { chat, refresh, generation, unmount };
 }
 
+it.each([
+  JSON.stringify({ type: "text", text: { invalid: "must not be displayed" } }),
+  '{"type":"text","text":"unfinished',
+])(
+  "reloads saved state and permits retry after invalid response data: %s",
+  async (invalidData) => {
+    save.mockResolvedValue(undefined);
+    generate.mockResolvedValueOnce(
+      new Response(
+        [
+          { type: "start", messageId: "reply" },
+          { type: "text", text: "Partial answer" },
+        ]
+          .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+          .join("") +
+          `data: ${invalidData}\n\ndata: {"type":"done","status":"completed"}\n\n`,
+      ),
+    );
+    const { chat, refresh, generation, unmount } = await setup();
+    refresh.mockImplementation(async () => {
+      chat.value.messages.at(-1)!.content = "Saved answer";
+      chat.value.messages.at(-1)!.status = "stopped";
+      chat.value.generationId = null;
+    });
+    generation.draft.value = "Question";
+    await generation.send();
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(chat.value.messages.at(-1)?.content).toBe("Saved answer");
+    expect(generation.failure.value).toBe(
+      "Invalid response data. Please try again.",
+    );
+    expect(generation.busy.value).toBe(false);
+    expect(generation.canRetry.value).toBe(true);
+    unmount();
+  },
+);
+
 it("shows the question immediately and starts AI after saving without reloading history", async () => {
   let saved!: () => void;
   save.mockReturnValueOnce(new Promise<void>((resolve) => (saved = resolve)));

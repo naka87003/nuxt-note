@@ -2,7 +2,9 @@ import { createError } from "nuxt/server";
 import { getPrisma } from "../../utils/prisma";
 import { getAuthenticatedUserId } from "../../utils/auth";
 import { ownedCategory } from "../../utils/categories";
-import { noteContent } from "../../utils/notes";
+import { normalizeNoteContent } from "../../utils/notes";
+import { updateNoteBodySchema } from "../../utils/input-schemas";
+import { parseInput } from "../../utils/parse-input";
 
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);
@@ -14,13 +16,8 @@ export default defineEventHandler(async (event) => {
   )
     throw createError({ statusCode: 404, statusMessage: "Note not found" });
   const body: unknown = await readBody(event);
-  const content = noteContent(body);
-  const input = body as Record<string, unknown>;
-  if (!("categoryId" in input))
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Category is required",
-    });
+  const input = parseInput(updateNoteBodySchema, body);
+  const content = normalizeNoteContent(input);
   const categoryId = await ownedCategory(userId, input.categoryId);
   const result = await db.note.updateMany({
     where: { id, userId },

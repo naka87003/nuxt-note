@@ -2,13 +2,15 @@ import { createError } from "nuxt/server";
 import { getAuthenticatedUserId } from "../../utils/auth";
 import { ownedCategory } from "../../utils/categories";
 import { getPrisma } from "../../utils/prisma";
-import { messageInput, requestId } from "../../utils/chat-generation";
+import { createChatInputSchema } from "../../utils/input-schemas";
+import { parseInput } from "../../utils/parse-input";
 
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);
-  const body = await readBody(event);
-  const message = messageInput(body);
-  const id = requestId(body.chatId);
+  const body: unknown = await readBody(event);
+  const input = parseInput(createChatInputSchema, body);
+  const message = { id: input.messageId, content: input.content };
+  const id = input.chatId;
   const prisma = getPrisma();
   const existing = await prisma.chat.findFirst({
     where: { id, userId },
@@ -22,7 +24,7 @@ export default defineEventHandler(async (event) => {
       });
     return { id, messageId: message.id };
   }
-  const categoryId = await ownedCategory(userId, body.categoryId);
+  const categoryId = await ownedCategory(userId, input.categoryId);
   try {
     await prisma.chat.create({
       data: {

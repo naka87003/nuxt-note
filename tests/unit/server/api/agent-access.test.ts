@@ -171,14 +171,20 @@ describe("session-only token management", () => {
     expect(data).not.toHaveProperty("expiresAt");
     expect(data).not.toHaveProperty("revokedAt");
   });
-  it.each([null, {}, [], { name: " " }, { name: "x".repeat(51) }])(
-    "rejects invalid token names %j",
-    async (body) => {
-      mocks.body.mockResolvedValue(body);
-      await expect(issue(event)).rejects.toMatchObject({ statusCode: 400 });
-      expect(mocks.agentToken.create).not.toHaveBeenCalled();
-    },
-  );
+  it.each([
+    null,
+    {},
+    [],
+    { name: " " },
+    { name: 42 },
+    { name: "x".repeat(51) },
+    { name: "😀".repeat(25) + "a" },
+    { name: " ".repeat(50) + "a" },
+  ])("rejects invalid token names %j", async (body) => {
+    mocks.body.mockResolvedValue(body);
+    await expect(issue(event)).rejects.toMatchObject({ statusCode: 400 });
+    expect(mocks.agentToken.create).not.toHaveBeenCalled();
+  });
   it.each([issue, tokens, remove])(
     "does not accept a bearer token as a browser session",
     async (handler) => {

@@ -85,6 +85,8 @@ describe("AI Note draft output", () => {
     [{ suggestedCategoryId: "content" }, null, "content"],
     [{ suggestedCategoryId: "foreign" }, null, null],
     [{ suggestedCategoryId: null }, null, null],
+    [{ explicitCategoryId: 42, suggestedCategoryId: "content" }, "chat", null],
+    [{ suggestedCategoryId: { id: "content" } }, null, null],
   ])(
     "selects explicit choice, chat, content, then uncategorized: %j",
     async (selection, chatCategoryId, expected) => {
@@ -156,6 +158,23 @@ describe("AI Note draft output", () => {
       }),
     );
   });
+  it("trims generated content before applying size limits", async () => {
+    mocks.generate.mockResolvedValue(
+      response({
+        title: " ".repeat(51) + "Title ",
+        markdown: "\n" + goodDraft.markdown + " ".repeat(5001),
+      }),
+    );
+    await expect(
+      createChatNoteDraft(
+        history,
+        config,
+        new AbortController().signal,
+        emptyCategoryContext,
+      ),
+    ).resolves.toEqual({ ...goodDraft, categoryId: null });
+    expect(mocks.generate).toHaveBeenCalledTimes(1);
+  });
   it("shortens oversized content once instead of cutting Markdown", async () => {
     const long = { title: "Long", markdown: "# " + "あ".repeat(3000) };
     mocks.generate
@@ -217,6 +236,10 @@ describe("AI Note draft output", () => {
     response(goodDraft, "error"),
     response({ title: "", markdown: "Body" }),
     response({ title: "Title", markdown: " " }),
+    response({ title: 42, markdown: "Body" }),
+    response({ title: "Title", markdown: false }),
+    response({ markdown: "Body" }),
+    response({ title: "Title" }),
     response([]),
     response(null),
   ])("does not return incomplete or invalid drafts", async (result) => {
@@ -229,6 +252,7 @@ describe("AI Note draft output", () => {
         emptyCategoryContext,
       ),
     ).rejects.toThrow();
+    expect(mocks.generate).toHaveBeenCalledTimes(1);
   });
 });
 
