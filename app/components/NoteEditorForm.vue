@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useMediaQuery } from "@vueuse/core";
 import { INPUT_LIMITS } from "#shared/utils/input-limits";
 
 const props = defineProps<{
@@ -41,7 +42,8 @@ const title = defineModel<string>("title", { required: true });
 const markdown = defineModel<string>("markdown", { required: true });
 const category = defineModel<string>("category", { required: true });
 const view = ref("split");
-const mobile = ref(false);
+// Match the server's split view until hydration completes.
+const mobile = useMediaQuery("(max-width: 767px)", { ssrWidth: 768 });
 const viewItems = computed(() => [
   { label: "Edit", value: "edit" },
   ...(!mobile.value ? [{ label: "Split view", value: "split" }] : []),
@@ -54,16 +56,6 @@ const visibleView = computed({
   set: (value: string) => {
     view.value = value;
   },
-});
-
-onMounted(() => {
-  const media = window.matchMedia("(max-width: 767px)");
-  const update = () => {
-    mobile.value = media.matches;
-  };
-  update();
-  media.addEventListener("change", update);
-  onBeforeUnmount(() => media.removeEventListener("change", update));
 });
 </script>
 

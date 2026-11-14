@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useEventListener, useMediaQuery } from "@vueuse/core";
 import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import type { WorkspaceItem } from "#shared/types/workspace";
 
@@ -17,6 +18,11 @@ const workspaceRoot = useTemplateRef("workspaceRoot");
 
 const drawer = ref(false);
 const sidebar = ref(true);
+const desktop = useMediaQuery("(min-width: 1280px)");
+
+watch(desktop, (matches) => {
+  if (matches) drawer.value = false;
+});
 
 const sidebarToggleIcon = computed(() =>
   sidebar.value ? "i-lucide-panel-left-close" : "i-lucide-panel-left-open",
@@ -33,24 +39,14 @@ onMounted(() => {
     workspaceRoot.value.style.height = `${viewport?.height ?? window.innerHeight}px`;
   };
   fitKeyboard();
-  viewport?.addEventListener("resize", fitKeyboard);
-  viewport?.addEventListener("scroll", fitKeyboard);
-  onBeforeUnmount(() => {
-    viewport?.removeEventListener("resize", fitKeyboard);
-    viewport?.removeEventListener("scroll", fitKeyboard);
-  });
-  const desktop = window.matchMedia("(min-width: 1280px)");
-  const closeDrawer = () => {
-    if (desktop.matches) drawer.value = false;
-  };
-  desktop.addEventListener("change", closeDrawer);
-  onBeforeUnmount(() => desktop.removeEventListener("change", closeDrawer));
+  if (viewport) useEventListener(viewport, ["resize", "scroll"], fitKeyboard);
 });
 
-const listQuery = computed(() => ({
-  category: filter.value,
-  q: current.value.search,
-}));
+const listQuery = useWorkspaceListQuery(
+  mode,
+  filter,
+  computed(() => current.value.search),
+);
 
 const [
   {

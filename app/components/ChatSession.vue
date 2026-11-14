@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useResizeObserver } from "@vueuse/core";
 import type { Conversation } from "~/composables/useChatGeneration";
 import type { CategoriesResponse } from "#shared/types/workspace";
 import { sortCategoriesByCount } from "#shared/utils/categories";
@@ -95,24 +96,19 @@ function scrollToBottom() {
   lastScrollTop = pane.scrollTop;
 }
 
-let paneObserver: ResizeObserver | undefined;
 watch(
   [messagePane, messageContent],
   ([pane, content]) => {
-    paneObserver?.disconnect();
     if (!pane || !content) return;
     scrollToBottom();
-    paneObserver = new ResizeObserver(() => {
-      if (followBottom.value) scrollToBottom();
-      else onScroll();
-    });
-    paneObserver.observe(pane);
-    // Comark can change the content height after the message's nextTick.
-    paneObserver.observe(content);
   },
   { flush: "post" },
 );
-onBeforeUnmount(() => paneObserver?.disconnect());
+// Comark can change the content height after the message's nextTick.
+useResizeObserver([messagePane, messageContent], () => {
+  if (followBottom.value) scrollToBottom();
+  else onScroll();
+});
 
 watch(
   [

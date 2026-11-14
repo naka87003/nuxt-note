@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useEventListener } from "@vueuse/core";
+
 definePageMeta({ layout: false });
 const route = useRoute();
 const { loggedIn } = useUserSession();
@@ -21,8 +23,7 @@ async function signIn() {
 function resetSignIn() {
   signingIn.value = false;
 }
-onMounted(() => window.addEventListener("pageshow", resetSignIn));
-onBeforeUnmount(() => window.removeEventListener("pageshow", resetSignIn));
+useEventListener("pageshow", resetSignIn);
 </script>
 
 <template>

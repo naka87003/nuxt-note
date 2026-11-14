@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useEventListener } from "@vueuse/core";
 import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import type { NoteDraft, SavedNote } from "#shared/types/note";
 import type { CategoriesResponse } from "#shared/types/workspace";
@@ -73,12 +74,7 @@ function beforeUnload(event: BeforeUnloadEvent) {
   }
 }
 
-onMounted(() => {
-  window.addEventListener("beforeunload", beforeUnload);
-  onBeforeUnmount(() => {
-    window.removeEventListener("beforeunload", beforeUnload);
-  });
-});
+useEventListener("beforeunload", beforeUnload);
 
 onBeforeUnmount(() => {
   state.value.editor = { active: false, dirty: false, busy: false };

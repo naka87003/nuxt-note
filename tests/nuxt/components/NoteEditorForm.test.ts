@@ -1,6 +1,6 @@
 import { mountSuspended } from "@nuxt/test-utils/runtime";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { nextTick } from "vue";
+import { defineComponent, h, nextTick } from "vue";
 import NoteEditorForm from "~/components/NoteEditorForm.vue";
 
 const baseProps = {
@@ -30,6 +30,31 @@ beforeEach(() => {
 });
 
 describe("NoteEditorForm", () => {
+  it("preserves the server's initial tabs before applying the mobile viewport", async () => {
+    Object.assign(media, { matches: true });
+    let initialTabs: string[] = [];
+    const wrapper = await mountSuspended(NoteEditorForm, {
+      props: baseProps,
+      global: {
+        stubs: {
+          UTabs: defineComponent({
+            props: { items: { type: Array, required: true } },
+            setup(props) {
+              initialTabs = (props.items as { label: string }[]).map(
+                (item) => item.label,
+              );
+              return () => h("div");
+            },
+          }),
+        },
+      },
+    });
+    expect(initialTabs).toEqual(["Edit", "Split view", "Preview"]);
+    expect(wrapper.get(".note-editor-panes").attributes("data-view")).toBe(
+      "edit",
+    );
+  });
+
   it.each([
     { saving: true },
     { saved: true },
@@ -74,14 +99,24 @@ describe("NoteEditorForm", () => {
     const pane = wrapper.get(".note-editor-panes");
     expect(pane.attributes("data-view")).toBe("split");
     Object.assign(media, { matches: true });
-    media.dispatchEvent(new Event("change"));
+    media.dispatchEvent(
+      new MediaQueryListEvent("change", {
+        matches: media.matches,
+        media: media.media,
+      }),
+    );
     await nextTick();
     expect(pane.attributes("data-view")).toBe("edit");
     expect(
       wrapper.findAll('[role="tab"]').map((tab) => tab.text()),
     ).not.toContain("Split view");
     Object.assign(media, { matches: false });
-    media.dispatchEvent(new Event("change"));
+    media.dispatchEvent(
+      new MediaQueryListEvent("change", {
+        matches: media.matches,
+        media: media.media,
+      }),
+    );
     await nextTick();
     expect(pane.attributes("data-view")).toBe("split");
     const preview = wrapper
