@@ -2006,7 +2006,7 @@ it.each([
     });
 
     const parts = [];
-    for await (const part of result.fullStream) parts.push(part);
+    for await (const part of result.stream) parts.push(part);
     expect(parts.filter((part) => part.type === "tool-result")).toHaveLength(
       knownLink || categoryOnly ? 2 : 3,
     );

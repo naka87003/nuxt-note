@@ -240,7 +240,7 @@ export default defineEventHandler(async (event) => {
         providerOptions: { openai: { store: false, parallelToolCalls: false } },
       });
 
-      for await (const part of response.fullStream) {
+      for await (const part of response.stream) {
         if (part.type === "text-delta") {
           await output.append(part.text);
           if (controller.signal.aborted) break;

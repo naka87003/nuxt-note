@@ -119,7 +119,7 @@ beforeEach(() => {
     complete();
   });
   mocks.streamText.mockReturnValue({
-    fullStream: (async function* () {
+    stream: (async function* () {
       yield { type: "text-delta", text: "Hello" };
       yield { type: "finish", finishReason: "stop" };
     })(),
@@ -159,7 +159,7 @@ describe("Chat generation", () => {
         count: succeeds ? 1 : 0,
       });
       mocks.streamText.mockImplementation(({ tools }) => ({
-        fullStream: (async function* () {
+        stream: (async function* () {
           await tools.merge_categories.execute(
             { sourceCategoryId: "source", targetCategoryId: "target" },
             { toolCallId: "test", messages: [] },
@@ -202,7 +202,7 @@ describe("Chat generation", () => {
       }
 
       mocks.streamText.mockImplementation(({ tools }) => ({
-        fullStream: (async function* () {
+        stream: (async function* () {
           await tools.move_category_chats.execute(
             { sourceCategoryId: "source", targetCategoryId: null },
             { toolCallId: "test", messages: [] },
@@ -252,7 +252,7 @@ describe("Chat generation", () => {
       }
 
       mocks.streamText.mockImplementation(({ tools }) => ({
-        fullStream: (async function* () {
+        stream: (async function* () {
           const context = { toolCallId: "test", messages: [] };
           await tools.get_chat.execute({ id }, context);
           await tools.update_chat_title.execute(
@@ -557,7 +557,7 @@ describe("Chat generation", () => {
   });
   it("continues streaming after tool events and saves the final answer", async () => {
     mocks.streamText.mockReturnValue({
-      fullStream: (async function* () {
+      stream: (async function* () {
         yield { type: "tool-call", toolName: "list_notes" };
         yield {
           type: "tool-result",
@@ -580,7 +580,7 @@ describe("Chat generation", () => {
   });
   it("persists and streams deduplicated web sources with the answer", async () => {
     mocks.streamText.mockReturnValue({
-      fullStream: (async function* () {
+      stream: (async function* () {
         yield {
           type: "source",
           sourceType: "url",
@@ -615,7 +615,7 @@ describe("Chat generation", () => {
   });
   it("does not turn source-only output into a successful answer", async () => {
     mocks.streamText.mockReturnValue({
-      fullStream: (async function* () {
+      stream: (async function* () {
         yield {
           type: "source",
           sourceType: "url",
@@ -632,7 +632,7 @@ describe("Chat generation", () => {
   });
   it("fails tool execution errors without leaking details", async () => {
     mocks.streamText.mockReturnValue({
-      fullStream: (async function* () {
+      stream: (async function* () {
         yield { type: "tool-error", error: new Error("private tool input") };
         yield { type: "text-delta", text: "Done" };
         yield { type: "finish", finishReason: "stop" };
@@ -648,7 +648,7 @@ describe("Chat generation", () => {
   });
   it("preserves partial text when the provider fails", async () => {
     mocks.streamText.mockReturnValue({
-      fullStream: (async function* () {
+      stream: (async function* () {
         yield { type: "text-delta", text: "Partial" };
         yield { type: "error", error: new Error("private provider detail") };
       })(),
@@ -707,7 +707,7 @@ describe("Chat generation", () => {
     });
     let consumed = false;
     mocks.streamText.mockReturnValue({
-      fullStream: (async function* () {
+      stream: (async function* () {
         yield { type: "text-delta", text: "First" };
         await started;
         yield { type: "text-delta", text: " second" };
@@ -754,7 +754,7 @@ describe("Chat generation", () => {
       return { count: 1 };
     });
     mocks.streamText.mockReturnValue({
-      fullStream: (async function* () {
+      stream: (async function* () {
         yield { type: "text-delta", text: "Partial" };
         await started;
         mocks.onClosed.mock.calls[0]![0]();
@@ -787,7 +787,7 @@ describe("Chat generation", () => {
 
     try {
       mocks.streamText.mockImplementation(({ abortSignal }) => ({
-        fullStream: (async function* () {
+        stream: (async function* () {
           yield { type: "text-delta", text: "Partial" };
           await new Promise((_, reject) =>
             abortSignal.addEventListener(
@@ -817,7 +817,7 @@ describe("Chat generation", () => {
   });
   it("marks length-limited responses as incomplete", async () => {
     mocks.streamText.mockReturnValue({
-      fullStream: (async function* () {
+      stream: (async function* () {
         yield { type: "text-delta", text: "Partial" };
         yield { type: "finish", finishReason: "length" };
       })(),
@@ -831,7 +831,7 @@ describe("Chat generation", () => {
   });
   it("forwards disconnection to the provider and saves a stopped response", async () => {
     mocks.streamText.mockImplementation(({ abortSignal }) => ({
-      fullStream: (async function* () {
+      stream: (async function* () {
         yield { type: "text-delta", text: "Partial" };
         mocks.onClosed.mock.calls[0]![0]();
         expect(abortSignal.aborted).toBe(true);
