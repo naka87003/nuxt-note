@@ -1,4 +1,4 @@
-import { createMarkdownParser, type Node } from "@comark/nuxt/parse";
+import { createMarkdownParser, type Node } from "@comark/vue/parse";
 
 const parse = createMarkdownParser({
   registerDefaultPlugins: false,

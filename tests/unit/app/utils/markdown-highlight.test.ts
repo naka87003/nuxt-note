@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderMarkdown } from "./render-markdown";
 import { createNoteMarkdownParser } from "~/utils/markdown";
-import { textContent } from "@comark/nuxt/utils";
+import { textContent } from "@comark/vue/utils";
 
 async function parsedCode(source: string) {
   const document = await createNoteMarkdownParser()(source);

@@ -1,5 +1,5 @@
-import { createSerializedMarkdownParser } from "@comark/nuxt/parse";
-import security from "@comark/nuxt/plugins/security";
+import { createSerializedMarkdownParser } from "@comark/vue/parse";
+import security from "@comark/vue/plugins/security";
 import codeHighlight from "./code-highlight";
 
 export function createNoteMarkdownParser() {

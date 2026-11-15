@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { ElementNode } from "@comark/nuxt/parse";
-import { textContent } from "@comark/nuxt/utils";
+import type { ElementNode } from "@comark/vue/parse";
+import { textContent } from "@comark/vue/utils";
 
 defineOptions({ inheritAttrs: false });
 // eslint-disable-next-line vue/prop-name-casing -- Comark's documented AST prop.

@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderMarkdown } from "./render-markdown";
 import { createNoteMarkdownParser } from "~/utils/markdown";
-import { render } from "@comark/nuxt/render";
+import { render } from "@comark/vue/render";
+
 describe("Chat Markdown", () => {
   it("renders code, tables, lists and safe links", async () => {
     const html = await renderMarkdown(
@@ -12,6 +13,7 @@ describe("Chat Markdown", () => {
     expect(html).toContain('<a href="https://nuxt.com">');
     expect(html).toContain("<table>");
   });
+
   it.each([
     "<script>alert(1)</script>",
     "<img src=x onerror=alert(1)>",
@@ -30,6 +32,7 @@ describe("Chat Markdown", () => {
       /<script|<img|<iframe|<NuxtLink|href="(?:javascript|data|vbscript|file|ftp):/i,
     );
   });
+
   it("removes FTP links and reports the unsafe attribute", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
@@ -72,6 +75,7 @@ it("preserves safe links, relative links and anchors", async () => {
     expect(await renderMarkdown(`[link](${url})`)).toContain(`href="${url}"`);
   }
 });
+
 it("renders code as escaped text, including HTML and component-like tags", async () => {
   const html = await renderMarkdown(
     "```html\n<script>alert(1)</script>\n<NoteEditor />\n```",

@@ -1,4 +1,4 @@
-import { render } from "@comark/nuxt/render";
+import { render } from "@comark/vue/render";
 import { createNoteMarkdownParser } from "~/utils/markdown";
 
 export async function renderMarkdown(source: string) {

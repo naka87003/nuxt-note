@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { createNoteMarkdownParser } from "~/utils/markdown";
-import type { MarkdownDocument } from "@comark/nuxt/parse";
+import type { MarkdownDocument } from "@comark/vue/parse";
 import MarkdownCodeBlock from "~/components/MarkdownCodeBlock.vue";
 
 const props = withDefaults(

@@ -1,4 +1,4 @@
-import shiki from "@comark/nuxt/plugins/shiki/core";
+import shiki from "@comark/vue/plugins/shiki/core";
 import githubDark from "shiki/themes/github-dark.mjs";
 import bash from "shiki/langs/bash.mjs";
 import blade from "shiki/langs/blade.mjs";
