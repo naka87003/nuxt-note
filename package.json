@@ -58,7 +58,7 @@
     "@nuxt/eslint": "^1.17.0",
     "@nuxt/test-utils": "^4.4.0",
     "@nuxtjs/storybook": "10.0.3",
-    "@stylistic/eslint-plugin": "^5.10.0",
+    "@stylistic/eslint-plugin": "^6.0.0",
     "@types/node": "^26.6.6",
     "@types/pg": "^8.23.1",
     "@vue/test-utils": "^2.5.1",

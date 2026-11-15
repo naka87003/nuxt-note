@@ -237,8 +237,8 @@ importers:
         specifier: 10.0.3
         version: 10.0.3(c0849c871354944fa35f4c9fb2ef4138)
       '@stylistic/eslint-plugin':
-        specifier: ^5.10.0
-        version: 5.10.0(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))
+        specifier: ^6.0.0
+        version: 6.0.0(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6
@@ -2204,6 +2204,18 @@ packages:
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
     peerDependencies:
       eslint: ^9.0.0 || ^10.0.0
+
+  '@stylistic/eslint-plugin@6.0.0':
+    resolution: {integrity: sha512-phICSey4OqR8nkSwmoeXsl9EBzv30Zqbge4jrK3CU02GhjTgZ+y5qhTTg92EDK5j7JhX2xzp4VvH+YYUknQ8/Q==}
+    engines: {node: ^20.19.0 || ^22.13.0 || >=24}
+    peerDependencies:
+      eslint: ^9.0.0 || ^10.0.0
+      oxlint: ^1.55.0
+    peerDependenciesMeta:
+      eslint:
+        optional: true
+      oxlint:
+        optional: true
 
   '@swc/helpers@0.5.24':
     resolution: {integrity: sha512-6tcXo4kA8HgGO7AVmawB57RYi/piBPYVHVcO6dXjX+SZw8GoHmi262sp4v2Ha2kNP9Cx84qei27yT+fjS1lxgg==}
@@ -9151,6 +9163,16 @@ snapshots:
       espree: 10.4.0
       estraverse: 5.3.0
       picomatch: 4.0.7
+
+  '@stylistic/eslint-plugin@6.0.0(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))':
+    dependencies:
+      '@eslint-community/eslint-utils': 4.10.1(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))
+      '@typescript-eslint/types': 8.72.2
+      '@typescript-eslint/visitor-keys': 8.72.2
+      espree: 11.2.0
+      picomatch: 4.0.7
+    optionalDependencies:
+      eslint: 10.15.0(jiti@2.7.0)(supports-color@10.2.2)
 
   '@swc/helpers@0.5.24': {}
 
