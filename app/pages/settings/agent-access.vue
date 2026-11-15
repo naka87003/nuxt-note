@@ -80,9 +80,9 @@ async function deleteToken() {
     <div class="space-y-3">
       <h1 class="text-2xl font-semibold">Agent access</h1>
       <p class="text-muted">
-        Let an agent search, read, create, update, and permanently delete your
-        Notes. Each token allows all of these actions but cannot access Chat.
-        Tokens do not expire and can be deleted at any time.
+        Let an agent work with your Notes, Chats, and Categories. Each token
+        allows all supported actions, including permanent deletion. Tokens do
+        not expire and can be deleted at any time.
       </p>
     </div>
 
