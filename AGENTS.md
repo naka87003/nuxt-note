@@ -13,3 +13,6 @@ Choose a prefix that matches the change, such as `feat:`, `fix:`, `refactor:`,
 - Prioritize maintainability and readability, and keep implementations simple
   while meeting requirements. Avoid unnecessary complexity and excessive
   abstraction.
+- Use braces for `if` statements by default. Braces may be omitted for short,
+  readable single-line statements. If an `else` or `else if` follows, use braces
+  for all branches.
