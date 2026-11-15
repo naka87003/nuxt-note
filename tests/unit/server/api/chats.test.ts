@@ -165,6 +165,15 @@ describe("chat ownership and category assignment", () => {
       });
     },
   );
+  it("preserves browser deletion without a version or a request body", async () => {
+    expect(await removeChat(event)).toBeUndefined();
+    expect(mocks.status).toHaveBeenCalledWith(event, 204);
+    expect(mocks.chat.deleteMany).toHaveBeenCalledExactlyOnceWith({
+      where: { id: "item", userId: owner },
+    });
+    expect(mocks.chat.findFirst).not.toHaveBeenCalled();
+    expect(mocks.body).not.toHaveBeenCalled();
+  });
   it("hides foreign chats on deletion", async () => {
     mocks.chat.deleteMany.mockResolvedValue({ count: 0 });
     await expect(removeChat(event)).rejects.toMatchObject({ statusCode: 404 });

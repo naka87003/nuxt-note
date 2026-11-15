@@ -152,6 +152,17 @@ const chatUpdatedAtSchema = z.iso
   .datetime({ precision: 3 })
   .describe("Exact updatedAt returned by list_chats or get_chat");
 
+export const deleteChatBodySchema = z.object({
+  updatedAt: chatUpdatedAtSchema.optional(),
+});
+
+export const deleteChatInputSchema = z
+  .object({
+    id: z.string().min(1).max(100),
+    updatedAt: chatUpdatedAtSchema,
+  })
+  .strict();
+
 export const updateChatCategorySchema = z.object(
   {
     categoryId: z

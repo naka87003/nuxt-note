@@ -18,6 +18,7 @@ vi.mock("../../../../server/utils/chat-reads", () => chatReads);
 const chatWrites = vi.hoisted(() => ({
   updateOwnedChatCategory: vi.fn(),
   updateOwnedChatTitle: vi.fn(),
+  deleteOwnedChat: vi.fn(),
 }));
 vi.mock("../../../../server/utils/chat-writes", () => chatWrites);
 const writes = vi.hoisted(() => ({
@@ -67,6 +68,7 @@ function setup(
 }
 beforeEach(() => {
   vi.resetAllMocks();
+  chatWrites.deleteOwnedChat.mockResolvedValue({ id: "chat", deleted: true });
   chatWrites.updateOwnedChatTitle.mockImplementation(async (_owner, input) => ({
     id: input.id,
     title: input.title.trim(),
@@ -102,6 +104,142 @@ beforeEach(() => {
   writes.deleteOwnedNote.mockResolvedValue({ id: "note", deleted: true });
 });
 describe("in-app Note tools", () => {
+  it("deletes a Chat using a listed version without reading messages, and consumes the version", async () => {
+    const { tools } = setup("owner", true, null, "current");
+    const args = { id: "chat", updatedAt: version };
+    expect(await tools.delete_chat!.execute(args, context)).toHaveProperty(
+      "error",
+    );
+    chatReads.searchOwnedChats.mockResolvedValueOnce({
+      chats: [{ id: "chat", updatedAt: new Date(version) }],
+      nextOffset: 1,
+    });
+    await tools.list_chats.execute({ limit: 1 }, context);
+    await tools.list_chats.execute({ limit: 1, offset: 1 }, context);
+    expect(
+      await tools.delete_chat!.execute(
+        { ...args, updatedAt: "2026-11-13T00:00:01.000Z" },
+        context,
+      ),
+    ).toHaveProperty("error");
+    expect(await tools.delete_chat!.execute(args, context)).toMatchObject({
+      structuredContent: { id: "chat", deleted: true },
+    });
+    expect(chatWrites.deleteOwnedChat).toHaveBeenCalledExactlyOnceWith(
+      "owner",
+      "chat",
+      { updatedAt: version },
+    );
+    expect(chatReads.readOwnedChatPage).not.toHaveBeenCalled();
+    expect(await tools.delete_chat!.execute(args, context)).toHaveProperty(
+      "error",
+    );
+    expect(
+      await tools.update_chat_title!.execute(
+        { ...args, title: "New title" },
+        context,
+      ),
+    ).toHaveProperty("error");
+  });
+  it("blocks deletion of the current Chat even after reading it", async () => {
+    const { tools, assertActive } = setup("owner", true, null, "chat");
+    await tools.get_chat.execute({ id: "chat" }, context);
+    expect(
+      await tools.delete_chat!.execute(
+        { id: "chat", updatedAt: version },
+        context,
+      ),
+    ).toMatchObject({
+      error: expect.stringContaining(
+        "Cannot delete the Chat currently being used",
+      ),
+    });
+    expect(chatWrites.deleteOwnedChat).not.toHaveBeenCalled();
+    expect(assertActive).toHaveBeenCalledTimes(2);
+  });
+  it("requires a new user message after a deletion conflict even if a new version is read", async () => {
+    const { tools } = setup();
+    const args = { id: "chat", updatedAt: version };
+    chatWrites.deleteOwnedChat.mockRejectedValueOnce({ statusCode: 409 });
+    await tools.get_chat.execute({ id: "chat" }, context);
+    expect(await tools.delete_chat!.execute(args, context)).toMatchObject({
+      isError: true,
+    });
+    expect(await tools.delete_chat!.execute(args, context)).toMatchObject({
+      error: expect.stringContaining("confirm deletion"),
+    });
+    const newerVersion = "2026-11-13T00:00:01.000Z";
+    chatReads.readOwnedChatPage.mockResolvedValueOnce({
+      id: "chat",
+      updatedAt: new Date(newerVersion),
+      messages: [],
+      nextOffset: null,
+    });
+    await tools.get_chat.execute({ id: "chat" }, context);
+    expect(
+      await tools.delete_chat!.execute(
+        { id: "chat", updatedAt: newerVersion },
+        context,
+      ),
+    ).toMatchObject({ error: expect.stringContaining("in a new message") });
+    expect(chatWrites.deleteOwnedChat).toHaveBeenCalledOnce();
+    const nextTurn = setup().tools;
+    await nextTurn.get_chat.execute({ id: "chat" }, context);
+    expect(await nextTurn.delete_chat!.execute(args, context)).toHaveProperty(
+      "structuredContent",
+    );
+    expect(chatWrites.deleteOwnedChat).toHaveBeenCalledTimes(2);
+  });
+  it("keeps Chat deletion versions separate from other owners and Note versions", async () => {
+    const a = setup("a").tools;
+    const b = setup("b").tools;
+    const args = { id: "chat", updatedAt: version };
+    await a.get_chat.execute({ id: "chat" }, context);
+    expect(await b.delete_chat!.execute(args, context)).toHaveProperty("error");
+    reads.readOwnedNote.mockResolvedValueOnce({ ...note, id: "chat" });
+    await b.get_note.execute({ id: "chat" }, context);
+    expect(await b.delete_chat!.execute(args, context)).toHaveProperty("error");
+    await b.get_chat.execute({ id: "chat" }, context);
+    await a.delete_chat!.execute(args, context);
+    await b.delete_chat!.execute(args, context);
+    expect(
+      chatWrites.deleteOwnedChat.mock.calls.map(([owner]) => owner),
+    ).toEqual(["a", "b"]);
+  });
+  it("invalidates a Chat deletion version after a failed read or another mutation", async () => {
+    const { tools } = setup();
+    const args = { id: "chat", updatedAt: version };
+    await tools.get_chat.execute({ id: "chat" }, context);
+    chatReads.readOwnedChatPage.mockRejectedValueOnce({ statusCode: 404 });
+    await tools.get_chat.execute({ id: "chat" }, context);
+    expect(await tools.delete_chat!.execute(args, context)).toHaveProperty(
+      "error",
+    );
+    await tools.get_chat.execute({ id: "chat" }, context);
+    await tools.update_chat_title!.execute(
+      { ...args, title: "New title" },
+      context,
+    );
+    expect(await tools.delete_chat!.execute(args, context)).toHaveProperty(
+      "error",
+    );
+    expect(chatWrites.deleteOwnedChat).not.toHaveBeenCalled();
+  });
+  it("validates Chat deletion and stops after cancellation or generation ownership loss", async () => {
+    const { tools, controller } = setup();
+    const args = { id: "chat", updatedAt: version };
+    await expect(
+      tools.delete_chat!.execute({ ...args, userId: "other" }, context),
+    ).rejects.toThrow();
+    controller.abort();
+    await expect(tools.delete_chat!.execute(args, context)).rejects.toThrow();
+    const inactive = setup();
+    inactive.assertActive.mockRejectedValue(new Error("no longer active"));
+    await expect(
+      inactive.tools.delete_chat!.execute(args, context),
+    ).rejects.toThrow();
+    expect(chatWrites.deleteOwnedChat).not.toHaveBeenCalled();
+  });
   it.each([
     ["chat", true],
     ["other", true],

@@ -88,6 +88,23 @@ generation ownership. Moving the current Chat also updates the default Category
 for Notes created by tools later in the same turn. The existing browser Category
 update remains compatible without `updatedAt`; tool calls always require it.
 
+Use `delete_chat` only when the user explicitly requests permanently deleting
+the identified Chat. Required arguments are `id` and the exact `updatedAt` from
+`list_chats` or `get_chat`. The Chat and all its messages are deleted using the
+existing database cascade; its Category and saved Notes are preserved. The
+result contains only `id` and `deleted: true`, without reading or returning
+messages. Missing, foreign, and already-deleted Chats return the same not-found
+error. On a version conflict, list or read again and ask the user to confirm
+deletion of the changed Chat in a new message; never blindly replace the
+timestamp and retry.
+
+In-app Chat cannot delete the Chat currently being used for the conversation;
+use its existing app deletion controls instead. A deletion conflict blocks
+further Chat deletions in that turn even after rereading. Other write attempts
+consume the same Chat version, requiring another read before deletion. The tool
+is unavailable during retries and stops after cancellation or generation
+ownership loss. The browser's existing unversioned deletion API is unchanged.
+
 Examples:
 
 - “Find my Notes about Nuxt and summarize them.”
@@ -187,6 +204,7 @@ Ordinary users only configure their agent and do not need this repository or fil
 | `update_chat_category` | Required `id`, `categoryId` (nullable), `updatedAt`                    | Updated Chat ID, title, category ID, update time, URL; no messages         |
 | `update_note_category` | Required `id`, `categoryId` (nullable), `updatedAt`                    | Updated Note metadata and URL; no Markdown                                 |
 | `delete_category`      | Required `id`                                                          | Deleted Category ID and `deleted: true`                                    |
+| `delete_chat`          | Required `id`, `updatedAt`                                             | Deleted Chat ID and `deleted: true`                                        |
 | `delete_note`          | Required `id`, `updatedAt`                                             | Deleted Note ID and `deleted: true`                                        |
 
 Search is literal and case-insensitive across title and Markdown body, with the

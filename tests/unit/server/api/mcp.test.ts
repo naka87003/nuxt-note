@@ -16,7 +16,12 @@ vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));
 const writes = vi.hoisted(() => ({
-  chat: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
+  chat: {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    update: vi.fn(),
+    deleteMany: vi.fn(),
+  },
   note: {
     create: vi.fn(),
     update: vi.fn(),
@@ -69,6 +74,149 @@ async function connect(owner: string, siteUrl = "https://notes.example") {
 }
 
 describe("remote MCP tools", () => {
+  const deleteChatInput = { id: "chat", updatedAt: "2026-11-15T00:00:00.000Z" };
+  it("deletes only the Chat owner and expected version without returning messages", async () => {
+    const client = await connect("owner");
+    const { tools } = await client.listTools();
+    const definition = tools.find((tool) => tool.name === "delete_chat");
+    expect(definition?.inputSchema.required?.slice().sort()).toEqual([
+      "id",
+      "updatedAt",
+    ]);
+    expect(definition?.annotations).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    });
+    writes.chat.deleteMany.mockResolvedValue({ count: 1 });
+    const result = await client.callTool({
+      name: "delete_chat",
+      arguments: deleteChatInput,
+    });
+    expect(result.isError).toBeFalsy();
+    expect(result.structuredContent).toEqual({ id: "chat", deleted: true });
+    expect(result.content).toEqual([
+      { type: "text", text: JSON.stringify(result.structuredContent, null, 2) },
+    ]);
+    expect(writes.chat.deleteMany).toHaveBeenCalledExactlyOnceWith({
+      where: {
+        id: "chat",
+        userId: "owner",
+        updatedAt: new Date(deleteChatInput.updatedAt),
+      },
+    });
+    expect(writes.chat.findFirst).not.toHaveBeenCalled();
+    expect(writes.chat.findMany).not.toHaveBeenCalled();
+    expect(writes.category.deleteMany).not.toHaveBeenCalled();
+    expect(writes.note.deleteMany).not.toHaveBeenCalled();
+  });
+  it.each(["missing", "foreign", "already-deleted"])(
+    "hides a %s Chat on deletion",
+    async (id) => {
+      const client = await connect("owner");
+      writes.chat.deleteMany.mockResolvedValue({ count: 0 });
+      writes.chat.findFirst.mockResolvedValue(null);
+      expect(
+        await client.callTool({
+          name: "delete_chat",
+          arguments: { ...deleteChatInput, id },
+        }),
+      ).toMatchObject({
+        isError: true,
+        content: [{ text: "Chat not found." }],
+      });
+      expect(writes.chat.deleteMany).toHaveBeenCalledExactlyOnceWith({
+        where: {
+          id,
+          userId: "owner",
+          updatedAt: new Date(deleteChatInput.updatedAt),
+        },
+      });
+      expect(writes.chat.findFirst).toHaveBeenCalledWith({
+        where: { id, userId: "owner" },
+        select: { id: true },
+      });
+    },
+  );
+  it("rejects concurrent Chat changes and requests a new confirmation without retrying", async () => {
+    const client = await connect("owner");
+    writes.chat.deleteMany.mockResolvedValue({ count: 0 });
+    writes.chat.findFirst.mockResolvedValue({ id: "chat" });
+    expect(
+      await client.callTool({
+        name: "delete_chat",
+        arguments: deleteChatInput,
+      }),
+    ).toMatchObject({
+      isError: true,
+      content: [
+        {
+          text: expect.stringContaining(
+            "ask the user to confirm deletion in a new message",
+          ),
+        },
+      ],
+    });
+    expect(writes.chat.deleteMany).toHaveBeenCalledTimes(1);
+  });
+  it.each(["delete", "lookup"])(
+    "hides storage errors during Chat deletion (%s)",
+    async (stage) => {
+      const client = await connect("owner");
+      const error = new Error("private database details");
+      if (stage === "delete") {
+        writes.chat.deleteMany.mockRejectedValue(error);
+      } else {
+        writes.chat.deleteMany.mockResolvedValue({ count: 0 });
+        writes.chat.findFirst.mockRejectedValue(error);
+      }
+      expect(
+        await client.callTool({
+          name: "delete_chat",
+          arguments: deleteChatInput,
+        }),
+      ).toMatchObject({
+        isError: true,
+        content: [{ text: "Could not delete Chat. Please try again." }],
+      });
+    },
+  );
+  it.each([
+    {},
+    { id: "chat" },
+    { updatedAt: deleteChatInput.updatedAt },
+    { ...deleteChatInput, id: "" },
+    { ...deleteChatInput, id: "x".repeat(101) },
+    { ...deleteChatInput, id: 1 },
+    { ...deleteChatInput, updatedAt: null },
+    { ...deleteChatInput, updatedAt: "2026-02-30T00:00:00.000Z" },
+    { ...deleteChatInput, updatedAt: "2026-11-15T00:00:00Z" },
+    { ...deleteChatInput, userId: "other" },
+    { ...deleteChatInput, confirm: true },
+    { ...deleteChatInput, messages: [] },
+  ])("rejects invalid Chat deletion input %j", async (args) => {
+    const client = await connect("owner");
+    expect(
+      (await client.callTool({ name: "delete_chat", arguments: args })).isError,
+    ).toBe(true);
+    expect(writes.chat.deleteMany).not.toHaveBeenCalled();
+    expect(writes.chat.findFirst).not.toHaveBeenCalled();
+  });
+  it("keeps deletion owners separate across MCP clients", async () => {
+    const [a, b] = await Promise.all([connect("a"), connect("b")]);
+    writes.chat.deleteMany.mockResolvedValue({ count: 1 });
+    await Promise.all(
+      [a, b].map((client) =>
+        client.callTool({ name: "delete_chat", arguments: deleteChatInput }),
+      ),
+    );
+    expect(
+      writes.chat.deleteMany.mock.calls
+        .map(([args]) => args.where.userId)
+        .sort(),
+    ).toEqual(["a", "b"]);
+  });
   const chatTitleInput = {
     id: "chat",
     title: "  New title  ",
@@ -1048,6 +1196,7 @@ describe("remote MCP tools", () => {
       "create_category",
       "create_note",
       "delete_category",
+      "delete_chat",
       "delete_note",
       "get_category",
       "get_chat",

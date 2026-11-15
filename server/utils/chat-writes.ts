@@ -4,6 +4,7 @@ import { ownedCategory } from "./categories";
 import {
   updateChatCategorySchema,
   updateChatTitleInputSchema,
+  deleteChatBodySchema,
 } from "./input-schemas";
 import { parseInput } from "./parse-input";
 
@@ -80,13 +81,27 @@ async function updateChatVersion(
   }
 }
 
-export async function deleteOwnedChat(userId: string, id: string | undefined) {
+export async function deleteOwnedChat(
+  userId: string,
+  id: string | undefined,
+  body: unknown = {},
+) {
   if (!id) {
     throw createError({ statusCode: 404, statusMessage: "Chat not found" });
   }
-  const result = await getPrisma().chat.deleteMany({ where: { id, userId } });
-  if (!result.count) {
-    throw createError({ statusCode: 404, statusMessage: "Chat not found" });
+  const input = parseInput(deleteChatBodySchema, body);
+  const result = await getPrisma().chat.deleteMany({
+    where: {
+      id,
+      userId,
+      ...(input.updatedAt === undefined
+        ? {}
+        : { updatedAt: new Date(input.updatedAt) }),
+    },
+  });
+  if (result.count) return { id, deleted: true };
+  if (input.updatedAt !== undefined) {
+    return throwChatWriteError(userId, id);
   }
-  return { id, deleted: true };
+  throw createError({ statusCode: 404, statusMessage: "Chat not found" });
 }

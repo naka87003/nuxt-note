@@ -365,6 +365,7 @@ describe("Chat generation", () => {
       "create_category",
       "create_note",
       "delete_category",
+      "delete_chat",
       "delete_note",
       "get_category",
       "get_chat",
