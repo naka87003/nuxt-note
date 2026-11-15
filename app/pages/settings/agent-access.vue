@@ -86,6 +86,8 @@ async function deleteToken() {
       </p>
     </div>
 
+    <AgentAvailableTools />
+
     <section
       class="space-y-4 rounded-lg border border-default p-5"
       aria-labelledby="connect-heading"
@@ -95,7 +97,8 @@ async function deleteToken() {
       </h2>
       <p class="text-muted">
         Only agents that support Streamable HTTP and manually configured Bearer
-        tokens can connect. No project download or local MCP program is needed.
+        tokens can connect. OAuth sign-in is not supported. No project download
+        or local MCP program is needed.
       </p>
       <CopyableValue
         :value="endpoint"
@@ -103,7 +106,14 @@ async function deleteToken() {
         copied-message="URL copied to clipboard."
       />
       <ol class="list-decimal space-y-2 pl-5 text-sm">
-        <li>Create a token below and copy it before leaving this page.</li>
+        <li>
+          <a
+            href="#create-token-heading"
+            class="text-primary underline underline-offset-4"
+            >Create a token below</a
+          >
+          and copy it before leaving this page.
+        </li>
         <li>
           In your agent's MCP settings, add the URL above with Streamable HTTP
           transport.
@@ -114,8 +124,8 @@ async function deleteToken() {
         </li>
       </ol>
       <p class="text-sm text-muted">
-        OAuth sign-in is not supported. Keep the token in your agent's private
-        settings, never in a URL, chat, or version control.
+        Keep the token in your agent's private settings, never in a URL, chat,
+        or version control.
       </p>
       <p class="text-sm">
         Try: “Use nuxt-note to list my Notes, read one, and summarize it.”
@@ -127,7 +137,11 @@ async function deleteToken() {
       class="space-y-4 rounded-lg border border-default p-5"
       aria-labelledby="create-token-heading"
     >
-      <h2 id="create-token-heading" class="text-lg font-semibold">
+      <h2
+        id="create-token-heading"
+        tabindex="-1"
+        class="scroll-mt-24 text-lg font-semibold"
+      >
         Create an agent token
       </h2>
       <form class="flex flex-wrap items-end gap-3" @submit.prevent="issue">
@@ -225,7 +239,7 @@ async function deleteToken() {
       :title="
         deleteTarget ? `Delete token “${deleteTarget.name}”?` : 'Delete token?'
       "
-      description="This permanently deletes the token. Any agent using it will lose access to your Notes. This cannot be undone."
+      description="This permanently deletes the token. Any agent using this token will lose access to Nuxt Note. This cannot be undone."
       :dismissible="!busy"
     >
       <template v-if="deleteFailure" #body>
