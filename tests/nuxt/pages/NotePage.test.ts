@@ -45,7 +45,7 @@ it("shows loading before opening a note and keeps its content during background 
     id: "note-2",
     title: "Next note",
     markdown: "Body",
-    categoryId: null as string | null,
+    categoryId: null,
     createdAt: "2026-11-13T00:00:00Z",
     updatedAt: "2026-11-13T00:00:00Z",
   };

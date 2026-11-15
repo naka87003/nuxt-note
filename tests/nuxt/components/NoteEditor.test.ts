@@ -101,12 +101,8 @@ describe("NoteEditor", () => {
   );
 
   it("blocks duplicate saves and further submissions after success", async () => {
-    let resolve!: (value: { id: string }) => void;
-    request.mockReturnValue(
-      new Promise((done) => {
-        resolve = done;
-      }),
-    );
+    const { promise, resolve } = Promise.withResolvers<{ id: string }>();
+    request.mockReturnValue(promise);
     const wrapper = await mountSuspended(NoteEditor);
     await edit(wrapper);
     const form = wrapper.getComponent(NoteEditorForm);
@@ -390,13 +386,8 @@ describe("NoteEditor conflicts", () => {
   });
   it("keeps the confirmation and draft after a failed overwrite, and blocks duplicate submissions", async () => {
     const wrapper = await conflictEditor();
-    let reject!: (error: Error) => void;
-    request.mockImplementationOnce(
-      () =>
-        new Promise((_, fail) => {
-          reject = fail;
-        }),
-    );
+    const { promise, reject } = Promise.withResolvers<never>();
+    request.mockReturnValueOnce(promise);
     await action(wrapper, "Overwrite and save").trigger("click");
     await flushPromises();
     expect(

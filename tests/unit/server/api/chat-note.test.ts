@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import type { ChatMessage } from "#shared/types/chat";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createChatNoteDraft } from "../../../../server/utils/chat-note";
@@ -40,7 +41,7 @@ vi.hoisted(() => {
 const config = { openaiApiKey: "test", openaiModel: "test" };
 const emptyCategoryContext = { categories: [], chatCategoryId: null };
 const owner = "11111111-1111-4111-8111-111111111111";
-const history = [
+const history: Pick<ChatMessage, "role" | "content">[] = [
   { role: "user", content: "Question" },
   { role: "assistant", content: "Answer" },
 ];

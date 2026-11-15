@@ -22,7 +22,7 @@ beforeEach(() => {
     addListener: vi.fn(),
     removeListener: vi.fn(),
     dispatchEvent: EventTarget.prototype.dispatchEvent,
-  }) as MediaQueryList;
+  });
   vi.stubGlobal(
     "matchMedia",
     vi.fn(() => media),
@@ -37,12 +37,10 @@ describe("NoteEditorForm", () => {
       props: baseProps,
       global: {
         stubs: {
-          UTabs: defineComponent({
-            props: { items: { type: Array, required: true } },
+          UTabs: defineComponent<{ items: { label: string }[] }>({
+            props: ["items"],
             setup(props) {
-              initialTabs = (props.items as { label: string }[]).map(
-                (item) => item.label,
-              );
+              initialTabs = props.items.map((item) => item.label);
               return () => h("div");
             },
           }),

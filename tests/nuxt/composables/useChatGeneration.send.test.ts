@@ -81,8 +81,9 @@ it.each([
 );
 
 it("shows the question immediately and starts AI after saving without reloading history", async () => {
-  let saved!: () => void;
-  save.mockReturnValueOnce(new Promise<void>((resolve) => (saved = resolve)));
+  const { promise, resolve: saved }: PromiseWithResolvers<void> =
+    Promise.withResolvers();
+  save.mockReturnValueOnce(promise);
   const { chat, refresh, generation } = await setup();
   generation.draft.value = " Question ";
   const sending = generation.send();
@@ -123,8 +124,9 @@ it("restores a failed send and reuses its request ID on retry", async () => {
 });
 
 it("does not start AI when the user leaves during message persistence", async () => {
-  let saved!: () => void;
-  save.mockReturnValueOnce(new Promise<void>((resolve) => (saved = resolve)));
+  const { promise, resolve: saved }: PromiseWithResolvers<void> =
+    Promise.withResolvers();
+  save.mockReturnValueOnce(promise);
   const { generation, unmount } = await setup();
   generation.draft.value = "Question";
   const sending = generation.send();
@@ -149,15 +151,13 @@ it("makes the next send available after completion while sidebar updates are pen
 
 it("keeps sending disabled while reloading after generation has failed", async () => {
   save.mockResolvedValue(undefined);
-  let respond!: (response: Response) => void;
-  generate.mockReturnValueOnce(
-    new Promise<Response>((resolve) => (respond = resolve)),
-  );
+  const { promise: response, resolve: respond } =
+    Promise.withResolvers<Response>();
+  generate.mockReturnValueOnce(response);
   const { refresh, generation } = await setup();
-  let reloaded!: () => void;
-  refresh.mockReturnValueOnce(
-    new Promise<void>((resolve) => (reloaded = resolve)),
-  );
+  const { promise: reload, resolve: reloaded }: PromiseWithResolvers<void> =
+    Promise.withResolvers();
+  refresh.mockReturnValueOnce(reload);
   generation.draft.value = "Question";
   const sending = generation.send();
   await vi.waitFor(() => expect(generate).toHaveBeenCalledTimes(1));

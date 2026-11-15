@@ -45,10 +45,8 @@ describe("Agent access token display", () => {
     expect(wrapper.get('[role="dialog"] h2').text()).toBe(
       "Delete token “Codex”?",
     );
-    let rejectDelete!: (error: Error) => void;
-    request.mockImplementationOnce(
-      () => new Promise((_, reject) => (rejectDelete = reject)),
-    );
+    const { promise, reject: rejectDelete } = Promise.withResolvers<never>();
+    request.mockReturnValueOnce(promise);
     const confirm = () =>
       wrapper
         .get('[role="dialog"]')

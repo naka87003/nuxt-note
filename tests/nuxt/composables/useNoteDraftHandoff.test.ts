@@ -85,19 +85,15 @@ it("clears pending content if authentication redirects away from the editor", as
 });
 
 it("does not remove a newer draft when an older navigation fails late", async () => {
-  let failFirst!: (error: Error) => void;
-  let finishSecond!: () => void;
+  const { promise: firstNavigation, reject: failFirst } =
+    Promise.withResolvers<never>();
+  const {
+    promise: secondNavigation,
+    resolve: finishSecond,
+  }: PromiseWithResolvers<void> = Promise.withResolvers();
   navigate
-    .mockReturnValueOnce(
-      new Promise((_, reject) => {
-        failFirst = reject;
-      }),
-    )
-    .mockReturnValueOnce(
-      new Promise<void>((resolve) => {
-        finishSecond = resolve;
-      }),
-    );
+    .mockReturnValueOnce(firstNavigation)
+    .mockReturnValueOnce(secondNavigation);
   const handoff = await createHandoff();
   const first = handoff.open(transfer);
   const check = expect(first).rejects.toThrow("old failure");

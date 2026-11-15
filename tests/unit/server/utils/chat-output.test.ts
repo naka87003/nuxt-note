@@ -108,15 +108,8 @@ it("cancels buffered writes on stop and leaves terminal persistence to the calle
 
 it("delivers text while a checkpoint is blocked and serializes later saves", async () => {
   vi.useFakeTimers();
-  let release!: () => void;
-  const save = vi
-    .fn()
-    .mockReturnValueOnce(
-      new Promise<boolean>((resolve) => {
-        release = () => resolve(true);
-      }),
-    )
-    .mockResolvedValue(true);
+  const { promise, resolve } = Promise.withResolvers<boolean>();
+  const save = vi.fn().mockReturnValueOnce(promise).mockResolvedValue(true);
   const publish = vi.fn().mockResolvedValue(undefined);
   const output = createChatOutput({
     controller: new AbortController(),
@@ -137,7 +130,7 @@ it("delivers text while a checkpoint is blocked and serializes later saves", asy
   });
   await Promise.resolve();
   expect(flushed).toBe(false);
-  release();
+  resolve(true);
   await flushing;
   expect(save.mock.calls.map(([text]) => text)).toEqual([
     "First",

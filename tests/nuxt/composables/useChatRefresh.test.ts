@@ -51,12 +51,8 @@ it("preserves a streaming answer during a global refresh", async () => {
 });
 
 it("discards a stale snapshot if sending begins while the request is pending", async () => {
-  let resolve!: (value: Conversation) => void;
-  fetchChat.mockReturnValue(
-    new Promise<Conversation>((done) => {
-      resolve = done;
-    }),
-  );
+  const { promise, resolve } = Promise.withResolvers<Conversation>();
+  fetchChat.mockReturnValue(promise);
   const { chat, sending, refresh } = await setup();
   const pending = refresh();
   const streaming = chat.value;
@@ -82,12 +78,8 @@ it("reloads the persisted partial state explicitly while failure recovery is bus
 });
 
 it("discards an older snapshot even if the new response finishes before it arrives", async () => {
-  let resolve!: (value: Conversation) => void;
-  fetchChat.mockReturnValue(
-    new Promise<Conversation>((done) => {
-      resolve = done;
-    }),
-  );
+  const { promise, resolve } = Promise.withResolvers<Conversation>();
+  fetchChat.mockReturnValue(promise);
   const { chat, sending, refresh } = await setup();
   const pending = refresh();
   const completed = chat.value;

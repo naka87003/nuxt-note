@@ -7,6 +7,7 @@ import { readWebpage } from "../../../../server/utils/web-page";
 
 vi.mock("../../../../server/utils/web-page", () => ({ readWebpage: vi.fn() }));
 beforeEach(() => vi.resetAllMocks());
+const context = { toolCallId: "call", messages: [] };
 
 it("checks generation ownership before reading a page", async () => {
   const assertActive = vi.fn().mockRejectedValue(new Error("inactive"));
@@ -15,7 +16,7 @@ it("checks generation ownership before reading a page", async () => {
     assertActive,
   });
   await expect(
-    tools.read_webpage.execute({ url: "https://example.com" }, {} as never),
+    tools.read_webpage.execute({ url: "https://example.com" }, context),
   ).rejects.toThrow("inactive");
   expect(readWebpage).not.toHaveBeenCalled();
 });
@@ -33,10 +34,7 @@ it("returns page data and sanitized failures so the model can try another source
     truncated: false,
   });
   expect(
-    await tools.read_webpage.execute(
-      { url: "https://example.com" },
-      {} as never,
-    ),
+    await tools.read_webpage.execute({ url: "https://example.com" }, context),
   ).toMatchObject({ text: "Content" });
   expect(readWebpage).toHaveBeenCalledWith("https://example.com", signal);
   vi.mocked(readWebpage).mockRejectedValueOnce(
@@ -44,7 +42,7 @@ it("returns page data and sanitized failures so the model can try another source
   );
   const result = await tools.read_webpage.execute(
     { url: "https://example.com" },
-    {} as never,
+    context,
   );
   expect(result).toHaveProperty("error");
   expect(JSON.stringify(result)).not.toContain("private network detail");
@@ -58,7 +56,7 @@ it("propagates cancellation instead of returning an ordinary tool failure", asyn
   });
   controller.abort();
   await expect(
-    tools.read_webpage.execute({ url: "https://example.com" }, {} as never),
+    tools.read_webpage.execute({ url: "https://example.com" }, context),
   ).rejects.toThrow();
   expect(readWebpage).not.toHaveBeenCalled();
 });

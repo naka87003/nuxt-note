@@ -45,12 +45,9 @@ async function setup() {
 }
 
 it("shows the first question and cursor immediately, then generates in the same conversation", async () => {
-  let acknowledge!: () => void;
-  save.mockReturnValueOnce(
-    new Promise<void>((resolve) => {
-      acknowledge = resolve;
-    }),
-  );
+  const { promise, resolve: acknowledge }: PromiseWithResolvers<void> =
+    Promise.withResolvers();
+  save.mockReturnValueOnce(promise);
   const { chat, onCreated, refresh, generation } = await setup();
   generation.draft.value = " First question ";
   const sending = generation.send();
@@ -125,12 +122,9 @@ it("uses a new request when the category changes after a failed creation", async
 });
 
 it("does not navigate or start generation if the user leaves while creation is pending", async () => {
-  let acknowledge!: () => void;
-  save.mockReturnValueOnce(
-    new Promise<void>((resolve) => {
-      acknowledge = resolve;
-    }),
-  );
+  const { promise, resolve: acknowledge }: PromiseWithResolvers<void> =
+    Promise.withResolvers();
+  save.mockReturnValueOnce(promise);
   const { onCreated, generation, unmount } = await setup();
   generation.draft.value = "Question";
   const sending = generation.send();

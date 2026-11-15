@@ -2,13 +2,16 @@ import { describe, expect, it } from "vitest";
 import { renderMarkdown } from "./render-markdown";
 import { createNoteMarkdownParser } from "@/utils/markdown";
 import { textContent } from "@comark/nuxt/utils";
-import type { ElementNode } from "@comark/nuxt/parse";
 
 async function parsedCode(source: string) {
   const document = await createNoteMarkdownParser()(source);
-  return document.nodes.find(
+  const code = document.nodes.find(
     (node) => Array.isArray(node) && node[0] === "pre",
-  ) as ElementNode;
+  );
+  if (!Array.isArray(code)) {
+    throw new Error("Expected a code block in the parsed Markdown.");
+  }
+  return code;
 }
 
 const withoutSpans = (html: string) => html.replace(/<\/?span[^>]*>/g, "");

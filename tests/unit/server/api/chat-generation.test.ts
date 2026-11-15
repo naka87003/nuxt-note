@@ -670,18 +670,18 @@ describe("Chat generation", () => {
     expect(mocks.close).toHaveBeenCalled();
   });
   it("delivers successive AI deltas while a checkpoint is blocked", async () => {
-    let releaseCheckpoint!: () => void;
-    let checkpointStarted!: () => void;
-    const started = new Promise<void>((resolve) => {
-      checkpointStarted = resolve;
-    });
-    const checkpoint = new Promise<void>((resolve) => {
-      releaseCheckpoint = resolve;
-    });
-    let finishProvider!: () => void;
-    const providerFinished = new Promise<void>((resolve) => {
-      finishProvider = resolve;
-    });
+    const {
+      promise: started,
+      resolve: checkpointStarted,
+    }: PromiseWithResolvers<void> = Promise.withResolvers();
+    const {
+      promise: checkpoint,
+      resolve: releaseCheckpoint,
+    }: PromiseWithResolvers<void> = Promise.withResolvers();
+    const {
+      promise: providerFinished,
+      resolve: finishProvider,
+    }: PromiseWithResolvers<void> = Promise.withResolvers();
     mocks.message.updateMany.mockImplementationOnce(async () => {
       checkpointStarted();
       await checkpoint;
@@ -719,16 +719,17 @@ describe("Chat generation", () => {
     );
   });
   it("drains an in-flight checkpoint before saving a disconnected response", async () => {
-    let releaseCheckpoint!: () => void;
-    let checkpointStarted!: () => void;
-    const started = new Promise<void>((resolve) => {
-      checkpointStarted = resolve;
-    });
+    const {
+      promise: started,
+      resolve: checkpointStarted,
+    }: PromiseWithResolvers<void> = Promise.withResolvers();
+    const {
+      promise: checkpoint,
+      resolve: releaseCheckpoint,
+    }: PromiseWithResolvers<void> = Promise.withResolvers();
     mocks.message.updateMany.mockImplementationOnce(async () => {
       checkpointStarted();
-      await new Promise<void>((resolve) => {
-        releaseCheckpoint = resolve;
-      });
+      await checkpoint;
       return { count: 1 };
     });
     mocks.streamText.mockReturnValue({

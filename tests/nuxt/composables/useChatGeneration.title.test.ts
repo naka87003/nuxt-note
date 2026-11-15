@@ -37,7 +37,7 @@ beforeEach(() => {
 function conversation() {
   return ref<Conversation>({
     id: "chat",
-    title: null as string | null,
+    title: null,
     generationId: null,
     messages: [
       {
@@ -142,10 +142,8 @@ it.each([undefined, null, "target"])(
 
 it("allows the next message while a title is pending and updates the refreshed chat", async () => {
   const chat = conversation();
-  let resolveTitle!: (value: { title: string }) => void;
-  const pendingTitle = new Promise<{ title: string }>((resolve) => {
-    resolveTitle = resolve;
-  });
+  const { promise: pendingTitle, resolve: resolveTitle } =
+    Promise.withResolvers<{ title: string }>();
   titleRequest.mockImplementation((url: string) =>
     url.endsWith("/title") ? pendingTitle : Promise.resolve({}),
   );

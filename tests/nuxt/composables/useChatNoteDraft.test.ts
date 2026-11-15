@@ -26,12 +26,8 @@ it("waits for confirmation and can dismiss before starting AI", async () => {
 });
 
 it("blocks dismissal and duplicate submissions during generation, then opens the draft", async () => {
-  let resolve!: (value: typeof draft) => void;
-  request.mockReturnValue(
-    new Promise((done) => {
-      resolve = done;
-    }),
-  );
+  const { promise, resolve } = Promise.withResolvers<typeof draft>();
+  request.mockReturnValue(promise);
   const openDraft = vi.fn().mockResolvedValue(undefined);
   const { result: flow } = await mountComposable(() =>
     useChatNoteDraft(() => "chat", openDraft),
@@ -67,12 +63,8 @@ it("allows manual retry after an error without creating a blank draft", async ()
 });
 
 it("ignores late responses after leaving and aborts the local request", async () => {
-  let resolve!: (value: typeof draft) => void;
-  request.mockReturnValue(
-    new Promise((done) => {
-      resolve = done;
-    }),
-  );
+  const { promise, resolve } = Promise.withResolvers<typeof draft>();
+  request.mockReturnValue(promise);
   const openDraft = vi.fn();
   const { result: flow, unmount: dispose } = await mountComposable(() =>
     useChatNoteDraft(() => "chat", openDraft),

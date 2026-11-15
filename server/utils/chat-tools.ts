@@ -12,6 +12,15 @@ import {
 export const CHAT_TOOL_STEPS = 8;
 
 const noteVersionSchema = z.object(noteVersionShape);
+const noteListVersionsSchema = z.object({ notes: z.array(noteVersionSchema) });
+const chatListVersionsSchema = z.object({ chats: z.array(noteVersionSchema) });
+const toolResultSchema = z.looseObject({
+  isError: z.boolean().optional(),
+  content: z
+    .array(z.looseObject({ type: z.literal("text"), text: z.string() }))
+    .optional(),
+  structuredContent: z.record(z.string(), z.unknown()).optional(),
+});
 
 export const CHAT_NOTES_INSTRUCTIONS =
   "You can list, create, rename, and delete Categories using the provided tools. Use get_category to read a Category's name, Note count, and Chat count without reading their content. " +
@@ -153,30 +162,38 @@ export function createChatNoteTools(
         }
         const result = await definition.execute(parsed);
         // Dates must reach the model in the same ISO format as the MCP result.
-        const serialized = JSON.parse(JSON.stringify(result));
+        const serialized = toolResultSchema.parse(
+          JSON.parse(JSON.stringify(result)),
+        );
         if (name === "list_chats" && !serialized.isError) {
-          for (const chat of serialized.structuredContent.chats) {
+          const { chats } = chatListVersionsSchema.parse(
+            serialized.structuredContent,
+          );
+          for (const chat of chats) {
             chatVersions.set(chat.id, chat.updatedAt);
           }
         }
         if (name === "get_chat" && !serialized.isError) {
-          const chat = serialized.structuredContent;
+          const chat = noteVersionSchema.parse(serialized.structuredContent);
           chatVersions.set(chat.id, chat.updatedAt);
         }
         if (name === "list_notes" && !serialized.isError) {
-          for (const note of serialized.structuredContent.notes) {
+          const { notes } = noteListVersionsSchema.parse(
+            serialized.structuredContent,
+          );
+          for (const note of notes) {
             metadataVersions.set(note.id, note.updatedAt);
           }
         }
         if (name === "get_note" && !serialized.isError) {
-          const note = serialized.structuredContent;
+          const note = noteVersionSchema.parse(serialized.structuredContent);
           versions.set(note.id, note.updatedAt);
           metadataVersions.set(note.id, note.updatedAt);
         }
         if (
           name === "delete_note" &&
           serialized.isError &&
-          serialized.content.some((part: { text: string }) =>
+          serialized.content?.some((part) =>
             part.text.includes("Note has changed."),
           )
         ) {

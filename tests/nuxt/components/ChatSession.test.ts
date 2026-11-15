@@ -118,16 +118,11 @@ describe("ChatSession", () => {
   });
 
   it("keeps the conversation and draft mounted during a background refresh", async () => {
-    let resolve!: (value: Conversation) => void;
+    const { promise, resolve } = Promise.withResolvers<Conversation>();
     const load = vi
       .fn()
       .mockImplementationOnce(async () => conversation)
-      .mockImplementation(
-        () =>
-          new Promise<Conversation>((done) => {
-            resolve = done;
-          }),
-      );
+      .mockReturnValue(promise);
     mocks.refresh.mockImplementation((chat) => async () => {
       const result = await load();
       chat.value = result;
@@ -147,11 +142,9 @@ describe("ChatSession", () => {
     expect(wrapper.get("textarea").element.value).toBe("Unsent question");
   });
   it("shows loading instead of the conversation and composer until the request completes", async () => {
-    let resolve!: (value: Conversation) => void;
+    const { promise, resolve } = Promise.withResolvers<Conversation>();
     mocks.refresh.mockImplementation((chat) => async () => {
-      const result = await new Promise<Conversation>((done) => {
-        resolve = done;
-      });
+      const result = await promise;
       chat.value = result;
       return result;
     });
@@ -209,8 +202,8 @@ describe("ChatSession", () => {
     );
     const wrapper = await mountSession();
     await flushPromises();
-    const pane = wrapper.get(".chat-messages").element as HTMLElement;
-    const content = pane.firstElementChild!;
+    const pane = wrapper.get(".chat-messages").element;
+    const content = wrapper.get(".chat-inner").element;
     let height = 1000;
     let top = 0;
     Object.defineProperties(pane, {

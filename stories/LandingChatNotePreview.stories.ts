@@ -16,9 +16,9 @@ type Story = StoryObj<typeof meta>;
 export const Responsive: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const desktop = canvasElement.ownerDocument.defaultView!.matchMedia(
-      "(min-width: 1024px)",
-    ).matches;
+    const view = canvasElement.ownerDocument.defaultView;
+    if (!view) throw new Error("The story must be attached to a window.");
+    const desktop = view.matchMedia("(min-width: 1024px)").matches;
     if (desktop) {
       // Wait for the real lazy component, rather than capturing the SSR fallback.
       await expect(

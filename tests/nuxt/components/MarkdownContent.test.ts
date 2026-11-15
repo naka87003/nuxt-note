@@ -136,13 +136,9 @@ describe("Markdown code copying", () => {
   );
 
   it("ignores completion for a block replaced during streaming", async () => {
-    let finish!: () => void;
-    const writeText = vi.fn(
-      () =>
-        new Promise<void>((resolve) => {
-          finish = resolve;
-        }),
-    );
+    const { promise, resolve: finish }: PromiseWithResolvers<void> =
+      Promise.withResolvers();
+    const writeText = vi.fn(() => promise);
     vi.stubGlobal("navigator", { clipboard: { writeText } });
     const wrapper = await mountMarkdown({
       props: { content: "```js\nfirst" },

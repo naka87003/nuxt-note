@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { stepCountIs, streamText } from "ai";
 import { MockLanguageModelV4, simulateReadableStream } from "ai/test";
+import { createWorkspaceTools } from "../../../../server/utils/workspace-tools";
 import {
   CHAT_NOTES_INSTRUCTIONS,
   createChatNoteTools,
@@ -115,6 +116,152 @@ beforeEach(() => {
   writes.deleteOwnedNote.mockResolvedValue({ id: "note", deleted: true });
 });
 describe("in-app Note tools", () => {
+  it.each(["list_notes", "list_chats"] as const)(
+    "preserves the full serialized %s result, including extra fields and pagination",
+    async (name) => {
+      const item = { ...note, preview: "Preview", metadata: { flag: true } };
+      reads.searchOwnedNotes.mockResolvedValue({
+        notes: [item],
+        nextOffset: 20,
+      });
+      chatReads.searchOwnedChats.mockResolvedValue({
+        chats: [item],
+        nextOffset: 20,
+      });
+      const definitions = createWorkspaceTools(
+        "owner",
+        "https://notes.example",
+      );
+      const expected: unknown = JSON.parse(
+        JSON.stringify(await definitions[name].execute({})),
+      );
+      const { tools } = setup();
+      expect(await tools[name].execute({}, context)).toEqual(expected);
+    },
+  );
+
+  it.each(["get_note", "get_chat"] as const)(
+    "preserves the full serialized %s result and nested dates",
+    async (name) => {
+      const item = {
+        ...note,
+        createdAt: new Date(version),
+        messages: [
+          { role: "user", content: "Question", createdAt: new Date(version) },
+        ],
+        nextOffset: 20,
+        metadata: { flag: true },
+      };
+      reads.readOwnedNote.mockResolvedValue(item);
+      chatReads.readOwnedChatPage.mockResolvedValue(item);
+      const definitions = createWorkspaceTools(
+        "owner",
+        "https://notes.example",
+      );
+      const expected: unknown = JSON.parse(
+        JSON.stringify(await definitions[name].execute({ id: "note" })),
+      );
+      const { tools } = setup();
+      expect(await tools[name].execute({ id: "note" }, context)).toEqual(
+        expected,
+      );
+    },
+  );
+
+  it.each(["get_note", "get_chat"] as const)(
+    "preserves the %s error result without requiring version metadata",
+    async (name) => {
+      reads.readOwnedNote.mockRejectedValue({ statusCode: 404 });
+      chatReads.readOwnedChatPage.mockRejectedValue({ statusCode: 404 });
+      const definitions = createWorkspaceTools(
+        "owner",
+        "https://notes.example",
+      );
+      const expected = await definitions[name].execute({ id: "note" });
+      const { tools } = setup();
+      expect(expected.isError).toBe(true);
+      expect(await tools[name].execute({ id: "note" }, context)).toEqual(
+        expected,
+      );
+    },
+  );
+
+  it.each([undefined, "invalid", 123])(
+    "rejects malformed Note list versions atomically (%j)",
+    async (updatedAt) => {
+      const { tools } = setup();
+      reads.searchOwnedNotes.mockResolvedValueOnce({
+        notes: [note, { id: "malformed", updatedAt }],
+        nextOffset: null,
+      });
+      await expect(tools.list_notes.execute({}, context)).rejects.toThrow();
+      expect(
+        await tools.update_note_title!.execute(
+          { ...input, title: "Changed" },
+          context,
+        ),
+      ).toHaveProperty("error");
+      expect(writes.updateOwnedNoteTitle).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([undefined, "invalid", 123])(
+    "rejects malformed Chat list versions atomically (%j)",
+    async (updatedAt) => {
+      const { tools } = setup();
+      chatReads.searchOwnedChats.mockResolvedValueOnce({
+        chats: [
+          { id: "chat", updatedAt: new Date(version) },
+          { id: "malformed", updatedAt },
+        ],
+        nextOffset: null,
+      });
+      await expect(tools.list_chats.execute({}, context)).rejects.toThrow();
+      expect(
+        await tools.update_chat_title!.execute(
+          { id: "chat", updatedAt: version, title: "Changed" },
+          context,
+        ),
+      ).toHaveProperty("error");
+      expect(chatWrites.updateOwnedChatTitle).not.toHaveBeenCalled();
+    },
+  );
+
+  it("does not retain a Note version after reading invalid metadata", async () => {
+    const { tools } = setup();
+    await tools.get_note.execute({ id: "note" }, context);
+    reads.readOwnedNote.mockResolvedValueOnce({
+      ...note,
+      updatedAt: "invalid",
+    });
+    await expect(
+      tools.get_note.execute({ id: "note" }, context),
+    ).rejects.toThrow();
+    expect(await tools.update_note!.execute(update, context)).toHaveProperty(
+      "error",
+    );
+    expect(writes.updateOwnedNote).not.toHaveBeenCalled();
+  });
+
+  it("does not retain a Chat version after reading invalid metadata", async () => {
+    const { tools } = setup();
+    await tools.get_chat.execute({ id: "chat" }, context);
+    chatReads.readOwnedChatPage.mockResolvedValueOnce({
+      id: "chat",
+      updatedAt: "invalid",
+    });
+    await expect(
+      tools.get_chat.execute({ id: "chat" }, context),
+    ).rejects.toThrow();
+    expect(
+      await tools.update_chat_title!.execute(
+        { id: "chat", updatedAt: version, title: "Changed" },
+        context,
+      ),
+    ).toHaveProperty("error");
+    expect(chatWrites.updateOwnedChatTitle).not.toHaveBeenCalled();
+  });
+
   it.each([true, false])(
     "reflects the current Chat only after it was actually merged (%s)",
     async (currentChatMoved) => {
@@ -1507,16 +1654,12 @@ describe("in-app Note tools", () => {
         notes: [{ id: "second", updatedAt: new Date(version) }],
         nextOffset: null,
       });
-    const firstPage = (await tools.list_notes.execute(
-      { limit: 1 },
-      context,
-    )) as {
-      structuredContent: { nextOffset: number };
-    };
-    await tools.list_notes.execute(
-      { limit: 1, offset: firstPage.structuredContent.nextOffset },
-      context,
-    );
+    const firstPage = await tools.list_notes.execute({ limit: 1 }, context);
+    const nextOffset = firstPage.structuredContent?.nextOffset;
+    if (typeof nextOffset !== "number") {
+      throw new Error("Expected another page of Notes.");
+    }
+    await tools.list_notes.execute({ limit: 1, offset: nextOffset }, context);
     const args = { ...input, categoryId: null };
     expect(
       await tools.update_note_category!.execute(args, context),
