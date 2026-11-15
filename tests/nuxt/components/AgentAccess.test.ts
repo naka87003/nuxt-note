@@ -2,11 +2,13 @@ import { mockNuxtImport, mountSuspended } from "@nuxt/test-utils/runtime";
 import { flushPromises } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
+import { useError } from "#imports";
 import AgentAccess from "~/pages/settings/agent-access.vue";
 
 const { request, refresh, tokens } = vi.hoisted(() => {
   const tokens: { id: string; name: string; createdAt: string }[] = [];
-  return { request: vi.fn(), refresh: vi.fn(), tokens };
+  // The auth plugin fetches the session before beforeEach configures API results.
+  return { request: vi.fn().mockResolvedValue(null), refresh: vi.fn(), tokens };
 });
 mockNuxtImport("$fetch", () => request);
 mockNuxtImport("useFetch", () => () => ({
@@ -18,6 +20,7 @@ mockNuxtImport("useFetch", () => () => ({
 
 const token = `nnr_${"a".repeat(43)}`;
 beforeEach(() => {
+  expect(useError().value).toBeUndefined();
   tokens.length = 0;
   request.mockReset().mockResolvedValue({ id: "token-id", token });
   refresh.mockReset().mockResolvedValue(undefined);

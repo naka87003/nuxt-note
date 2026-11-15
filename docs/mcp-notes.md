@@ -246,8 +246,9 @@ production domain and native clients such as Codex. The site origin is
 
 The handler creates a fresh MCP instance per authenticated request and stores no
 user sessions in memory. It serves current SDK requests and a stateless fallback
-for 2025-era MCP clients. Modern responses are JSON; legacy responses may use a
-finite SSE exchange. There is no persistent GET stream, HTTP session ID, or tool
+for 2025-era MCP clients. Modern responses use `auto` mode: JSON unless a handler
+emits a mid-call notification, which switches the response to a finite SSE
+exchange. Legacy responses may also use finite SSE. There is no persistent GET stream, HTTP session ID, or tool
 subscription support. GET and DELETE return 405. Every POST, including discovery,
 requires a valid token; a browser session cookie alone is not sufficient.
 Requests are limited to 64 KiB and responses use `private, no-store` even for legacy
@@ -432,12 +433,13 @@ integration checks. The commands below are opt-in and have different side effect
 ### Live AI with fake Notes
 
 ```bash
-NUXT_NOTE_LIVE_AI=1 pnpm test --project unit tests/unit/server/utils/chat-tools.live.test.ts
+pnpm test:ai
 ```
 
 Loads `.env` for the API key and optional model and makes billable AI requests.
-Notes are mocked; no database is accessed. This test is skipped in the normal suite
-and does not verify production or a real database.
+Notes are mocked; no database is accessed. This test is excluded from the normal
+suite and does not verify production or a real database. A missing API key fails
+the dedicated command instead of skipping the test.
 
 ### Real database integration
 
@@ -458,15 +460,19 @@ does not deploy the app or register an agent connection.
 
 ### Bulk move database checks
 
-`tests/unit/server/utils/category-moves.db.test.ts` contains opt-in checks
+`tests/integration/category-moves.test.ts` contains explicit checks
 against a disposable local PostgreSQL database for both Note and Chat moves,
 including concurrent reassignment, stale-write rejection, and active generation
-preservation. Apply the initial migration to a local database named
-`nuxt_note_move_test*`, then run:
+preservation. Start Docker, then run:
 
 ```sh
-NUXT_NOTE_MOVE_TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:PORT/nuxt_note_move_test pnpm test --project unit tests/unit/server/utils/category-moves.db.test.ts
+pnpm test:integration
 ```
 
 These checks use unique fixture users and never read the application's database
-configuration. The ordinary test suite skips them when the URL is unset.
+configuration. The command creates a temporary PostgreSQL container, applies the
+migrations, runs the tests, and removes the container on completion, failure,
+Ctrl+C, or SIGTERM.
+It supplies its own test DB URL and ignores caller-provided DB URLs. The ordinary
+test suite excludes these checks. See the [test guide](../tests/README.md#postgresql)
+for prerequisites.

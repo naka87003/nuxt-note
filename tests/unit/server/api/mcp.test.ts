@@ -64,7 +64,7 @@ async function connect(owner: string, siteUrl = "https://notes.example") {
   const handler = createMcpHandler(
     () => createRemoteNotesServer(owner, siteUrl),
     {
-      responseMode: "json",
+      responseMode: "auto",
       maxSubscriptions: 0,
     },
   );

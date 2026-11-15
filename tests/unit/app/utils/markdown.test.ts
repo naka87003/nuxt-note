@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { renderMarkdown } from "./render-markdown";
 import { createNoteMarkdownParser } from "@/utils/markdown";
 import { render } from "@comark/nuxt/render";
@@ -19,7 +19,6 @@ describe("Chat Markdown", () => {
     "[x](data:text/html,hello)",
     "[x](vbscript:hello)",
     "[x](file:///etc/passwd)",
-    "[x](ftp://example.com/file)",
     "[x](java&#x73;cript:alert%281%29)",
     "[x](JaVaScRiPt:alert%281%29)",
     "<iframe src=javascript:alert(1)></iframe>",
@@ -30,6 +29,18 @@ describe("Chat Markdown", () => {
     expect(html).not.toMatch(
       /<script|<img|<iframe|<NuxtLink|href="(?:javascript|data|vbscript|file|ftp):/i,
     );
+  });
+  it("removes FTP links and reports the unsafe attribute", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const html = await renderMarkdown("[x](ftp://example.com/file)");
+      expect(html).not.toContain('href="ftp:');
+      expect(warn).toHaveBeenCalledExactlyOnceWith(
+        '[comark/plugins/security] removing unsafe attribute: href="ftp://example.com/file"',
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 

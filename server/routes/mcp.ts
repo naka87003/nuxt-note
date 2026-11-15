@@ -41,7 +41,7 @@ export default defineEventHandler(async (event) => {
     () => createRemoteNotesServer(userId, config.public.siteUrl),
     {
       legacy: "stateless",
-      responseMode: "json",
+      responseMode: "auto",
       maxRequestBodySize: 65_536,
       maxSubscriptions: 0,
     },

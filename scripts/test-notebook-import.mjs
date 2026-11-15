@@ -1,53 +1,28 @@
-import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import pg from "pg";
+import { rmSync } from "node:fs";
+import { startTestDatabase } from "./lib/test-database.mjs";
 
 // Never load .env or contact the application's configured database.
 const name = `notebook-import-test-${randomUUID()}`;
 const dir = await mkdtemp(resolve(tmpdir(), "notebook-import-"));
 const script = resolve("scripts/import-notebook.mjs");
-const schema = await readFile(
-  "prisma/migrations/20261103000000_init/migration.sql",
-  "utf8",
-);
-const docker = (...args) =>
-  execFileSync("docker", args, {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  }).trim();
 let client;
+let database;
 try {
-  docker(
-    "run",
-    "--detach",
-    "--name",
+  database = await startTestDatabase({
     name,
-    "--publish",
-    "127.0.0.1::5432",
-    "--env",
-    "POSTGRES_PASSWORD=test-only",
-    "postgres:17-alpine",
-  );
-  const binding = JSON.parse(docker("inspect", name))[0].NetworkSettings.Ports[
-    "5432/tcp"
-  ][0];
-  const url = `postgresql://postgres:test-only@127.0.0.1:${binding.HostPort}/postgres`;
-  for (let i = 0; i < 60; i++) {
-    try {
-      docker("exec", name, "pg_isready", "-U", "postgres");
-      break;
-    } catch {
-      if (i === 59) throw new Error("Temporary database did not start");
-      await new Promise((r) => setTimeout(r, 250));
-    }
-  }
+    database: "nuxt_note_import_test",
+    onStop: () => rmSync(dir, { recursive: true, force: true }),
+  });
+  const url = database.url;
   client = new pg.Client({ connectionString: url });
   await client.connect();
-  await client.query(schema);
   const owner = randomUUID();
   await client.query(
     'INSERT INTO "User" (id,"githubId","githubLogin",name,"updatedAt") VALUES ($1,\'fixture\',\'fixture\',\'Fixture\',now())',
@@ -122,10 +97,13 @@ try {
     "Passed: read-only preview, owner verification, atomic rollback, import, Tokyo timestamps, repeat execution, existing-note preservation.",
   );
 } finally {
-  await client?.end();
   try {
-    docker("rm", "--force", "--volumes", name);
+    await client?.end();
   } finally {
-    await rm(dir, { recursive: true, force: true });
+    try {
+      database?.stop();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   }
 }

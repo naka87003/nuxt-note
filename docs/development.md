@@ -74,7 +74,11 @@ Server APIs use `getAuthenticatedUserId` from `server/utils/auth.ts`.
 
 ## Tests
 
-Run `pnpm test` for unit and Nuxt tests. `pnpm test:db` requires Docker;
+Run `pnpm test` for unit and Nuxt tests. `pnpm test:integration` separately runs
+category move/merge checks with a temporary PostgreSQL database in Docker; database
+creation, migrations, and cleanup are automatic. `pnpm test:ai` makes billable model requests and requires
+an API key. Missing prerequisites fail these dedicated commands rather than
+skipping tests. The existing `pnpm test:db` requires Docker;
 `pnpm test:chat` also requires a build. See the [test guide](../tests/README.md)
 for disposable integration checks and coverage limits.
 

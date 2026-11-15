@@ -49,7 +49,9 @@ it("prefills the Note URL only for a new chat and clears it for ordinary New cha
   await useRouter().push("/chats/new?category=work");
   await flushPromises();
   expect(session().props("initialDraft")).toBe("");
-  expect(session().vm).not.toBe(original);
+  // Vitest's .not.toBe also deep-compares distinct instances for diagnostics.
+  // Compare identity first to avoid enumerating Vue component proxy keys.
+  expect(Object.is(session().vm, original)).toBe(false);
 });
 
 it.each([

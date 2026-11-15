@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { execFileSync, spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { spawn } from "node:child_process";
 import { hkdfSync, randomBytes, randomUUID } from "node:crypto";
 import { createServer } from "node:net";
 import { createServer as httpServer } from "node:http";
 import { Readable } from "node:stream";
 import { setTimeout as delay } from "node:timers/promises";
+import { startTestDatabase } from "./lib/test-database.mjs";
 import { seal } from "../node_modules/nuxt/dist/server/iron.js";
 
 // Build first. This harness never loads .env and never contacts Supabase/OpenAI.
@@ -13,8 +13,6 @@ const root = new URL("../", import.meta.url);
 const name = `nuxt-note-chat-test-${process.pid}`;
 const owner = "11111111-1111-4111-8111-111111111111";
 const secret = randomBytes(32).toString("hex");
-const docker = (...args) =>
-  execFileSync("docker", args, { encoding: "utf8", timeout: 120_000 });
 const freePort = await new Promise((resolve) => {
   const s = createServer();
   s.listen(0, "127.0.0.1", () => {
@@ -24,59 +22,15 @@ const freePort = await new Promise((resolve) => {
 });
 let app;
 let logs = "";
-let started = false;
+let database;
 try {
-  docker(
-    "run",
-    "--rm",
-    "--detach",
-    "--name",
+  database = await startTestDatabase({
     name,
-    "--publish",
-    "127.0.0.1::5432",
-    "--env",
-    "POSTGRES_HOST_AUTH_METHOD=trust",
-    "--env",
-    "POSTGRES_DB=nuxt_note_chat_test",
-    "postgres:17-alpine",
-  );
-  started = true;
-  let ready = false;
-  for (let i = 0; i < 40; i++) {
-    try {
-      docker("exec", name, "pg_isready", "-h", "127.0.0.1", "-U", "postgres");
-      ready = true;
-      break;
-    } catch {
-      await delay(250);
-    }
-  }
-  assert(ready, "PostgreSQL did not become ready");
-  const dbPort = docker("port", name, "5432/tcp").trim().split(":").at(-1);
-  const sql =
-    readFileSync(
-      new URL("prisma/migrations/20261103000000_init/migration.sql", root),
-      "utf8",
-    ) +
-    `\nINSERT INTO "User" (id, "githubId", "githubLogin", name, "updatedAt") VALUES ('${owner}', 'test', 'test', 'Test', now());`;
-  execFileSync(
-    "docker",
-    [
-      "exec",
-      "-i",
-      name,
-      "psql",
-      "-h",
-      "127.0.0.1",
-      "-U",
-      "postgres",
-      "-d",
-      "nuxt_note_chat_test",
-      "-v",
-      "ON_ERROR_STOP=1",
-      "-q",
-    ],
-    { input: sql, encoding: "utf8" },
+    database: "nuxt_note_chat_test",
+    onStop: () => app?.kill("SIGTERM"),
+  });
+  database.executeSql(
+    `INSERT INTO "User" (id, "githubId", "githubLogin", name, "updatedAt") VALUES ('${owner}', 'test', 'test', 'Test', now());`,
   );
   app = spawn(
     process.execPath,
@@ -91,7 +45,7 @@ try {
         ...process.env,
         HOST: "127.0.0.1",
         PORT: String(freePort),
-        DATABASE_URL: `postgresql://postgres@127.0.0.1:${dbPort}/nuxt_note_chat_test`,
+        DATABASE_URL: database.url,
         NUXT_APP_SECRET: secret,
         NUXT_OPENAI_API_KEY: "test-only",
         NUXT_OPENAI_MODEL: "test-model",
@@ -430,17 +384,12 @@ try {
     console.log(
       "Fixture preview: http://127.0.0.1:3012/chats/new (mock AI; temporary database)",
     );
-    await new Promise((resolve) => {
-      process.once("SIGTERM", resolve);
-      process.once("SIGINT", resolve);
-    });
-    preview.closeAllConnections();
-    preview.close();
+    // The shared database signal handlers terminate the app and remove its DB.
+    await new Promise(() => {});
   }
 } catch (error) {
   console.error(logs);
   throw error;
 } finally {
-  app?.kill("SIGTERM");
-  if (started) docker("stop", name);
+  database?.stop();
 }

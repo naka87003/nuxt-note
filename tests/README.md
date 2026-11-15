@@ -18,6 +18,8 @@ tests/
 │   ├── setup.ts           Wrapper cleanup and browser-global restoration
 │   └── setup.test.ts      Cleanup-order regression test
 ├── database/              SQL fixtures and assertions for disposable PostgreSQL
+├── integration/           Real PostgreSQL checks (dedicated command)
+├── ai/                    Real AI provider checks (dedicated command)
 └── helpers/               Mock OpenAI provider used by the built-server check
 ```
 
@@ -28,6 +30,10 @@ pnpm test                  # Both unit and Nuxt tests
 pnpm test --project unit   # Node tests only
 pnpm test --project nuxt   # Nuxt component and composable tests only
 ```
+
+`pnpm test` includes only `unit/` and `nuxt/`. External-service tests live in
+separate suites and are excluded rather than reported as skipped. Setting their
+environment variables does not enable them in the normal suite.
 
 The `unit` project imports source modules directly and mocks Nuxt globals, database access and AI providers as needed. Test files use relative source imports. The existing `#shared` alias is retained because application modules import shared code through it; no additional `~` or `~~` aliases are configured for this project.
 
@@ -60,7 +66,46 @@ Old caches can be removed with:
 pnpm exec vitest --clearCache
 ```
 
-## Disposable integration checks
+## Dedicated PostgreSQL and AI suites
+
+```bash
+pnpm test:integration      # 20 category move/merge checks with temporary Docker PostgreSQL
+pnpm test:ai               # One real-model tool-use check (billable)
+```
+
+Neither command skips tests when prerequisites are missing: it exits with an
+error. These suites use their own Vitest configs and do not start the Nuxt test
+environment.
+
+### PostgreSQL
+
+Start Docker, then run:
+
+```bash
+pnpm test:integration
+```
+
+The command starts a disposable `postgres:17-alpine` container (downloading the
+image on first use), binds PostgreSQL to an available loopback port, applies all
+SQL migrations in order, and runs the integration suite. It removes the container
+and its volumes on completion, failure, Ctrl+C (`SIGINT`), or `SIGTERM`. The test
+runner is also terminated on interruption. Docker being unavailable is an error,
+not a skipped test.
+
+It never reads `.env`, `DATABASE_URL`, or `DIRECT_URL`. The script supplies its own
+`NUXT_NOTE_MOVE_TEST_DATABASE_URL`, overriding any inherited value, so no manual
+database creation, migration, or connection configuration is required. The suite
+also checks the local hostname and test database name prefix before connecting.
+
+### AI
+
+`pnpm test:ai` loads `.env` for `NUXT_OPENAI_API_KEY` and the optional
+`NUXT_OPENAI_MODEL`. Notes are mocked, but model requests are real and billable.
+The test checks that the model uses tools to read and edit a linked Note even
+after an earlier incorrect refusal. It is an optional model/prompt regression
+check; it does not access a real database and is not part of `pnpm test`.
+
+## Other integration checks
 
 Agent access also has an explicit real-database check: build and apply its
 migration first, then run `pnpm test:agent --live`. Unlike the disposable commands
@@ -76,6 +121,13 @@ It searches and reads one Note without printing its contents.
 | `pnpm test:db`                          | Docker                  | Applies the migration and runs `database/` SQL fixtures/assertions               |
 | `pnpm test:chat`                        | Docker and `pnpm build` | Exercises the built HTTP server with temporary PostgreSQL and a mock AI provider |
 | `node scripts/test-notebook-import.mjs` | Docker                  | Checks preview, ownership, rollback and repeat imports using synthetic CSV files |
+
+All four disposable DB scripts (`test:integration`, `test:db`, `test:chat`, and
+Notebook import) use `scripts/lib/test-database.mjs` to apply every committed SQL
+migration in directory order before adding their fixtures. The same helper
+removes containers and volumes on completion, failure, `SIGINT`, and `SIGTERM`.
+Child app/runner processes and Notebook temporary files are cleaned up as well.
+Force-killing the process (`SIGKILL`) cannot run cleanup handlers.
 
 The disposable integration scripts in the table are separate from `pnpm test`. They do not load application credentials or target the configured application database. Real GitHub OAuth remains a manual check. See [development](../docs/development.md) and [Notebook migration](../docs/notebook-migration.md) for details.
 

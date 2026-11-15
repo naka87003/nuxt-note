@@ -10,30 +10,41 @@ import {
   vi,
 } from "vitest";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../../../../generated/prisma/client";
-import { getPrisma } from "../../../../server/utils/prisma";
+import { PrismaClient } from "../../generated/prisma/client";
+import { getPrisma } from "../../server/utils/prisma";
 import {
   moveOwnedCategoryNotes,
   updateOwnedNoteTitle,
-} from "../../../../server/utils/note-writes";
+} from "../../server/utils/note-writes";
 import {
   moveOwnedCategoryChats,
   updateOwnedChatTitle,
   deleteOwnedChat,
-} from "../../../../server/utils/chat-writes";
-import { mergeOwnedCategories } from "../../../../server/utils/category-merges";
-import { saveGeneration } from "../../../../server/utils/chat-generation";
+} from "../../server/utils/chat-writes";
+import { mergeOwnedCategories } from "../../server/utils/category-merges";
+import { saveGeneration } from "../../server/utils/chat-generation";
 
-vi.mock("../../../../server/utils/prisma", () => ({ getPrisma: vi.fn() }));
+vi.mock("../../server/utils/prisma", () => ({ getPrisma: vi.fn() }));
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));
 
-// Opt-in only; never reads .env or connects to the application's database.
-// Apply the initial migration to a disposable local DB named nuxt_note_move_test*, then run:
-// NUXT_NOTE_MOVE_TEST_DATABASE_URL=... pnpm test --project unit tests/unit/server/utils/category-moves.db.test.ts
+// Explicit integration suite; never reads .env or uses the application's DB URL.
 const connectionString = process.env.NUXT_NOTE_MOVE_TEST_DATABASE_URL;
-describe.skipIf(!connectionString)("bulk category moves in PostgreSQL", () => {
+if (!connectionString) {
+  throw new Error(
+    "NUXT_NOTE_MOVE_TEST_DATABASE_URL is required for the integration suite.",
+  );
+}
+const databaseUrl = new URL(connectionString);
+if (
+  databaseUrl.hostname !== "127.0.0.1" ||
+  !databaseUrl.pathname.startsWith("/nuxt_note_move_test")
+) {
+  throw new Error("Use a disposable local nuxt_note_move_test database");
+}
+
+describe("bulk category moves in PostgreSQL", () => {
   let db: PrismaClient;
   const owner = randomUUID();
   const other = randomUUID();
@@ -47,22 +58,13 @@ describe.skipIf(!connectionString)("bulk category moves in PostgreSQL", () => {
   const version = new Date("2100-01-01T00:00:00.000Z");
 
   beforeAll(() => {
-    if (!connectionString) {
-      throw new Error("A disposable database URL is required");
-    }
-    const url = new URL(connectionString);
-    if (
-      url.hostname !== "127.0.0.1" ||
-      !url.pathname.startsWith("/nuxt_note_move_test")
-    ) {
-      throw new Error("Use a disposable local nuxt_note_move_test database");
-    }
-    url.searchParams.set("application_name", applicationName);
+    databaseUrl.searchParams.set("application_name", applicationName);
     db = new PrismaClient({
-      adapter: new PrismaPg({ connectionString: url.href, max: 5 }),
+      adapter: new PrismaPg({ connectionString: databaseUrl.href, max: 5 }),
     });
     vi.mocked(getPrisma).mockReturnValue(db);
   });
+
   beforeEach(async () => {
     await db.user.createMany({
       data: [owner, other].map((id) => ({
@@ -229,6 +231,7 @@ describe.skipIf(!connectionString)("bulk category moves in PostgreSQL", () => {
       await db.chat.findUniqueOrThrow({ where: { id: chatId } }),
     ).toMatchObject({ categoryId: target, generationId: "attempt" });
   });
+
   it("deletes an empty source without changing the current Chat or existing content", async () => {
     const empty = await db.category.create({
       data: { userId: owner, name: "Empty", nameKey: "empty" },
@@ -256,6 +259,7 @@ describe.skipIf(!connectionString)("bulk category moves in PostgreSQL", () => {
       await db.chat.findUniqueOrThrow({ where: { id: chatId } }),
     ).toMatchObject({ categoryId: source, updatedAt: version });
   });
+
   it("rolls back both moves if any assignment remains at deletion, preserving other owners", async () => {
     const notes = await db.note.findMany({ orderBy: { id: "asc" } });
     const chats = await db.chat.findMany({
@@ -282,6 +286,7 @@ describe.skipIf(!connectionString)("bulk category moves in PostgreSQL", () => {
       categories,
     );
   });
+
   it.each(["source", "target", "missing"])(
     "rejects merges with foreign or missing Categories (%s)",
     async (kind) => {
@@ -303,6 +308,7 @@ describe.skipIf(!connectionString)("bulk category moves in PostgreSQL", () => {
       expect(await db.category.count({ where: { userId: owner } })).toBe(2);
     },
   );
+
   it("blocks new assignments to the source during a merge instead of silently uncategorizing them", async () => {
     await db.note.deleteMany({ where: { userId: other, categoryId: source } });
     const locked = Promise.withResolvers<undefined>();
@@ -364,6 +370,7 @@ describe.skipIf(!connectionString)("bulk category moves in PostgreSQL", () => {
     );
     expect(await db.category.findUnique({ where: { id: source } })).toBeNull();
   });
+
   it("moves only owned Chats, preserving messages, generation state, Notes, and Categories", async () => {
     const otherChat = await db.chat.create({
       data: { userId: other, categoryId: source, title: "Other owner's Chat" },
@@ -431,6 +438,7 @@ describe.skipIf(!connectionString)("bulk category moves in PostgreSQL", () => {
       await db.message.findUniqueOrThrow({ where: { id: reply.id } }),
     ).toMatchObject({ content: "Continued answer", status: "generating" });
   });
+
   it("handles Uncategorized Chats and identifies whether the current Chat actually moved", async () => {
     const uncategorizedChat = await db.chat.create({
       data: { userId: owner, title: "Uncategorized Chat", updatedAt: version },
@@ -478,6 +486,7 @@ describe.skipIf(!connectionString)("bulk category moves in PostgreSQL", () => {
       currentChatMoved: false,
     });
   });
+
   it.each(["source", "target", "missing"])(
     "does not change Chats when a Category is foreign or missing: %s",
     async (kind) => {
@@ -502,6 +511,7 @@ describe.skipIf(!connectionString)("bulk category moves in PostgreSQL", () => {
       );
     },
   );
+
   it("does not pull back a Chat concurrently moved out of the source", async () => {
     const locked = Promise.withResolvers<undefined>();
     const release = Promise.withResolvers<undefined>();
@@ -578,6 +588,7 @@ describe.skipIf(!connectionString)("bulk category moves in PostgreSQL", () => {
       }),
     ).rejects.toMatchObject({ statusCode: 409 });
   });
+
   it("moves Uncategorized Notes and can move Notes back to Uncategorized", async () => {
     expect(
       (
@@ -602,6 +613,7 @@ describe.skipIf(!connectionString)("bulk category moves in PostgreSQL", () => {
       updatedAt: new Date(version.getTime() + 2),
     });
   });
+
   it.each(["source", "target", "missing"])(
     "does not change Notes when a Category is foreign or missing: %s",
     async (kind) => {
@@ -622,6 +634,7 @@ describe.skipIf(!connectionString)("bulk category moves in PostgreSQL", () => {
       );
     },
   );
+
   it("returns zero without changing versions for an empty source", async () => {
     const empty = await db.category.create({
       data: { userId: owner, name: "Empty", nameKey: "empty" },
@@ -639,6 +652,7 @@ describe.skipIf(!connectionString)("bulk category moves in PostgreSQL", () => {
       categoryId: source,
     });
   });
+
   it("does not pull back a Note concurrently moved out of the source", async () => {
     const locked = Promise.withResolvers<undefined>();
     const release = Promise.withResolvers<undefined>();

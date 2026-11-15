@@ -3,15 +3,15 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { flushPromises } from "@vue/test-utils";
 import { defineComponent, ref } from "vue";
 import { createRouter, createMemoryHistory } from "vue-router";
-import { clearNuxtState, useUserSession } from "#imports";
+import { clearNuxtState, useError, useUserSession } from "#imports";
 import NotePage from "~/pages/notes/[id].vue";
 import NewNotePage from "~/pages/notes/new.vue";
-import NoteEditor from "~/components/NoteEditor.vue";
 
 const { fetchNote, request, navigate, refreshWorkspace, addToast } = vi.hoisted(
   () => ({
     fetchNote: vi.fn(),
-    request: vi.fn(),
+    // Auth initialization runs before beforeEach configures request results.
+    request: vi.fn().mockResolvedValue(null),
     navigate: vi.fn(),
     refreshWorkspace: vi.fn(),
     addToast: vi.fn(),
@@ -24,6 +24,7 @@ mockNuxtImport("refreshNuxtData", () => refreshWorkspace);
 mockNuxtImport("useFetch", () => fetchNote);
 
 beforeEach(() => {
+  expect(useError().value).toBeUndefined();
   addToast.mockReset();
   request.mockReset().mockResolvedValue(undefined);
   navigate.mockReset().mockResolvedValue(undefined);
@@ -59,7 +60,7 @@ it("shows loading before opening a note and keeps its content during background 
   });
   const wrapper = await mountSuspended(NotePage, {
     route: "/notes/note-2",
-    global: { stubs: { MarkdownContent: true } },
+    global: { stubs: { MarkdownContent: true, UIcon: true } },
   });
   expect(wrapper.get('[role="status"]').text()).toBe("Loading…");
   expect(wrapper.find(".note-reader-actions").exists()).toBe(false);
@@ -97,7 +98,7 @@ it.each(["work", null])(
     });
     const wrapper = await mountSuspended(NotePage, {
       route: "/notes/note-1?category=all",
-      global: { stubs: { MarkdownContent: true } },
+      global: { stubs: { MarkdownContent: true, UIcon: true } },
     });
     const button = wrapper
       .findAll("a")
@@ -140,6 +141,12 @@ async function deletionPage(route = "/notes/note-1") {
     route,
     global: {
       stubs: {
+        UIcon: true,
+        NoteEditor: {
+          name: "NoteEditor",
+          emits: ["saved"],
+          template: "<div />",
+        },
         MarkdownContent: {
           props: ["content"],
           template: "<div>{{ content }}</div>",
@@ -301,12 +308,12 @@ it.each([
       refreshWorkspace.mockRejectedValueOnce(new Error("List refresh failed"));
     }
     await button(wrapper, "Edit").trigger("click");
-    wrapper.getComponent(NoteEditor).vm.$emit("saved", savedNote);
+    wrapper.getComponent({ name: "NoteEditor" }).vm.$emit("saved", savedNote);
     await flushPromises();
     expect(addToast).toHaveBeenCalledWith(
       expect.objectContaining({ title: "Note saved", color: "warning" }),
     );
-    expect(wrapper.findComponent(NoteEditor).exists()).toBe(false);
+    expect(wrapper.findComponent({ name: "NoteEditor" }).exists()).toBe(false);
     if (step === "note refresh") {
       expect(data.value).toEqual(savedNote);
       expect(wrapper.get("article").text()).toContain("Saved title");
@@ -376,7 +383,7 @@ it("refreshes a saved Note without warning when its category URL is already curr
   navigate.mockResolvedValueOnce(await duplicatedNavigation());
   await button(wrapper, "Edit").trigger("click");
   wrapper
-    .getComponent(NoteEditor)
+    .getComponent({ name: "NoteEditor" })
     .vm.$emit("saved", { ...changed, categoryId: "work" });
   await flushPromises();
   expect(refresh).toHaveBeenCalledOnce();
