@@ -11,7 +11,7 @@ import {
 export const CHAT_TOOL_STEPS = 8;
 
 export const CHAT_NOTES_INSTRUCTIONS =
-  "You can list, create, rename, and delete Categories using the provided tools. " +
+  "You can list, create, rename, and delete Categories using the provided tools. Use get_category to read a Category's name, Note count, and Chat count without reading their content. " +
   "You can search, read, create, update, and permanently delete the signed-in user's Notes using the provided tools. " +
   "Use tools when saved Notes are relevant; never invent Note content, IDs, versions, or successful actions. " +
   "Edit the content of an existing Note linked in this conversation using get_note then update_note. " +
@@ -143,6 +143,7 @@ export function createChatNoteTools(
 
   return {
     list_categories: adapt("list_categories", definitions.list_categories),
+    get_category: adapt("get_category", definitions.get_category),
     list_notes: adapt("list_notes", definitions.list_notes),
     get_note: adapt("get_note", {
       ...definitions.get_note,

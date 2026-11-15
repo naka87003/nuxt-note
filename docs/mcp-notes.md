@@ -31,6 +31,11 @@ Its Notes and Chats become Uncategorized; their content and messages are preserv
 Remote agents receive the same selection guidance in `create_note`; any current
 chat Category must come from their own context, since MCP has no app Chat session.
 
+`get_category` reads one owned Category’s name and Note/Chat counts without
+reading their content. Counts include only the authenticated user’s Notes and
+Chats. Empty Categories return zero counts; missing and foreign Categories
+return the same not-found error. It is also available during Chat retries.
+
 Examples:
 
 - “Find my Notes about Nuxt and summarize them.”
@@ -119,6 +124,7 @@ Ordinary users only configure their agent and do not need this repository or fil
 | `create_category`      | Required `name`                                                        | Created Category ID and name                                         |
 | `update_category`      | Required `id`, `name`                                                  | Updated Category ID and name                                         |
 | `list_categories`      | No arguments                                                           | All existing Category IDs and names, including empty Categories      |
+| `get_category`         | Required `id` from `list_categories`                                   | Category ID, name, `noteCount`, `chatCount`                          |
 | `list_notes`           | Optional `q`, `category`, `limit`, `offset`                            | IDs, titles, category IDs, update times, text previews, `nextOffset` |
 | `get_note`             | `id` from a search result                                              | ID, title, Markdown, category ID, creation/update times              |
 | `create_note`          | Required `title`, `markdown`; optional `categoryId`                    | ID, title, Markdown, category ID, creation/update times, URL         |

@@ -316,6 +316,7 @@ describe("Chat generation", () => {
       "create_note",
       "delete_category",
       "delete_note",
+      "get_category",
       "get_note",
       "list_categories",
       "list_notes",
@@ -368,6 +369,7 @@ describe("Chat generation", () => {
     await run();
     const input = mocks.streamText.mock.calls[0]![0];
     expect(Object.keys(input.tools).sort()).toEqual([
+      "get_category",
       "get_note",
       "list_categories",
       "list_notes",

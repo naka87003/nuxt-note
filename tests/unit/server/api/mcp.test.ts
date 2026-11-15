@@ -68,6 +68,98 @@ async function connect(owner: string, siteUrl = "https://notes.example") {
 }
 
 describe("remote MCP tools", () => {
+  it.each([0, 3])(
+    "reads Category metadata and owner-scoped counts (%s Notes)",
+    async (noteCount) => {
+      for (const owner of ["a", "b"]) {
+        const client = await connect(owner);
+        writes.category.findFirst.mockResolvedValue({
+          id: "category",
+          name: "Nuxt",
+          _count: { notes: noteCount, chats: 0 },
+        });
+        const { tools } = await client.listTools();
+        expect(
+          tools.find((tool) => tool.name === "get_category")?.annotations,
+        ).toMatchObject({ readOnlyHint: true, openWorldHint: false });
+        const result = await client.callTool({
+          name: "get_category",
+          arguments: { id: "category" },
+        });
+        expect(result.isError).toBeFalsy();
+        expect(result.structuredContent).toEqual({
+          id: "category",
+          name: "Nuxt",
+          noteCount,
+          chatCount: 0,
+        });
+        expect(result.content).toEqual([
+          {
+            type: "text",
+            text: JSON.stringify(result.structuredContent, null, 2),
+          },
+        ]);
+        expect(writes.category.findFirst).toHaveBeenLastCalledWith({
+          where: { id: "category", userId: owner },
+          select: {
+            id: true,
+            name: true,
+            _count: {
+              select: {
+                notes: { where: { userId: owner } },
+                chats: { where: { userId: owner } },
+              },
+            },
+          },
+        });
+      }
+      expect(reads.readOwnedNote).not.toHaveBeenCalled();
+      expect(reads.searchOwnedNotes).not.toHaveBeenCalled();
+    },
+  );
+  it.each(["missing", "foreign"])("hides a %s Category on read", async (id) => {
+    const client = await connect("owner");
+    writes.category.findFirst.mockResolvedValue(null);
+    expect(
+      await client.callTool({ name: "get_category", arguments: { id } }),
+    ).toMatchObject({
+      isError: true,
+      content: [{ text: "Category not found." }],
+    });
+    expect(writes.category.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id, userId: "owner" } }),
+    );
+  });
+  it("hides storage errors on Category read", async () => {
+    const client = await connect("owner");
+    writes.category.findFirst.mockRejectedValue(
+      new Error("private database details"),
+    );
+    expect(
+      await client.callTool({
+        name: "get_category",
+        arguments: { id: "category" },
+      }),
+    ).toMatchObject({
+      isError: true,
+      content: [{ text: "Could not read Category. Please try again." }],
+    });
+  });
+  it.each([
+    {},
+    { id: "" },
+    { id: "x".repeat(101) },
+    { id: null },
+    { id: 1 },
+    { id: "category", userId: "other" },
+  ])("rejects invalid Category read input %j", async (args) => {
+    const client = await connect("owner");
+    expect(
+      (await client.callTool({ name: "get_category", arguments: args }))
+        .isError,
+    ).toBe(true);
+    expect(writes.category.findFirst).not.toHaveBeenCalled();
+  });
   it("renames only the token owner's Category using browser normalization", async () => {
     writes.category.updateMany.mockResolvedValue({ count: 1 });
     for (const owner of ["a", "b"]) {
@@ -364,6 +456,7 @@ describe("remote MCP tools", () => {
       "create_note",
       "delete_category",
       "delete_note",
+      "get_category",
       "get_note",
       "list_categories",
       "list_notes",
@@ -374,7 +467,12 @@ describe("remote MCP tools", () => {
     expect(
       tools
         .filter((t) =>
-          ["get_note", "list_categories", "list_notes"].includes(t.name),
+          [
+            "get_category",
+            "get_note",
+            "list_categories",
+            "list_notes",
+          ].includes(t.name),
         )
         .every((t) => t.annotations?.readOnlyHint),
     ).toBe(true);

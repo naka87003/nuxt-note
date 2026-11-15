@@ -29,6 +29,7 @@ const input = { id: "note", updatedAt: version };
 const update = { ...input, title: "Updated", markdown: "# Changed" };
 const context = { toolCallId: "call", messages: [] };
 const categories = vi.hoisted(() => ({
+  findFirst: vi.fn(),
   findMany: vi.fn(),
   create: vi.fn(),
   updateMany: vi.fn(),
@@ -65,6 +66,49 @@ beforeEach(() => {
   writes.deleteOwnedNote.mockResolvedValue({ id: "note", deleted: true });
 });
 describe("in-app Note tools", () => {
+  it.each([true, false])(
+    "reads Category counts for the session owner (mutations allowed: %s)",
+    async (allowMutations) => {
+      categories.findFirst.mockResolvedValue({
+        id: "category",
+        name: "Nuxt",
+        _count: { notes: 2, chats: 4 },
+      });
+      const { tools, assertActive } = setup("owner", allowMutations);
+      expect(
+        await tools.get_category.execute!({ id: "category" }, context),
+      ).toMatchObject({
+        structuredContent: {
+          id: "category",
+          name: "Nuxt",
+          noteCount: 2,
+          chatCount: 4,
+        },
+      });
+      expect(categories.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "category", userId: "owner" } }),
+      );
+      expect(assertActive).toHaveBeenCalledOnce();
+      expect(reads.readOwnedNote).not.toHaveBeenCalled();
+      expect(CHAT_NOTES_INSTRUCTIONS).toContain("Use get_category");
+    },
+  );
+  it("validates Category reads and stops after cancellation or generation ownership loss", async () => {
+    const { tools, controller } = setup();
+    await expect(
+      tools.get_category.execute!({ id: "" }, context),
+    ).rejects.toThrow();
+    controller.abort();
+    await expect(
+      tools.get_category.execute!({ id: "category" }, context),
+    ).rejects.toThrow();
+    const inactive = setup();
+    inactive.assertActive.mockRejectedValue(new Error("no longer active"));
+    await expect(
+      inactive.tools.get_category.execute!({ id: "category" }, context),
+    ).rejects.toThrow();
+    expect(categories.findFirst).not.toHaveBeenCalled();
+  });
   it("renames a Category for the active session owner and keeps the Chat category", async () => {
     categories.updateMany.mockResolvedValue({ count: 1 });
     const { tools, assertActive } = setup("owner", true, "chat-category");
@@ -635,6 +679,7 @@ describe("in-app Note tools", () => {
   });
   it("does not expose writes during retries", () => {
     expect(Object.keys(setup("owner", false).tools).sort()).toEqual([
+      "get_category",
       "get_note",
       "list_categories",
       "list_notes",
