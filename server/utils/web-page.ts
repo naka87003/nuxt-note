@@ -73,13 +73,10 @@ export function webpageUrl(value: string): URL {
 const publicLookup: LookupFunction = (hostname, options, callback) => {
   lookup(hostname, { all: true }, (error, addresses) => {
     if (error) return callback(error, []);
-    if (
-      !addresses.length ||
-      addresses.some(({ address }) => !isPublicAddress(address))
-    ) {
+    const first = addresses[0];
+    if (!first || addresses.some(({ address }) => !isPublicAddress(address))) {
       return callback(new Error("Non-public destination."), []);
     }
-    const first = addresses[0]!;
     callback(null, options.all ? [first] : first.address, first.family);
   });
 };

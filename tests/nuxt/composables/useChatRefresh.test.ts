@@ -1,7 +1,7 @@
 import { mountComposable } from "../helpers/mount-composable";
 import { ref } from "vue";
 import { beforeEach, expect, it, vi } from "vitest";
-import type { Conversation } from "~/composables/useChatGeneration";
+import type { Conversation } from "#shared/types/chat";
 import { useChatRefresh } from "~/composables/useChatRefresh";
 
 const fetchChat = vi.fn();
@@ -110,4 +110,61 @@ it("updates an idle conversation after a shared category refresh", async () => {
   fetchChat.mockResolvedValue(snapshot);
   await refresh();
   expect(chat.value).toEqual(snapshot);
+});
+
+it.each([
+  [false, false],
+  [false, true],
+  [true, false],
+  [true, true],
+])(
+  "preserves the latest snapshot when an older request finishes last (force: %s → %s)",
+  async (firstForce, secondForce) => {
+    const first = Promise.withResolvers<Conversation>();
+    const second = Promise.withResolvers<Conversation>();
+    fetchChat
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const { chat, refresh } = await setup();
+    const older = refresh(firstForce);
+    const newer = refresh(secondForce);
+    const latest: Conversation = {
+      id: "chat",
+      title: "Latest",
+      generationId: null,
+      messages: [],
+    };
+    second.resolve(latest);
+    await newer;
+    expect(chat.value).toEqual(latest);
+
+    first.resolve({ ...latest, title: "Stale" });
+    expect(await older).toEqual(latest);
+    expect(chat.value).toEqual(latest);
+  },
+);
+
+it("ignores an older snapshot while the latest request is still pending", async () => {
+  const first = Promise.withResolvers<Conversation>();
+  const second = Promise.withResolvers<Conversation>();
+  fetchChat
+    .mockReturnValueOnce(first.promise)
+    .mockReturnValueOnce(second.promise);
+  const { chat, refresh } = await setup();
+  const initial = chat.value;
+  const older = refresh();
+  const newer = refresh();
+  const latest: Conversation = {
+    id: "chat",
+    title: "Latest",
+    generationId: null,
+    messages: [],
+  };
+  first.resolve({ ...latest, title: "Stale" });
+  await older;
+  expect(chat.value).toBe(initial);
+
+  second.resolve(latest);
+  await newer;
+  expect(chat.value).toEqual(latest);
 });

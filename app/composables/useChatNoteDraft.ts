@@ -54,15 +54,21 @@ export function useChatNoteDraft(
     } catch (error) {
       if (disposed || id !== chatId()) return;
       const code = getErrorStatusCode(error);
-      failure.value = prepared.value
-        ? "Could not open your draft. Please try again."
-        : code === 413
-          ? "This conversation is too long to organize into a draft. Please use a shorter conversation."
-          : code === 409
-            ? "Wait for the current response to finish, then try again."
-            : code === 503
-              ? "Draft generation is currently unavailable. Please try again later."
-              : "Could not generate your draft. Your conversation is still here. Please try again.";
+      if (prepared.value) {
+        failure.value = "Could not open your draft. Please try again.";
+      } else if (code === 413) {
+        failure.value =
+          "This conversation is too long to organize into a draft. Please use a shorter conversation.";
+      } else if (code === 409) {
+        failure.value =
+          "Wait for the current response to finish, then try again.";
+      } else if (code === 503) {
+        failure.value =
+          "Draft generation is currently unavailable. Please try again later.";
+      } else {
+        failure.value =
+          "Could not generate your draft. Your conversation is still here. Please try again.";
+      }
       phase.value = "failed";
     }
   }

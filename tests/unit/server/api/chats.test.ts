@@ -3,6 +3,10 @@ import chats from "../../../../server/api/chats/index.get";
 import readChat from "../../../../server/api/chats/[id].get";
 import assignChat from "../../../../server/api/chats/[id].patch";
 import removeChat from "../../../../server/api/chats/[id].delete";
+import {
+  readOwnedChat,
+  readOwnedChatPage,
+} from "../../../../server/utils/chat-reads";
 
 const mocks = vi.hoisted(() => {
   const model = () => ({
@@ -55,6 +59,33 @@ beforeEach(() => {
   mocks.chat.deleteMany.mockResolvedValue({ count: 1 });
 });
 const handlers = [chats, readChat, assignChat, removeChat];
+describe.each([
+  ["browser", () => readOwnedChat(owner, "item")],
+  [
+    "tool",
+    () => readOwnedChatPage(owner, { id: "item", limit: 20, offset: 0 }),
+  ],
+] as const)("%s chat message status validation", (_, read) => {
+  it.each(["completed", "generating", "stopped", "failed"])(
+    "preserves a valid %s status",
+    async (status) => {
+      mocks.chat.findFirst.mockResolvedValue({
+        id: "item",
+        messages: [{ status }],
+      });
+      expect((await read()).messages).toEqual([{ status }]);
+    },
+  );
+
+  it("rejects an unknown database status", async () => {
+    mocks.chat.findFirst.mockResolvedValue({
+      id: "item",
+      messages: [{ status: "streaming" }],
+    });
+    await expect(read()).rejects.toThrow();
+  });
+});
+
 describe("Chat API authentication", () => {
   it.each(handlers)(
     "rejects unauthenticated requests before data access",

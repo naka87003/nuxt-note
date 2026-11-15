@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { ChatStatus, ChatStreamEvent } from "#shared/types/chat";
 import { createError } from "nuxt/server";
 import { createOpenAI } from "@ai-sdk/openai";
 import { stepCountIs, streamText } from "ai";
@@ -28,7 +29,10 @@ import { parseInput } from "../../../utils/parse-input";
 
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);
-  const id = getRouterParam(event, "id")!;
+  const id = getRouterParam(event, "id");
+  if (!id) {
+    throw createError({ statusCode: 404, statusMessage: "Chat not found" });
+  }
   await requireChat(userId, id);
   const body: unknown = await readBody(event);
   const { messageId, attemptId } = parseInput(generateChatInputSchema, body);
@@ -50,7 +54,7 @@ export default defineEventHandler(async (event) => {
       where: { chatId: id },
       orderBy: messageOrder,
     });
-    const question = messages.filter((m) => m.role === "user").at(-1);
+    const question = messages.findLast((m) => m.role === "user");
     if (!question || question.id !== messageId) {
       throw createError({
         statusCode: 409,
@@ -132,18 +136,26 @@ export default defineEventHandler(async (event) => {
   setResponseHeader(event, "X-Accel-Buffering", "no");
   // Consume provider events on the server, including error/incomplete terminal states.
   const run = async () => {
-    let status = "failed";
+    let status: ChatStatus = "failed";
     let updatedTitle: string | undefined;
     let updatedCategoryId: string | null | undefined;
     const output = createChatOutput({
       controller,
       save: (content) =>
         saveGeneration(userId, id, attemptId, reply.id, content, "generating"),
-      publish: (text) => stream.push(JSON.stringify({ type: "text", text })),
+      publish: (text) =>
+        stream.push(
+          JSON.stringify({ type: "text", text } satisfies ChatStreamEvent),
+        ),
     });
     const sources = new Map<string, string>();
     try {
-      await stream.push(JSON.stringify({ type: "start", messageId: reply.id }));
+      await stream.push(
+        JSON.stringify({
+          type: "start",
+          messageId: reply.id,
+        } satisfies ChatStreamEvent),
+      );
       const openai = createOpenAI({ apiKey: config.openaiApiKey });
       const assertActive = async () => {
         const active = await getPrisma().chat.findFirst({
@@ -245,7 +257,7 @@ export default defineEventHandler(async (event) => {
               status,
               title: updatedTitle,
               categoryId: updatedCategoryId,
-            }),
+            } satisfies ChatStreamEvent),
           );
         }
       } finally {

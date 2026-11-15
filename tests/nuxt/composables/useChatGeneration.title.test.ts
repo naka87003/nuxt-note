@@ -2,10 +2,8 @@ import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import { mountComposable } from "../helpers/mount-composable";
 import { ref } from "vue";
 import { beforeEach, expect, it, vi } from "vitest";
-import {
-  useChatGeneration,
-  type Conversation,
-} from "~/composables/useChatGeneration";
+import { useChatGeneration } from "~/composables/useChatGeneration";
+import type { Conversation } from "#shared/types/chat";
 
 const refreshNuxtData = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 mockNuxtImport("refreshNuxtData", () => refreshNuxtData);

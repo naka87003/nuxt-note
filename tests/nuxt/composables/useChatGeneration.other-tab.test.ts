@@ -3,6 +3,7 @@ import { mountComposable } from "../helpers/mount-composable";
 import { ref } from "vue";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { useChatGeneration } from "~/composables/useChatGeneration";
+import type { Conversation } from "#shared/types/chat";
 
 const refreshNuxtData = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 mockNuxtImport("refreshNuxtData", () => refreshNuxtData);
@@ -22,7 +23,7 @@ afterEach(() => {
 });
 
 async function setup(generationId: string | null) {
-  const chat = ref({
+  const chat = ref<Conversation>({
     id: "chat",
     title: "Conversation",
     generationId,

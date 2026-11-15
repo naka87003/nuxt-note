@@ -55,9 +55,9 @@ function noteIdFromReference(
     const site = new URL(siteUrl);
     const url = new URL(value, site);
     if (url.origin !== site.origin || url.username || url.password) return null;
-    const match = /^\/notes\/([^/]+)\/?$/.exec(url.pathname);
-    if (!match) return null;
-    const id = decodeURIComponent(match[1]!);
+    const encodedId = /^\/notes\/([^/]+)\/?$/.exec(url.pathname)?.[1];
+    if (!encodedId) return null;
+    const id = decodeURIComponent(encodedId);
     return id && id.length <= 100 && !/[\\/\s?#:]/.test(id) ? id : null;
   } catch {
     return null;

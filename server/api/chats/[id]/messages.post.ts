@@ -10,7 +10,10 @@ import {
 
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);
-  const id = getRouterParam(event, "id")!;
+  const id = getRouterParam(event, "id");
+  if (!id) {
+    throw createError({ statusCode: 404, statusMessage: "Chat not found" });
+  }
   await requireChat(userId, id);
   const message = messageInput(await readBody(event));
   await recoverGeneration(userId, id);

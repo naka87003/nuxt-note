@@ -12,7 +12,8 @@ import {
 } from "#imports";
 import ChatSession from "~/components/ChatSession.vue";
 import ChatComposer from "~/components/ChatComposer.vue";
-import type { Conversation } from "~/composables/useChatGeneration";
+import MarkdownContent from "~/components/MarkdownContent.vue";
+import type { ChatMessage, Conversation } from "#shared/types/chat";
 
 import type { CategoriesResponse } from "#shared/types/workspace";
 
@@ -25,7 +26,7 @@ mockNuxtImport("$fetch", () => mocks.request);
 mockNuxtImport("useChatGeneration", () => mocks.generation);
 mockNuxtImport("useChatRefresh", () => mocks.refresh);
 
-const reply = {
+const reply: ChatMessage = {
   id: "reply",
   role: "assistant" as const,
   content: "Answer",
@@ -103,6 +104,19 @@ async function mountSession(route?: string) {
 }
 
 describe("ChatSession", () => {
+  it("passes the streaming state to Markdown until generation completes", async () => {
+    conversation.messages = [{ ...reply, status: "generating" }];
+    const wrapper = await mountSession();
+    expect(wrapper.getComponent(MarkdownContent).props("streaming")).toBe(true);
+
+    const chat: Ref<Conversation> = mocks.refresh.mock.calls[0]![0];
+    chat.value.messages = [{ ...reply, status: "completed" }];
+    await nextTick();
+    expect(wrapper.getComponent(MarkdownContent).props("streaming")).toBe(
+      false,
+    );
+  });
+
   it("keeps the conversation and draft mounted during a background refresh", async () => {
     let resolve!: (value: Conversation) => void;
     const load = vi

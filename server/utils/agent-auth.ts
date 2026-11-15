@@ -28,12 +28,12 @@ export function privateAgentResponse(event: H3Event) {
 // Bearer tokens authorize MCP Note operations, never browser sessions.
 export async function getAgentUserId(event: H3Event) {
   privateAgentResponse(event);
-  const match = /^Bearer (nnr_[A-Za-z0-9_-]{43})$/i.exec(
+  const token = /^Bearer (nnr_[A-Za-z0-9_-]{43})$/i.exec(
     getHeader(event, "authorization") ?? "",
-  );
-  const record = match
+  )?.[1];
+  const record = token
     ? await getPrisma().agentToken.findUnique({
-        where: { tokenHash: hashAgentToken(match[1]!) },
+        where: { tokenHash: hashAgentToken(token) },
         select: {
           userId: true,
         },

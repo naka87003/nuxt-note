@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   $queryRaw: vi.fn(),
   $executeRaw: vi.fn(),
   session: vi.fn(),
+  param: vi.fn(),
   body: vi.fn(),
   config: vi.fn(),
   streamText: vi.fn(),
@@ -58,7 +59,7 @@ vi.mock("@ai-sdk/openai", async (importOriginal) => ({
 vi.hoisted(() => {
   vi.stubGlobal("defineEventHandler", (handler: unknown) => handler);
   vi.stubGlobal("requireUserSession", mocks.session);
-  vi.stubGlobal("getRouterParam", () => "chat");
+  vi.stubGlobal("getRouterParam", mocks.param);
   vi.stubGlobal("readBody", mocks.body);
   vi.stubGlobal("useRuntimeConfig", mocks.config);
   vi.stubGlobal("setResponseHeader", vi.fn());
@@ -85,6 +86,7 @@ async function run() {
 }
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.param.mockReturnValue("chat");
   mocks.session.mockResolvedValue({ user: { id: owner } });
   mocks.config.mockReturnValue({
     openaiApiKey: "test-only",
@@ -117,6 +119,28 @@ beforeEach(() => {
     })(),
   });
 });
+describe.each([
+  ["generation", generate],
+  ["message", sendMessage],
+  ["title", summarizeTitle],
+] as const)("%s chat ID validation", (_, handler) => {
+  it.each([undefined, ""])(
+    "rejects a missing ID (%j) before data access",
+    async (id) => {
+      mocks.param.mockReturnValue(id);
+      await expect(handler(event)).rejects.toMatchObject({
+        statusCode: 404,
+        statusMessage: "Chat not found",
+      });
+      expect(mocks.chat.findFirst).not.toHaveBeenCalled();
+      expect(mocks.chat.updateMany).not.toHaveBeenCalled();
+      expect(mocks.body).not.toHaveBeenCalled();
+      expect(mocks.streamText).not.toHaveBeenCalled();
+      expect(mocks.generateText).not.toHaveBeenCalled();
+    },
+  );
+});
+
 describe("Chat generation", () => {
   it.each([true, false])(
     "notifies the merged current Chat only after commit (%s)",

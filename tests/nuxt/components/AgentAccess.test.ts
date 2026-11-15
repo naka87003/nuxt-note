@@ -4,11 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import AgentAccess from "~/pages/settings/agent-access.vue";
 
-const { request, refresh, tokens } = vi.hoisted(() => ({
-  request: vi.fn(),
-  refresh: vi.fn(),
-  tokens: [] as { id: string; name: string; createdAt: string }[],
-}));
+const { request, refresh, tokens } = vi.hoisted(() => {
+  const tokens: { id: string; name: string; createdAt: string }[] = [];
+  return { request: vi.fn(), refresh: vi.fn(), tokens };
+});
 mockNuxtImport("$fetch", () => request);
 mockNuxtImport("useFetch", () => () => ({
   data: ref(tokens),

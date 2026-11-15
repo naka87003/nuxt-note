@@ -25,20 +25,21 @@ export function getNoteDateGroup(
 export function groupNotesByUpdatedAt<
   T extends { id: string; updatedAt: string | Date },
 >(notes: readonly T[], now = new Date()) {
-  const grouped = new Map<NoteDateGroup, T[]>(
-    NOTE_DATE_GROUPS.map((label) => [label, []]),
-  );
+  const grouped: Record<NoteDateGroup, T[]> = {
+    Today: [],
+    "Last 7 Days": [],
+    "Last Month": [],
+    Older: [],
+  };
   for (const note of notes) {
-    grouped.get(getNoteDateGroup(note.updatedAt, now))!.push(note);
+    grouped[getNoteDateGroup(note.updatedAt, now)].push(note);
   }
   return NOTE_DATE_GROUPS.map((label) => ({
     label,
-    notes: grouped
-      .get(label)!
-      .sort(
-        (a, b) =>
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime() ||
-          a.id.localeCompare(b.id),
-      ),
+    notes: grouped[label].sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime() ||
+        a.id.localeCompare(b.id),
+    ),
   })).filter((group) => group.notes.length > 0);
 }

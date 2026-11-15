@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   categories: vi.fn(),
   recover: vi.fn(),
   session: vi.fn(),
+  param: vi.fn(),
   config: vi.fn(),
 }));
 vi.mock("@ai-sdk/openai", () => ({ createOpenAI: () => () => "test-model" }));
@@ -33,7 +34,7 @@ vi.mock("../../../../server/utils/chat-generation", () => ({
 vi.hoisted(() => {
   vi.stubGlobal("defineEventHandler", (handler: unknown) => handler);
   vi.stubGlobal("requireUserSession", mocks.session);
-  vi.stubGlobal("getRouterParam", () => "chat");
+  vi.stubGlobal("getRouterParam", mocks.param);
   vi.stubGlobal("useRuntimeConfig", mocks.config);
 });
 const config = { openaiApiKey: "test", openaiModel: "test" };
@@ -53,6 +54,7 @@ const event = () =>
 
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.param.mockReturnValue("chat");
   mocks.session.mockResolvedValue({ user: { id: owner } });
   mocks.config.mockReturnValue(config);
   mocks.findFirst.mockResolvedValue({
@@ -63,6 +65,20 @@ beforeEach(() => {
   mocks.generate.mockResolvedValue(response(goodDraft));
   mocks.categories.mockResolvedValue([{ id: "category", name: "General" }]);
 });
+
+it.each([undefined, ""])(
+  "rejects a missing chat ID (%j) before loading a draft",
+  async (id) => {
+    mocks.param.mockReturnValue(id);
+    await expect(handler(event())).rejects.toMatchObject({
+      statusCode: 404,
+      statusMessage: "Chat not found",
+    });
+    expect(mocks.recover).not.toHaveBeenCalled();
+    expect(mocks.findFirst).not.toHaveBeenCalled();
+    expect(mocks.generate).not.toHaveBeenCalled();
+  },
+);
 
 describe("AI Note draft output", () => {
   it.each([

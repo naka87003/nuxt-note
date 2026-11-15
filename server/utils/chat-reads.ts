@@ -2,6 +2,7 @@ import { createError } from "nuxt/server";
 import { getPrisma } from "./prisma";
 import { contentQuery } from "./content-query";
 import { contentPreview } from "#shared/utils/content-preview";
+import { chatStatusSchema } from "#shared/schemas/chat";
 import {
   recoverGeneration,
   messageSelection,
@@ -76,7 +77,10 @@ export async function readOwnedChatPage(
   }
   return {
     ...chat,
-    messages: chat.messages.slice(0, limit),
+    messages: chat.messages.slice(0, limit).map((message) => ({
+      ...message,
+      status: chatStatusSchema.parse(message.status),
+    })),
     nextOffset: chat.messages.length > limit ? offset + limit : null,
   };
 }
@@ -103,5 +107,11 @@ export async function readOwnedChat(userId: string, id: string | undefined) {
   if (!chat) {
     throw createError({ statusCode: 404, statusMessage: "Chat not found" });
   }
-  return chat;
+  return {
+    ...chat,
+    messages: chat.messages.map((message) => ({
+      ...message,
+      status: chatStatusSchema.parse(message.status),
+    })),
+  };
 }

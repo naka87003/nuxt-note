@@ -125,12 +125,8 @@ describe("NoteEditorForm", () => {
       .find((tab) => tab.text() === "Preview")!;
     await preview.trigger("mousedown", { button: 0, ctrlKey: false });
     expect(pane.attributes("data-view")).toBe("preview");
-    expect((wrapper.get("textarea").element as HTMLTextAreaElement).value).toBe(
-      "Body",
-    );
-    expect((wrapper.get("input").element as HTMLInputElement).value).toBe(
-      "Title",
-    );
+    expect(wrapper.get("textarea").element.value).toBe("Body");
+    expect(wrapper.get("input").element.value).toBe("Title");
   });
 
   it("shows save failures and limit guidance without clearing content", async () => {
@@ -139,8 +135,6 @@ describe("NoteEditorForm", () => {
     });
     expect(wrapper.text()).toContain("Try again");
     expect(wrapper.text()).toContain("This note exceeds the character limit");
-    expect((wrapper.get("textarea").element as HTMLTextAreaElement).value).toBe(
-      "Body",
-    );
+    expect(wrapper.get("textarea").element.value).toBe("Body");
   });
 });

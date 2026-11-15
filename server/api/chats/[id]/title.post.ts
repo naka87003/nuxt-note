@@ -1,3 +1,4 @@
+import { createError } from "nuxt/server";
 import { getAuthenticatedUserId } from "../../../utils/auth";
 import { messageOrder, requireChat } from "../../../utils/chat-generation";
 import { summarizeChatTitle } from "../../../utils/chat-title";
@@ -5,7 +6,10 @@ import { getPrisma } from "../../../utils/prisma";
 
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);
-  const id = getRouterParam(event, "id")!;
+  const id = getRouterParam(event, "id");
+  if (!id) {
+    throw createError({ statusCode: 404, statusMessage: "Chat not found" });
+  }
   const chat = await requireChat(userId, id);
   if (chat.title !== null) {
     return { title: chat.title };

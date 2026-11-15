@@ -1,14 +1,6 @@
 import { INPUT_LIMITS } from "#shared/utils/input-limits";
-import type { ChatMessage, ChatStatus } from "#shared/types/chat";
-import { shallowRef } from "vue";
+import type { ChatMessage, ChatStatus, Conversation } from "#shared/types/chat";
 import { readChatStream } from "../utils/chat-stream";
-export interface Conversation {
-  id: string;
-  title: string | null;
-  categoryId?: string | null;
-  generationId: string | null;
-  messages: ChatMessage[];
-}
 export function useChatGeneration(
   chat: Ref<Conversation | null | undefined>,
   refresh: () => Promise<unknown>,
@@ -19,20 +11,22 @@ export function useChatGeneration(
 ) {
   const persisted = ref(!creation || !!chat.value);
   const sending = ref(false);
-  const activeGeneration = shallowRef<{
-    id: string;
-    controller: AbortController;
-  }>();
+  let activeController: AbortController | undefined;
   const failure = ref("");
   const draft = ref("");
+
   const busy = computed(() => sending.value || !!chat.value?.generationId);
+
   const lastQuestion = computed(() =>
-    chat.value?.messages.filter((m) => m.role === "user").at(-1),
+    chat.value?.messages.findLast((m) => m.role === "user"),
   );
+
   const lastReply = computed(() =>
     chat.value?.messages.find((m) => m.replyToId === lastQuestion.value?.id),
   );
+
   const waitingForResponse = computed(() => sending.value && !failure.value);
+
   const canRetry = computed(
     () =>
       !!lastQuestion.value &&
@@ -50,6 +44,7 @@ export function useChatGeneration(
       }
     | undefined;
   let disposed = false;
+
   async function summarizeTitle(chatId: string) {
     try {
       const result = await $fetch(`/api/chats/${chatId}/title`, {
@@ -63,10 +58,12 @@ export function useChatGeneration(
       // Keep the existing title; this must not interrupt the conversation.
     }
   }
+
   async function generate() {
     if (busy.value || !persisted.value || !chat.value || !lastQuestion.value) {
       return;
     }
+
     const target = chat.value;
     const questionId = lastQuestion.value.id;
     sending.value = true;
@@ -75,8 +72,9 @@ export function useChatGeneration(
       id: crypto.randomUUID(),
       controller: new AbortController(),
     };
-    activeGeneration.value = attempt;
+    activeController = attempt.controller;
     let terminalStatus: ChatStatus | undefined;
+
     try {
       const response = await fetch(`/api/chats/${target.id}/generate`, {
         method: "POST",
@@ -84,6 +82,7 @@ export function useChatGeneration(
         body: JSON.stringify({ messageId: questionId, attemptId: attempt.id }),
         signal: attempt.controller.signal,
       });
+
       if (!response.ok || !response.body) {
         if (response.status === 503) {
           throw new Error(
@@ -95,6 +94,7 @@ export function useChatGeneration(
         }
         throw new Error("Could not generate a response. Please try again.");
       }
+
       let reply: ChatMessage | undefined;
       for await (const data of readChatStream(response.body)) {
         if (disposed) continue;
@@ -125,6 +125,7 @@ export function useChatGeneration(
           }
         }
       }
+
       if (!terminalStatus) {
         throw new Error("The connection was interrupted. Please try again.");
       }
@@ -136,7 +137,7 @@ export function useChatGeneration(
             : "Could not generate a response. Please try again.";
       }
     } finally {
-      activeGeneration.value = undefined;
+      activeController = undefined;
       if (!disposed) {
         // A completed stream already contains the saved answer. Only failures
         // and interruptions need to reload the server's partial state.
@@ -161,15 +162,18 @@ export function useChatGeneration(
       }
     }
   }
+
   async function send() {
     if (busy.value || !draft.value.trim() || (!chat.value && !creation)) return;
     if (draft.value.length > INPUT_LIMITS.chatMessage) {
       failure.value = `Use at most ${INPUT_LIMITS.chatMessage.toLocaleString("en-US")} characters for the message.`;
       return;
     }
+
     const isNew = !persisted.value;
     const content = draft.value.trim();
     const categoryId = creation?.categoryId() ?? null;
+
     if (
       !pending ||
       pending.content !== content ||
@@ -178,20 +182,24 @@ export function useChatGeneration(
       pending = {
         messageId: crypto.randomUUID(),
         content,
-        ...(isNew ? { chatId: crypto.randomUUID(), categoryId } : {}),
+        ...(isNew ? { categoryId } : {}),
       };
     }
+
     if (isNew) {
       chat.value = {
-        id: pending.chatId!,
+        id: (pending.chatId ??= crypto.randomUUID()),
         title: null,
         categoryId,
         generationId: null,
         messages: [],
       };
     }
-    const target = chat.value!;
-    const message = {
+
+    const target = chat.value;
+    if (!target) return;
+
+    const message: ChatMessage = {
       id: pending.messageId,
       role: "user" as const,
       content,
@@ -199,10 +207,12 @@ export function useChatGeneration(
       replyToId: null,
       createdAt: new Date().toISOString(),
     };
+
     target.messages.push(message);
     draft.value = "";
     sending.value = true;
     failure.value = "";
+
     try {
       await $fetch(isNew ? "/api/chats" : `/api/chats/${target.id}/messages`, {
         method: "POST",
@@ -221,6 +231,7 @@ export function useChatGeneration(
     } finally {
       sending.value = false;
     }
+
     if (!disposed && chat.value?.id === target.id) {
       if (isNew) {
         creation?.onCreated(target);
@@ -231,19 +242,23 @@ export function useChatGeneration(
       await generate();
     }
   }
+
   function resumeUnansweredQuestion() {
     if (lastQuestion.value && !lastReply.value && !chat.value?.generationId) {
       void generate();
     }
   }
+
   onMounted(() => {
     if (chat.value) resumeUnansweredQuestion();
     else watch(chat, resumeUnansweredQuestion, { once: true });
   });
+
   onBeforeUnmount(() => {
     disposed = true;
-    activeGeneration.value?.controller.abort();
+    activeController?.abort();
   });
+
   return {
     draft,
     persisted,

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useResizeObserver } from "@vueuse/core";
-import type { Conversation } from "~/composables/useChatGeneration";
+import type { Conversation } from "#shared/types/chat";
 import type { CategoriesResponse } from "#shared/types/workspace";
 import { sortCategoriesByCount } from "#shared/utils/categories";
 
@@ -66,6 +66,7 @@ const requestFetch = useRequestFetch();
 const refreshConversation = useChatRefresh(chat, activeId, sending, (id) =>
   requestFetch<Conversation>(`/api/chats/${id}`),
 );
+
 const {
   data: initialChat,
   error,
@@ -75,6 +76,7 @@ const {
   deep: true,
   lazy: true,
 });
+
 // Hydration can use the server snapshot without executing the loader again.
 chat.value = initialChat.value ?? null;
 
@@ -344,7 +346,7 @@ async function remove() {
             <template v-else>
               <MarkdownContent
                 :content="message.content"
-                :streaming="message.status === 'streaming'"
+                :streaming="message.status === 'generating'"
               />
               <p
                 v-if="message.status === 'stopped'"

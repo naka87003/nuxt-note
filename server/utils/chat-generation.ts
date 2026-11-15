@@ -3,6 +3,7 @@ import type { Prisma } from "../../generated/prisma/client";
 import { getPrisma } from "./prisma";
 import { messageInputSchema } from "./input-schemas";
 import { parseInput } from "./parse-input";
+import type { ChatStatus } from "#shared/types/chat";
 
 export const GENERATION_TIMEOUT = 120_000;
 
@@ -80,7 +81,7 @@ export async function saveGeneration(
   attemptId: string,
   messageId: string,
   content: string,
-  status: string,
+  status: ChatStatus,
 ) {
   return getPrisma().$transaction(async (tx) => {
     const updated = await tx.chat.updateMany({
