@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { INPUT_LIMITS } from "#shared/utils/input-limits";
+import {
+  INPUT_LIMITS,
+  MAX_CHAT_TITLE_CHARACTERS,
+} from "#shared/utils/input-limits";
 
 // Zod's max uses Unicode code points; the app uses HTML maxlength (UTF-16 units).
 // Keep max for the published JSON Schema and enforce the app's limit at runtime.
@@ -167,6 +170,19 @@ export const updateChatCategoryInputSchema = updateChatCategorySchema
       .unwrap()
       .max(100)
       .nullable(),
+    updatedAt: chatUpdatedAtSchema,
+  })
+  .strict();
+
+export const updateChatTitleInputSchema = z
+  .object({
+    id: z.string().min(1).max(100),
+    title: z
+      .string()
+      .max(MAX_CHAT_TITLE_CHARACTERS)
+      .refine((title) => !!title.trim(), {
+        error: "Chat title must not be blank",
+      }),
     updatedAt: chatUpdatedAtSchema,
   })
   .strict();

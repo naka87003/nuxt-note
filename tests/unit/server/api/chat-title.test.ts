@@ -102,20 +102,16 @@ describe("Chat titles", () => {
     );
   });
 
-  it("still summarizes a legacy question-excerpt title", async () => {
-    mocks.chat.findFirst.mockResolvedValue({ title: "hello" });
-    expect(await summarizeTitle(event)).toEqual({ title: "挨拶のやり取り" });
-    expect(mocks.chat.updateMany).toHaveBeenCalledWith({
-      where: { id: "chat", userId: owner, title: "hello" },
-      data: { title: "挨拶のやり取り" },
-    });
-  });
-
-  it("keeps an already summarized or edited title without calling AI", async () => {
-    mocks.chat.findFirst.mockResolvedValue({ title: "Existing summary" });
-    expect(await summarizeTitle(event)).toEqual({ title: "Existing summary" });
-    expect(mocks.generateText).not.toHaveBeenCalled();
-  });
+  it.each(["hello", "Existing summary", ""])(
+    "keeps any existing title, including first-question excerpts: %j",
+    async (title) => {
+      mocks.chat.findFirst.mockResolvedValue({ title });
+      expect(await summarizeTitle(event)).toEqual({ title });
+      expect(mocks.message.findFirst).not.toHaveBeenCalled();
+      expect(mocks.generateText).not.toHaveBeenCalled();
+      expect(mocks.chat.updateMany).not.toHaveBeenCalled();
+    },
+  );
 
   it("does not summarize a failed, stopped, or missing first answer", async () => {
     mocks.message.findFirst

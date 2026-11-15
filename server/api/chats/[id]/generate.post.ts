@@ -129,6 +129,7 @@ export default defineEventHandler(async (event) => {
   // Consume provider events on the server, including error/incomplete terminal states.
   const run = async () => {
     let status = "failed";
+    let updatedTitle: string | undefined;
     const output = createChatOutput({
       controller,
       save: (content) =>
@@ -158,6 +159,9 @@ export default defineEventHandler(async (event) => {
             allowMutations: !isRetry,
             categoryId,
             chatId: id,
+            onChatTitleUpdated: (title) => {
+              updatedTitle = title;
+            },
             assertActive,
           }),
           ...createChatWebTools({ signal: controller.signal, assertActive }),
@@ -223,8 +227,11 @@ export default defineEventHandler(async (event) => {
           status,
         );
         finished = true;
-        if (saved && !controller.signal.aborted)
-          await stream.push(JSON.stringify({ type: "done", status }));
+        if (saved && !controller.signal.aborted) {
+          await stream.push(
+            JSON.stringify({ type: "done", status, title: updatedTitle }),
+          );
+        }
       } finally {
         finished = true;
         event.node.res.off("close", disconnected);

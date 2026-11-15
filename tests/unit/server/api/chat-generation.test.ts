@@ -14,7 +14,12 @@ const mocks = vi.hoisted(() => ({
   config: vi.fn(),
   streamText: vi.fn(),
   generateText: vi.fn(),
-  chat: { findFirst: vi.fn(), updateMany: vi.fn(), create: vi.fn() },
+  chat: {
+    findFirst: vi.fn(),
+    updateMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  },
   category: { findFirst: vi.fn() },
   message: {
     findMany: vi.fn(),
@@ -111,6 +116,49 @@ beforeEach(() => {
   });
 });
 describe("Chat generation", () => {
+  it.each([
+    ["chat", true],
+    ["other", true],
+    ["chat", false],
+  ] as const)(
+    "includes a saved title in done only after renaming the current Chat (%s, success: %s)",
+    async (id, succeeds) => {
+      const updatedAt = "2026-11-15T00:00:00.000Z";
+      mocks.chat.findFirst.mockResolvedValue({
+        id,
+        userId: owner,
+        updatedAt: new Date(updatedAt),
+        messages: [],
+      });
+      if (succeeds)
+        mocks.chat.update.mockResolvedValue({
+          id,
+          title: "Saved title",
+          updatedAt: new Date(updatedAt),
+        });
+      else mocks.chat.update.mockRejectedValue({ code: "P2025" });
+      mocks.streamText.mockImplementation(({ tools }) => ({
+        fullStream: (async function* () {
+          const context = { toolCallId: "test", messages: [] };
+          await tools.get_chat.execute({ id }, context);
+          await tools.update_chat_title.execute(
+            { id, title: "Requested title", updatedAt },
+            context,
+          );
+          yield { type: "text-delta", text: "Answer" };
+          yield { type: "finish", finishReason: "stop" };
+        })(),
+      }));
+      await run();
+      const events = mocks.push.mock.calls.map(([data]) => JSON.parse(data));
+      expect(events.at(-1)).toEqual({
+        type: "done",
+        status: "completed",
+        ...(id === "chat" && succeeds ? { title: "Saved title" } : {}),
+      });
+      expect(mocks.chat.update).toHaveBeenCalledOnce();
+    },
+  );
   it.each([
     [{ content: 42 }, "Message must be a string"],
     [{ content: null }, "Message must be a string"],
@@ -325,6 +373,7 @@ describe("Chat generation", () => {
       "read_webpage",
       "update_category",
       "update_chat_category",
+      "update_chat_title",
       "update_note",
       "update_note_category",
       "web_search",

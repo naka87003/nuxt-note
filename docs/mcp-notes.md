@@ -60,8 +60,29 @@ Concurrent changes return a conflict: list or read again and reassess the
 requested move rather than blindly retrying with a newer timestamp. Chat
 activity also changes `updatedAt` and can cause a conflict.
 
+Use `update_chat_title` only when the user requests renaming a Chat. Required
+arguments are `id`, `title`, and the exact `updatedAt` from `list_chats` or
+`get_chat`; messages do not need to be read or resent. Titles must be nonblank
+and at most 80 Unicode code points before trimming, matching the generated title
+limit. Leading and trailing whitespace is removed. The tool preserves the
+Category and messages and returns the saved metadata (`id`, `title`,
+`categoryId`, `updatedAt`) and `url`. Missing and foreign Chats return the same
+not-found error. On conflict, read or list again and reassess the requested
+rename; never blindly replace the timestamp and retry.
+
+Automatic title generation runs only when the saved title is `null`. Existing
+titles are preserved, including titles matching the first message and titles
+created by the old excerpt-based implementation. The save also requires the
+title to remain `null`, protecting titles changed while generation is in flight.
+
+When an in-app tool successfully renames the current Chat, its saved title is
+included in the final `done` stream event and applied to the displayed heading.
+This reuses the tool result without an extra database read or HTTP request.
+The field is omitted if no rename succeeds or a different Chat is renamed.
+External MCP changes become visible when the displayed Chat is reloaded.
+
 In-app Chat retains versions across list pages and consumes a version after each
-write attempt. A failed `get_chat` invalidates its previously read version.
+write attempt, shared by title and Category changes. A failed `get_chat` invalidates its previously read version.
 Mutations are unavailable during retries and stop after cancellation or loss of
 generation ownership. Moving the current Chat also updates the default Category
 for Notes created by tools later in the same turn. The existing browser Category
@@ -162,6 +183,7 @@ Ordinary users only configure their agent and do not need this repository or fil
 | `get_note`             | `id` from a search result                                              | ID, title, Markdown, category ID, creation/update times                    |
 | `create_note`          | Required `title`, `markdown`; optional `categoryId`                    | ID, title, Markdown, category ID, creation/update times, URL               |
 | `update_note`          | Required `id`, `title`, `markdown`, `updatedAt`; optional `categoryId` | Updated Note with creation/update times and URL                            |
+| `update_chat_title`    | Required `id`, `title`, `updatedAt`                                    | Updated Chat ID, title, category ID, update time, URL; no messages         |
 | `update_chat_category` | Required `id`, `categoryId` (nullable), `updatedAt`                    | Updated Chat ID, title, category ID, update time, URL; no messages         |
 | `update_note_category` | Required `id`, `categoryId` (nullable), `updatedAt`                    | Updated Note metadata and URL; no Markdown                                 |
 | `delete_category`      | Required `id`                                                          | Deleted Category ID and `deleted: true`                                    |

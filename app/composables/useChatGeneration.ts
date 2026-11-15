@@ -110,14 +110,17 @@ export function useChatGeneration(
             });
             reply = target.messages.at(-1);
           }
-        } else if (data.type === "text" && reply) reply.content += data.text;
-        else if (data.type === "done") {
+        } else if (data.type === "text" && reply) {
+          reply.content += data.text;
+        } else if (data.type === "done") {
           terminalStatus = data.status;
           if (reply) reply.status = data.status;
+          if (data.title !== undefined) target.title = data.title;
         }
       }
-      if (!terminalStatus)
+      if (!terminalStatus) {
         throw new Error("The connection was interrupted. Please try again.");
+      }
     } catch (error) {
       if (!attempt.controller.signal.aborted && !disposed)
         failure.value =

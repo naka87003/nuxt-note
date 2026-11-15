@@ -69,6 +69,136 @@ async function connect(owner: string, siteUrl = "https://notes.example") {
 }
 
 describe("remote MCP tools", () => {
+  const chatTitleInput = {
+    id: "chat",
+    title: "  New title  ",
+    updatedAt: "2026-11-15T00:00:00.000Z",
+  };
+  it.each(["New title", "😀".repeat(80)])(
+    "updates only the Chat title with a monotonically advancing version",
+    async (title) => {
+      const client = await connect("owner");
+      const { tools } = await client.listTools();
+      const definition = tools.find(
+        (tool) => tool.name === "update_chat_title",
+      );
+      expect(definition?.inputSchema.required?.slice().sort()).toEqual([
+        "id",
+        "title",
+        "updatedAt",
+      ]);
+      expect(definition?.annotations).toMatchObject({
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+      });
+      writes.chat.update.mockResolvedValue({
+        id: "chat",
+        title,
+        categoryId: "existing",
+        updatedAt: new Date("2026-11-15T00:00:00.001Z"),
+      });
+      const clock = vi
+        .spyOn(Date, "now")
+        .mockReturnValue(new Date(chatTitleInput.updatedAt).getTime());
+      try {
+        const result = await client.callTool({
+          name: "update_chat_title",
+          arguments: {
+            ...chatTitleInput,
+            title: title === "New title" ? chatTitleInput.title : title,
+          },
+        });
+        expect(result.isError).toBeFalsy();
+        expect(result.structuredContent).toEqual({
+          id: "chat",
+          title,
+          categoryId: "existing",
+          updatedAt: "2026-11-15T00:00:00.001Z",
+          url: "https://notes.example/chats/chat",
+        });
+        expect(writes.chat.update).toHaveBeenCalledExactlyOnceWith({
+          where: {
+            id: "chat",
+            userId: "owner",
+            updatedAt: new Date(chatTitleInput.updatedAt),
+          },
+          data: { title, updatedAt: new Date("2026-11-15T00:00:00.001Z") },
+          select: { id: true, title: true, categoryId: true, updatedAt: true },
+        });
+        expect(writes.chat.findFirst).not.toHaveBeenCalled();
+        expect(writes.category.findFirst).not.toHaveBeenCalled();
+      } finally {
+        clock.mockRestore();
+      }
+    },
+  );
+  it.each([null, { id: "chat" }])(
+    "distinguishes missing/foreign Chats from title update conflicts: %j",
+    async (existing) => {
+      const client = await connect("owner");
+      writes.chat.update.mockRejectedValue({ code: "P2025" });
+      writes.chat.findFirst.mockResolvedValue(existing);
+      expect(
+        await client.callTool({
+          name: "update_chat_title",
+          arguments: chatTitleInput,
+        }),
+      ).toMatchObject({
+        isError: true,
+        content: [
+          {
+            text: existing
+              ? expect.stringContaining("Chat has changed.")
+              : "Chat not found.",
+          },
+        ],
+      });
+      expect(writes.chat.findFirst).toHaveBeenCalledExactlyOnceWith({
+        where: { id: "chat", userId: "owner" },
+        select: { id: true },
+      });
+      expect(writes.chat.update).toHaveBeenCalledTimes(1);
+    },
+  );
+  it("hides storage failures during Chat title updates", async () => {
+    const client = await connect("owner");
+    writes.chat.update.mockRejectedValue(new Error("private database details"));
+    expect(
+      await client.callTool({
+        name: "update_chat_title",
+        arguments: chatTitleInput,
+      }),
+    ).toMatchObject({
+      isError: true,
+      content: [{ text: "Could not update Chat title. Please try again." }],
+    });
+  });
+  it.each([
+    {},
+    { ...chatTitleInput, id: "" },
+    { ...chatTitleInput, id: "x".repeat(101) },
+    { ...chatTitleInput, title: undefined },
+    { ...chatTitleInput, title: null },
+    { ...chatTitleInput, title: 1 },
+    { ...chatTitleInput, title: "" },
+    { ...chatTitleInput, title: " \n\t " },
+    { ...chatTitleInput, title: "x".repeat(81) },
+    { ...chatTitleInput, title: "😀".repeat(81) },
+    { ...chatTitleInput, updatedAt: undefined },
+    { ...chatTitleInput, updatedAt: "2026-02-30T00:00:00.000Z" },
+    { ...chatTitleInput, updatedAt: "2026-11-15T00:00:00Z" },
+    { ...chatTitleInput, userId: "other" },
+    { ...chatTitleInput, categoryId: null },
+    { ...chatTitleInput, messages: [] },
+  ])("rejects invalid title-only input %j", async (args) => {
+    const client = await connect("owner");
+    expect(
+      (await client.callTool({ name: "update_chat_title", arguments: args }))
+        .isError,
+    ).toBe(true);
+    expect(writes.chat.update).not.toHaveBeenCalled();
+  });
   const chatCategoryInput = {
     id: "chat",
     categoryId: "owned",
@@ -925,6 +1055,7 @@ describe("remote MCP tools", () => {
       "list_notes",
       "update_category",
       "update_chat_category",
+      "update_chat_title",
       "update_note",
       "update_note_category",
     ]);

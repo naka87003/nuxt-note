@@ -1,7 +1,10 @@
 import { createError } from "nuxt/server";
 import { getPrisma } from "./prisma";
 import { ownedCategory } from "./categories";
-import { updateChatCategorySchema } from "./input-schemas";
+import {
+  updateChatCategorySchema,
+  updateChatTitleInputSchema,
+} from "./input-schemas";
 import { parseInput } from "./parse-input";
 
 async function throwChatWriteError(userId: string, id: string): Promise<never> {
@@ -33,6 +36,24 @@ export async function updateOwnedChatCategory(
   }
   const input = parseInput(updateChatCategorySchema, body);
   const categoryId = await ownedCategory(userId, input.categoryId);
+  return updateChatVersion(
+    userId,
+    { id, updatedAt: input.updatedAt },
+    { categoryId },
+  );
+}
+
+export async function updateOwnedChatTitle(userId: string, body: unknown) {
+  const input = parseInput(updateChatTitleInputSchema, body);
+  return updateChatVersion(userId, input, { title: input.title.trim() });
+}
+
+async function updateChatVersion(
+  userId: string,
+  input: { id: string; updatedAt?: string },
+  data: { title?: string; categoryId?: string | null },
+) {
+  const { id } = input;
   const expectedUpdatedAt =
     input.updatedAt === undefined ? undefined : new Date(input.updatedAt);
   // Without a version, preserve the existing browser API's automatic timestamp.
@@ -41,9 +62,9 @@ export async function updateOwnedChatCategory(
     ? new Date(Math.max(Date.now(), expectedUpdatedAt.getTime() + 1))
     : undefined;
   try {
-    return await db.chat.update({
+    return await getPrisma().chat.update({
       where: { id, userId, updatedAt: expectedUpdatedAt },
-      data: { categoryId, updatedAt },
+      data: { ...data, updatedAt },
       select: { id: true, title: true, categoryId: true, updatedAt: true },
     });
   } catch (error) {

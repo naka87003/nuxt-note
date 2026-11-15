@@ -6,3 +6,6 @@ export const INPUT_LIMITS = {
   chatMessage: 2_000,
   noteBody: 5_000,
 } as const;
+
+// Chat titles use Unicode code points, matching the generated title limit.
+export const MAX_CHAT_TITLE_CHARACTERS = 80;
