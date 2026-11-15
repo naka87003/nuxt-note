@@ -105,6 +105,13 @@ export const updateNoteCategoryInputSchema = z
   })
   .strict();
 
+export const updateNoteTitleInputSchema = z
+  .object({
+    ...noteVersionShape,
+    title: noteContentShape.title,
+  })
+  .strict();
+
 export const updateNoteInputSchema = noteContentSchema
   .extend({
     ...noteVersionShape,

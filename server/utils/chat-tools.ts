@@ -33,7 +33,8 @@ export const CHAT_NOTES_INSTRUCTIONS =
   CATEGORY_DELETION_INSTRUCTIONS +
   "When updating a Note, keep its category unless the user requests a category change. " +
   "Only delete a Note when the user explicitly requests deleting that Note; clarify ambiguous targets first. Deletion is permanent. " +
-  "Read an existing Note with get_note before editing its content or deleting it, and use its exact updatedAt. " +
+  "Read an existing Note with get_note before replacing its Markdown or deleting it, and use its exact updatedAt. " +
+  "For title-only changes, use update_note_title with the exact id and updatedAt from list_notes or get_note; no full body is needed. Preserve its category. On conflict, list or read again and reassess the requested rename; never blindly retry with a newer timestamp. " +
   "For category-only changes, use update_note_category with the exact id and updatedAt from list_notes or get_note; no full body is needed. Use null for Uncategorized. On category conflict, list or read again and reassess the requested change before retrying. " +
   "On update conflict, read again and reconcile changes; never blindly retry with a new timestamp. " +
   "On deletion conflict, read again and ask the user to confirm deletion of the changed Note in a new message. " +
@@ -76,7 +77,7 @@ export function createChatNoteTools(
   const definitions = createWorkspaceTools(userId, siteUrl);
   let categoryId = options.categoryId;
   const versions = new Map<string, string>();
-  const categoryVersions = new Map<string, string>();
+  const metadataVersions = new Map<string, string>();
   const chatVersions = new Map<string, string>();
   let deletionConflict = false;
   let chatDeletionConflict = false;
@@ -112,6 +113,7 @@ export function createChatNoteTools(
         const parsed = definition.inputSchema.parse(input);
         if (
           name === "update_note" ||
+          name === "update_note_title" ||
           name === "update_note_category" ||
           name === "delete_note"
         ) {
@@ -122,21 +124,21 @@ export function createChatNoteTools(
                 "Ask the user to confirm deletion of the changed Note in a new message before retrying.",
             };
           }
-          const expectedVersion =
-            name === "update_note_category"
-              ? categoryVersions.get(id)
-              : versions.get(id);
+          const metadataOnly =
+            name === "update_note_title" || name === "update_note_category";
+          const expectedVersion = metadataOnly
+            ? metadataVersions.get(id)
+            : versions.get(id);
           if (expectedVersion !== updatedAt) {
             return {
-              error:
-                name === "update_note_category"
-                  ? "Use list_notes or get_note first, then pass its exact id and updatedAt."
-                  : "Use get_note to read the Note first, then pass its exact updatedAt.",
+              error: metadataOnly
+                ? "Use list_notes or get_note first, then pass its exact id and updatedAt."
+                : "Use get_note to read the Note first, then pass its exact updatedAt.",
             };
           }
           // A subsequent write must read again, including after a conflict.
           versions.delete(id);
-          categoryVersions.delete(id);
+          metadataVersions.delete(id);
         }
         const result = await definition.execute(parsed);
         // Dates must reach the model in the same ISO format as the MCP result.
@@ -152,13 +154,13 @@ export function createChatNoteTools(
         }
         if (name === "list_notes" && !serialized.isError) {
           for (const note of serialized.structuredContent.notes) {
-            categoryVersions.set(note.id, note.updatedAt);
+            metadataVersions.set(note.id, note.updatedAt);
           }
         }
         if (name === "get_note" && !serialized.isError) {
           const note = serialized.structuredContent;
           versions.set(note.id, note.updatedAt);
-          categoryVersions.set(note.id, note.updatedAt);
+          metadataVersions.set(note.id, note.updatedAt);
         }
         if (
           name === "delete_note" &&
@@ -215,7 +217,7 @@ export function createChatNoteTools(
           };
         }
         versions.delete(id);
-        categoryVersions.delete(id);
+        metadataVersions.delete(id);
         return definitions.get_note.execute({ id });
       },
     }),
@@ -306,6 +308,10 @@ export function createChatNoteTools(
               ),
           }),
           update_note: adapt("update_note", definitions.update_note),
+          update_note_title: adapt(
+            "update_note_title",
+            definitions.update_note_title,
+          ),
           update_note_category: adapt(
             "update_note_category",
             definitions.update_note_category,

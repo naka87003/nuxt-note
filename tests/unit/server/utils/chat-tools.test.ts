@@ -25,6 +25,7 @@ const writes = vi.hoisted(() => ({
   createOwnedNote: vi.fn(),
   updateOwnedNote: vi.fn(),
   updateOwnedNoteCategory: vi.fn(),
+  updateOwnedNoteTitle: vi.fn(),
   deleteOwnedNote: vi.fn(),
 }));
 vi.mock("../../../../server/utils/note-reads", () => reads);
@@ -68,6 +69,12 @@ function setup(
 }
 beforeEach(() => {
   vi.resetAllMocks();
+  writes.updateOwnedNoteTitle.mockResolvedValue({
+    id: "note",
+    title: "Saved title",
+    categoryId: "existing",
+    updatedAt: new Date(version),
+  });
   chatWrites.deleteOwnedChat.mockResolvedValue({ id: "chat", deleted: true });
   chatWrites.updateOwnedChatTitle.mockImplementation(async (_owner, input) => ({
     id: input.id,
@@ -104,6 +111,149 @@ beforeEach(() => {
   writes.deleteOwnedNote.mockResolvedValue({ id: "note", deleted: true });
 });
 describe("in-app Note tools", () => {
+  it("renames a Note from a listed version without fetching its body or granting body-edit access", async () => {
+    const { tools } = setup();
+    const args = { ...input, title: "Requested title" };
+    expect(
+      await tools.update_note_title!.execute(args, context),
+    ).toHaveProperty("error");
+    reads.searchOwnedNotes.mockResolvedValueOnce({
+      notes: [{ id: "note", updatedAt: new Date(version) }],
+      nextOffset: 1,
+    });
+    await tools.list_notes.execute({ limit: 1 }, context);
+    await tools.list_notes.execute({ limit: 1, offset: 1 }, context);
+    expect(
+      await tools.update_note_title!.execute(
+        { ...args, updatedAt: "2026-11-13T00:00:01.000Z" },
+        context,
+      ),
+    ).toHaveProperty("error");
+    expect(await tools.update_note!.execute(update, context)).toHaveProperty(
+      "error",
+    );
+    expect(await tools.delete_note!.execute(input, context)).toHaveProperty(
+      "error",
+    );
+    expect(await tools.update_note_title!.execute(args, context)).toMatchObject(
+      {
+        structuredContent: {
+          title: "Saved title",
+          categoryId: "existing",
+          updatedAt: version,
+          url: "https://notes.example/notes/note",
+        },
+      },
+    );
+    expect(writes.updateOwnedNoteTitle).toHaveBeenCalledExactlyOnceWith(
+      "owner",
+      args,
+    );
+    expect(reads.readOwnedNote).not.toHaveBeenCalled();
+    expect(writes.updateOwnedNote).not.toHaveBeenCalled();
+    expect(writes.deleteOwnedNote).not.toHaveBeenCalled();
+    expect(
+      await tools.update_note_title!.execute(args, context),
+    ).toHaveProperty("error");
+  });
+  it("consumes both full-read and metadata versions on rename, including after a conflict", async () => {
+    const { tools } = setup();
+    const args = { ...input, title: "New title" };
+    await tools.get_note.execute({ id: "note" }, context);
+    writes.updateOwnedNoteTitle.mockRejectedValueOnce({ statusCode: 409 });
+    expect(await tools.update_note_title!.execute(args, context)).toMatchObject(
+      { isError: true },
+    );
+    expect(
+      await tools.update_note_title!.execute(args, context),
+    ).toHaveProperty("error");
+    expect(
+      await tools.update_note_category!.execute(
+        { ...input, categoryId: null },
+        context,
+      ),
+    ).toHaveProperty("error");
+    expect(await tools.update_note!.execute(update, context)).toHaveProperty(
+      "error",
+    );
+    expect(await tools.delete_note!.execute(input, context)).toHaveProperty(
+      "error",
+    );
+    const nextVersion = "2026-11-13T00:00:01.000Z";
+    reads.searchOwnedNotes.mockResolvedValueOnce({
+      notes: [{ id: "note", updatedAt: new Date(nextVersion) }],
+      nextOffset: null,
+    });
+    await tools.list_notes.execute({}, context);
+    expect(
+      await tools.update_note_title!.execute(
+        { ...args, updatedAt: nextVersion },
+        context,
+      ),
+    ).toHaveProperty("structuredContent");
+    expect(writes.updateOwnedNoteTitle).toHaveBeenCalledTimes(2);
+  });
+  it("requires a new read before renaming after another Note mutation or a failed read", async () => {
+    const { tools } = setup();
+    const args = { ...input, title: "New title" };
+    await tools.get_note.execute({ id: "note" }, context);
+    await tools.update_note_category!.execute(
+      { ...input, categoryId: null },
+      context,
+    );
+    expect(
+      await tools.update_note_title!.execute(args, context),
+    ).toHaveProperty("error");
+    await tools.get_note.execute({ id: "note" }, context);
+    reads.readOwnedNote.mockRejectedValueOnce({ statusCode: 404 });
+    await tools.get_note.execute({ id: "note" }, context);
+    expect(
+      await tools.update_note_title!.execute(args, context),
+    ).toHaveProperty("error");
+    expect(writes.updateOwnedNoteTitle).not.toHaveBeenCalled();
+  });
+  it("isolates Note rename versions from other owners and Chat versions", async () => {
+    const a = setup("a").tools;
+    const b = setup("b").tools;
+    const args = { ...input, title: "New title" };
+    await a.get_note.execute({ id: "note" }, context);
+    expect(await b.update_note_title!.execute(args, context)).toHaveProperty(
+      "error",
+    );
+    chatReads.readOwnedChatPage.mockResolvedValueOnce({
+      id: "note",
+      updatedAt: new Date(version),
+      messages: [],
+      nextOffset: null,
+    });
+    await b.get_chat.execute({ id: "note" }, context);
+    expect(await b.update_note_title!.execute(args, context)).toHaveProperty(
+      "error",
+    );
+    await b.get_note.execute({ id: "note" }, context);
+    await a.update_note_title!.execute(args, context);
+    await b.update_note_title!.execute(args, context);
+    expect(
+      writes.updateOwnedNoteTitle.mock.calls.map(([owner]) => owner),
+    ).toEqual(["a", "b"]);
+  });
+  it("validates Note renaming and stops after cancellation or generation ownership loss", async () => {
+    const { tools, controller } = setup();
+    const args = { ...input, title: "New title" };
+    await expect(
+      tools.update_note_title!.execute({ ...args, markdown: "Body" }, context),
+    ).rejects.toThrow();
+    controller.abort();
+    await expect(
+      tools.update_note_title!.execute(args, context),
+    ).rejects.toThrow();
+    const inactive = setup();
+    inactive.assertActive.mockRejectedValue(new Error("no longer active"));
+    await expect(
+      inactive.tools.update_note_title!.execute(args, context),
+    ).rejects.toThrow();
+    expect(writes.updateOwnedNoteTitle).not.toHaveBeenCalled();
+  });
   it("deletes a Chat using a listed version without reading messages, and consumes the version", async () => {
     const { tools } = setup("owner", true, null, "current");
     const args = { id: "chat", updatedAt: version };

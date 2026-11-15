@@ -1,5 +1,5 @@
 import type { Prisma } from "../../generated/prisma/client";
-import { normalizeNoteContent } from "./notes";
+import { normalizeNoteContent, normalizeNoteTitle } from "./notes";
 import { ownedCategory } from "./categories";
 import { getPrisma } from "./prisma";
 import { createError } from "nuxt/server";
@@ -7,18 +7,20 @@ import {
   createNoteInputSchema,
   updateNoteInputSchema,
   updateNoteCategoryInputSchema,
+  updateNoteTitleInputSchema,
   deleteNoteInputSchema,
 } from "./input-schemas";
 import { parseInput } from "./parse-input";
 
-const savedNoteSelect = {
+const savedNoteMetadataSelect = {
   id: true,
   title: true,
-  markdown: true,
   categoryId: true,
   createdAt: true,
   updatedAt: true,
 } as const;
+
+const savedNoteSelect = { ...savedNoteMetadataSelect, markdown: true } as const;
 
 async function throwNoteWriteError(userId: string, id: string): Promise<never> {
   const note = await getPrisma().note.findFirst({
@@ -66,13 +68,19 @@ export async function updateOwnedNoteCategory(userId: string, body: unknown) {
     userId,
     input,
     { categoryId },
+    savedNoteMetadataSelect,
+  );
+}
+
+export async function updateOwnedNoteTitle(userId: string, body: unknown) {
+  const input = parseInput(updateNoteTitleInputSchema, body);
+  return updateNoteVersion(
+    userId,
+    input,
     {
-      id: true,
-      title: true,
-      categoryId: true,
-      createdAt: true,
-      updatedAt: true,
+      title: normalizeNoteTitle(input.title),
     },
+    savedNoteMetadataSelect,
   );
 }
 

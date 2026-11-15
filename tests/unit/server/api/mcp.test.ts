@@ -74,6 +74,161 @@ async function connect(owner: string, siteUrl = "https://notes.example") {
 }
 
 describe("remote MCP tools", () => {
+  const noteTitleInput = {
+    id: "note",
+    title: "  New title  ",
+    updatedAt: "2026-11-15T00:00:00.000Z",
+  };
+  it.each([
+    ["  New title  ", "New title"],
+    ["", "Untitled note"],
+    [" \t\n ", "Untitled note"],
+    ["😀".repeat(25), "😀".repeat(25)],
+  ])(
+    "updates only a Note title from %j, without selecting its body",
+    async (title, savedTitle) => {
+      const client = await connect("owner");
+      const { tools } = await client.listTools();
+      const definition = tools.find(
+        (tool) => tool.name === "update_note_title",
+      );
+      expect(definition?.inputSchema.required?.slice().sort()).toEqual([
+        "id",
+        "title",
+        "updatedAt",
+      ]);
+      expect(definition?.annotations).toMatchObject({
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+      });
+      writes.note.update.mockResolvedValue({
+        id: "note",
+        title: savedTitle,
+        categoryId: "existing",
+        updatedAt: new Date("2026-11-15T00:00:00.001Z"),
+      });
+      const clock = vi
+        .spyOn(Date, "now")
+        .mockReturnValue(new Date(noteTitleInput.updatedAt).getTime());
+      try {
+        const result = await client.callTool({
+          name: "update_note_title",
+          arguments: { ...noteTitleInput, title },
+        });
+        expect(result.isError).toBeFalsy();
+        expect(result.structuredContent).toEqual({
+          id: "note",
+          title: savedTitle,
+          categoryId: "existing",
+          updatedAt: "2026-11-15T00:00:00.001Z",
+          url: "https://notes.example/notes/note",
+        });
+        expect(writes.note.update).toHaveBeenCalledExactlyOnceWith({
+          where: {
+            id: "note",
+            userId: "owner",
+            updatedAt: new Date(noteTitleInput.updatedAt),
+          },
+          data: {
+            title: savedTitle,
+            updatedAt: new Date("2026-11-15T00:00:00.001Z"),
+          },
+          select: {
+            id: true,
+            title: true,
+            categoryId: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        });
+        expect(reads.readOwnedNote).not.toHaveBeenCalled();
+        expect(writes.note.findFirst).not.toHaveBeenCalled();
+        expect(writes.category.findFirst).not.toHaveBeenCalled();
+      } finally {
+        clock.mockRestore();
+      }
+    },
+  );
+  it.each([null, { id: "note" }])(
+    "distinguishes missing/foreign Notes from rename conflicts: %j",
+    async (existing) => {
+      const client = await connect("owner");
+      writes.note.update.mockRejectedValue({ code: "P2025" });
+      writes.note.findFirst.mockResolvedValue(existing);
+      expect(
+        await client.callTool({
+          name: "update_note_title",
+          arguments: noteTitleInput,
+        }),
+      ).toMatchObject({
+        isError: true,
+        content: [
+          {
+            text: existing
+              ? expect.stringContaining("Note has changed.")
+              : "Note not found.",
+          },
+        ],
+      });
+      expect(writes.note.findFirst).toHaveBeenCalledExactlyOnceWith({
+        where: { id: "note", userId: "owner" },
+        select: { id: true },
+      });
+      expect(writes.note.update).toHaveBeenCalledTimes(1);
+    },
+  );
+  it("hides storage errors when renaming a Note", async () => {
+    const client = await connect("owner");
+    writes.note.update.mockRejectedValue(new Error("private database details"));
+    expect(
+      await client.callTool({
+        name: "update_note_title",
+        arguments: noteTitleInput,
+      }),
+    ).toMatchObject({
+      isError: true,
+      content: [{ text: "Could not update Note title. Please try again." }],
+    });
+  });
+  it.each([
+    {},
+    { ...noteTitleInput, id: "" },
+    { ...noteTitleInput, id: "x".repeat(101) },
+    { ...noteTitleInput, title: undefined },
+    { ...noteTitleInput, title: null },
+    { ...noteTitleInput, title: 1 },
+    { ...noteTitleInput, title: "x".repeat(51) },
+    { ...noteTitleInput, title: "😀".repeat(26) },
+    { ...noteTitleInput, updatedAt: undefined },
+    { ...noteTitleInput, updatedAt: "2026-02-30T00:00:00.000Z" },
+    { ...noteTitleInput, updatedAt: "2026-11-15T00:00:00Z" },
+    { ...noteTitleInput, userId: "other" },
+    { ...noteTitleInput, markdown: "Body" },
+    { ...noteTitleInput, categoryId: null },
+  ])("rejects invalid Note title input %j", async (args) => {
+    const client = await connect("owner");
+    expect(
+      (await client.callTool({ name: "update_note_title", arguments: args }))
+        .isError,
+    ).toBe(true);
+    expect(writes.note.update).not.toHaveBeenCalled();
+  });
+  it("isolates Note rename owners between MCP clients", async () => {
+    const [a, b] = await Promise.all([connect("a"), connect("b")]);
+    writes.note.update.mockResolvedValue({ id: "note", title: "New title" });
+    await Promise.all(
+      [a, b].map((client) =>
+        client.callTool({
+          name: "update_note_title",
+          arguments: noteTitleInput,
+        }),
+      ),
+    );
+    expect(
+      writes.note.update.mock.calls.map(([args]) => args.where.userId).sort(),
+    ).toEqual(["a", "b"]);
+  });
   const deleteChatInput = { id: "chat", updatedAt: "2026-11-15T00:00:00.000Z" };
   it("deletes only the Chat owner and expected version without returning messages", async () => {
     const client = await connect("owner");
@@ -1209,6 +1364,7 @@ describe("remote MCP tools", () => {
       "update_chat_title",
       "update_note",
       "update_note_category",
+      "update_note_title",
     ]);
     expect(
       tools

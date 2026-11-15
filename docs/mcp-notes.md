@@ -105,6 +105,22 @@ consume the same Chat version, requiring another read before deletion. The tool
 is unavailable during retries and stops after cancellation or generation
 ownership loss. The browser's existing unversioned deletion API is unchanged.
 
+Use `update_note_title` when the user requests changing only a Note’s title.
+Required arguments are `id`, `title`, and the exact `updatedAt` from `list_notes`
+or `get_note`. It never fetches, resends, or returns Markdown, and preserves the
+Category. Titles follow the existing Note rules: at most 50 UTF-16 code units
+before trimming; surrounding whitespace is removed and blank titles become
+`Untitled note`. Returns Note metadata (`id`, `title`, `categoryId`, `createdAt`,
+`updatedAt`) and `url`. Missing and foreign Notes return the same not-found
+error; conflicts require a fresh list/read and reassessment rather than blindly
+replacing the timestamp.
+
+In-app Chat accepts versions from list pages for both Note title and Category
+changes, consuming full-read and metadata versions after each write attempt.
+This does not grant permission to replace Markdown or delete a Note: those
+operations still require `get_note`. Renaming is unavailable during retries and
+stops after cancellation or generation ownership loss.
+
 Examples:
 
 - “Find my Notes about Nuxt and summarize them.”
@@ -123,7 +139,7 @@ For category-only changes, use `update_note_category` with required `id`,
 `categoryId`, and `updatedAt`; `categoryId: null` makes the Note Uncategorized.
 Chat accepts the exact version from `list_notes` or `get_note`, so the full body
 does not need to be fetched or resent. The result omits Markdown.
-Chat still requires `get_note` before editing content or deleting a Note. Concurrent
+Chat still requires `get_note` before replacing Markdown or deleting a Note. Concurrent
 changes prevent the write; a deletion conflict requires a new user confirmation
 message. Successful creates and updates return a clickable Note link.
 
@@ -202,6 +218,7 @@ Ordinary users only configure their agent and do not need this repository or fil
 | `update_note`          | Required `id`, `title`, `markdown`, `updatedAt`; optional `categoryId` | Updated Note with creation/update times and URL                            |
 | `update_chat_title`    | Required `id`, `title`, `updatedAt`                                    | Updated Chat ID, title, category ID, update time, URL; no messages         |
 | `update_chat_category` | Required `id`, `categoryId` (nullable), `updatedAt`                    | Updated Chat ID, title, category ID, update time, URL; no messages         |
+| `update_note_title`    | Required `id`, `title`, `updatedAt`                                    | Updated Note metadata and URL; no Markdown                                 |
 | `update_note_category` | Required `id`, `categoryId` (nullable), `updatedAt`                    | Updated Note metadata and URL; no Markdown                                 |
 | `delete_category`      | Required `id`                                                          | Deleted Category ID and `deleted: true`                                    |
 | `delete_chat`          | Required `id`, `updatedAt`                                             | Deleted Chat ID and `deleted: true`                                        |
