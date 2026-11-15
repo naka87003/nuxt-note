@@ -23,7 +23,7 @@ useSeoMeta({
 </script>
 
 <template>
-  <UApp>
+  <UApp :toaster="{ progress: false }">
     <NuxtRouteAnnouncer />
     <UnsavedChangesModal />
     <NuxtLayout>

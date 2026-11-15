@@ -64,7 +64,6 @@ async function deleteToken() {
       title: "Token deleted",
       color: "success",
       icon: "i-lucide-check",
-      progress: false,
     });
     await refresh();
   } catch {

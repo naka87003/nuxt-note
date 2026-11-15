@@ -31,6 +31,7 @@ async function saved(note: SavedNote) {
       description:
         "The note was saved, but the view could not be refreshed. Open the saved note or reload.",
       color: "warning",
+      icon: "i-lucide-triangle-alert",
       actions: [{ label: "Open note", to: destination }],
     });
   }

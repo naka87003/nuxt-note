@@ -64,6 +64,7 @@ async function saved(result: SavedNote) {
       description:
         "The note was saved, but the view could not be refreshed. Reload to see the latest content.",
       color: "warning",
+      icon: "i-lucide-triangle-alert",
     });
   }
 }
