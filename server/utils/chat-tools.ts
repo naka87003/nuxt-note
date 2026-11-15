@@ -38,6 +38,7 @@ export const CHAT_NOTES_INSTRUCTIONS =
   "For category-only changes, use update_note_category with the exact id and updatedAt from list_notes or get_note; no full body is needed. Use null for Uncategorized. On category conflict, list or read again and reassess the requested change before retrying. " +
   "Use move_category_notes only when the user explicitly requests moving all Notes from the identified source Category. Clarify ambiguous scope or targets first. Resolve Category IDs with list_categories; null means Uncategorized, never a fallback for a missing named Category. This preserves both Categories and all Chats. It moves Notes matching the source at execution time; do not describe it as moving a previously listed snapshot. Report the returned movedCount. Do not automatically repeat a failed move. " +
   "Use move_category_chats only when the user explicitly requests moving all Chats from the identified source Category. Clarify ambiguous scope or targets first. Resolve Category IDs with list_categories; null means Uncategorized, never a fallback for a missing named Category. Both Categories and all Notes are preserved. The current Chat may be included; its messages and response generation are preserved. Membership is evaluated at execution time. Report movedCount and do not automatically repeat a failed move. " +
+  "Use merge_categories only for an explicit request to merge identified Categories. Clarify the source and target first if ambiguous, and resolve their IDs with list_categories. Both must be existing, distinct Categories; null/Uncategorized is not supported. All Notes and Chats in the source at execution time move to the target, and the source Category is permanently deleted, including when empty. The current Chat can move and its generation continues. Report movedNoteCount and movedChatCount; do not automatically repeat a failed merge. " +
   "On update conflict, read again and reconcile changes; never blindly retry with a new timestamp. " +
   "On deletion conflict, read again and ask the user to confirm deletion of the changed Note in a new message. " +
   "Present successfully created or updated Notes as clickable Markdown links using the returned title and url. " +
@@ -233,6 +234,24 @@ export function createChatNoteTools(
     }),
     ...(options.allowMutations
       ? {
+          merge_categories: adapt("merge_categories", {
+            ...definitions.merge_categories,
+            execute: async (input) => {
+              const result = await definitions.merge_categories.execute(input);
+              if (!result.isError) {
+                const { movedNoteCount, movedChatCount } =
+                  result.structuredContent ?? {};
+                if (typeof movedNoteCount === "number" && movedNoteCount > 0) {
+                  versions.clear();
+                  metadataVersions.clear();
+                }
+                if (typeof movedChatCount === "number" && movedChatCount > 0) {
+                  chatVersions.clear();
+                }
+              }
+              return result;
+            },
+          }),
           move_category_chats: adapt("move_category_chats", {
             ...definitions.move_category_chats,
             execute: async (input) => {

@@ -8,13 +8,14 @@ export async function lockOwnedCategories(
   tx: Prisma.TransactionClient,
   userId: string,
   ids: (string | null)[],
+  lock: "share" | "update" = "share",
 ) {
   const categoryIds = ids.filter((id) => id !== null);
   // Consistent lock order keeps both Categories owned and present until commit.
   const categories = await tx.$queryRaw<{ id: string }[]>`
     SELECT "id" FROM "Category"
     WHERE "userId" = ${userId} AND "id" IN (${Prisma.join(categoryIds)})
-    ORDER BY "id" FOR SHARE
+    ORDER BY "id" ${lock === "update" ? Prisma.sql`FOR UPDATE` : Prisma.sql`FOR SHARE`}
   `;
   if (categories.length !== categoryIds.length) {
     throw createError({ statusCode: 404, statusMessage: "Category not found" });

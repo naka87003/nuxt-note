@@ -30,19 +30,35 @@ export async function moveOwnedCategoryNotes(userId: string, body: unknown) {
       input.sourceCategoryId,
       input.targetCategoryId,
     ]);
-    // One atomic update; advance every version even within the same millisecond.
-    const movedCount = await tx.$executeRaw`
-      UPDATE "Note"
-      SET "categoryId" = ${input.targetCategoryId}::text,
-          "updatedAt" = GREATEST(
-            clock_timestamp() AT TIME ZONE 'UTC',
-            "updatedAt" + INTERVAL '1 millisecond'
-          )
-      WHERE "userId" = ${userId}
-        AND "categoryId" IS NOT DISTINCT FROM ${input.sourceCategoryId}::text
-    `;
+    const movedCount = await moveCategoryNotes(
+      tx,
+      userId,
+      input.sourceCategoryId,
+      input.targetCategoryId,
+    );
     return { ...input, movedCount };
   });
+}
+
+// Shared by standalone moves and Category merges within their transaction.
+export async function moveCategoryNotes(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  sourceCategoryId: string | null,
+  targetCategoryId: string | null,
+) {
+  // One atomic update; advance every version even within the same millisecond.
+  const movedCount = await tx.$executeRaw`
+    UPDATE "Note"
+    SET "categoryId" = ${targetCategoryId}::text,
+        "updatedAt" = GREATEST(
+          clock_timestamp() AT TIME ZONE 'UTC',
+          "updatedAt" + INTERVAL '1 millisecond'
+        )
+    WHERE "userId" = ${userId}
+      AND "categoryId" IS NOT DISTINCT FROM ${sourceCategoryId}::text
+  `;
+  return movedCount;
 }
 
 async function throwNoteWriteError(userId: string, id: string): Promise<never> {

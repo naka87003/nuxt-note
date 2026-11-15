@@ -32,6 +32,8 @@ const writes = vi.hoisted(() => ({
 }));
 vi.mock("../../../../server/utils/note-reads", () => reads);
 vi.mock("../../../../server/utils/note-writes", () => writes);
+const merges = vi.hoisted(() => ({ mergeOwnedCategories: vi.fn() }));
+vi.mock("../../../../server/utils/category-merges", () => merges);
 const version = "2026-11-13T00:00:00.000Z";
 const note = {
   id: "note",
@@ -113,6 +115,141 @@ beforeEach(() => {
   writes.deleteOwnedNote.mockResolvedValue({ id: "note", deleted: true });
 });
 describe("in-app Note tools", () => {
+  it.each([true, false])(
+    "reflects the current Chat only after it was actually merged (%s)",
+    async (currentChatMoved) => {
+      const onChatCategoryUpdated = vi.fn();
+      const tools = createChatNoteTools("owner", "https://notes.example", {
+        signal: new AbortController().signal,
+        assertActive: async () => {},
+        allowMutations: true,
+        categoryId: "source",
+        chatId: "current",
+        onChatCategoryUpdated,
+      });
+      const args = { sourceCategoryId: "source", targetCategoryId: "target" };
+      merges.mergeOwnedCategories.mockResolvedValueOnce({
+        ...args,
+        movedNoteCount: 2,
+        movedChatCount: 1,
+        currentChatMoved,
+      });
+      const result = await tools.merge_categories!.execute(args, context);
+      expect(result).toMatchObject({
+        structuredContent: { ...args, movedNoteCount: 2, movedChatCount: 1 },
+      });
+      expect(result.structuredContent).not.toHaveProperty("currentChatMoved");
+      expect(merges.mergeOwnedCategories).toHaveBeenCalledExactlyOnceWith(
+        "owner",
+        args,
+        "current",
+      );
+      await tools.create_note!.execute(
+        { title: "Title", markdown: "Body" },
+        context,
+      );
+      expect(writes.createOwnedNote).toHaveBeenCalledWith("owner", {
+        title: "Title",
+        markdown: "Body",
+        categoryId: currentChatMoved ? "target" : "source",
+      });
+      if (currentChatMoved) {
+        expect(onChatCategoryUpdated).toHaveBeenCalledExactlyOnceWith("target");
+      } else {
+        expect(onChatCategoryUpdated).not.toHaveBeenCalled();
+      }
+      expect(chatReads.readOwnedChatPage).not.toHaveBeenCalled();
+    },
+  );
+  it.each([
+    [0, 0, true],
+    [1, 0, true],
+    [0, 1, true],
+    [1, 1, true],
+    [1, 1, false],
+  ] as const)(
+    "invalidates only changed version caches after a successful merge (%s Notes, %s Chats, %s)",
+    async (movedNoteCount, movedChatCount, succeeds) => {
+      const { tools } = setup();
+      await tools.get_note.execute({ id: "note" }, context);
+      await tools.get_chat.execute({ id: "chat" }, context);
+      const args = { sourceCategoryId: "source", targetCategoryId: "target" };
+      if (succeeds) {
+        merges.mergeOwnedCategories.mockResolvedValueOnce({
+          ...args,
+          movedNoteCount,
+          movedChatCount,
+          currentChatMoved: false,
+        });
+      } else {
+        merges.mergeOwnedCategories.mockRejectedValueOnce(
+          new Error("storage failed"),
+        );
+      }
+      await tools.merge_categories!.execute(args, context);
+      expect(await tools.update_note!.execute(update, context)).toHaveProperty(
+        succeeds && movedNoteCount ? "error" : "structuredContent",
+      );
+      expect(
+        await tools.update_chat_title!.execute(
+          { id: "chat", title: "New title", updatedAt: version },
+          context,
+        ),
+      ).toHaveProperty(
+        succeeds && movedChatCount ? "error" : "structuredContent",
+      );
+      expect(merges.mergeOwnedCategories).toHaveBeenCalledOnce();
+    },
+  );
+  it("clears listed Note metadata after a nonempty merge", async () => {
+    const { tools } = setup();
+    reads.searchOwnedNotes.mockResolvedValueOnce({
+      notes: [note],
+      nextOffset: null,
+    });
+    await tools.list_notes.execute({}, context);
+    const args = { sourceCategoryId: "source", targetCategoryId: "target" };
+    merges.mergeOwnedCategories.mockResolvedValueOnce({
+      ...args,
+      movedNoteCount: 1,
+      movedChatCount: 0,
+      currentChatMoved: false,
+    });
+    await tools.merge_categories!.execute(args, context);
+    expect(
+      await tools.update_note_title!.execute(
+        { ...input, title: "New title" },
+        context,
+      ),
+    ).toHaveProperty("error");
+    await tools.get_note.execute({ id: "note" }, context);
+    expect(
+      await tools.update_note_title!.execute(
+        { ...input, title: "New title" },
+        context,
+      ),
+    ).toHaveProperty("structuredContent");
+  });
+  it("validates merges and stops after cancellation or generation ownership loss", async () => {
+    const args = { sourceCategoryId: "source", targetCategoryId: "target" };
+    const { tools, controller } = setup();
+    await expect(
+      tools.merge_categories!.execute(
+        { ...args, targetCategoryId: "source" },
+        context,
+      ),
+    ).rejects.toThrow();
+    controller.abort();
+    await expect(
+      tools.merge_categories!.execute(args, context),
+    ).rejects.toThrow();
+    const inactive = setup();
+    inactive.assertActive.mockRejectedValueOnce(new Error("no longer active"));
+    await expect(
+      inactive.tools.merge_categories!.execute(args, context),
+    ).rejects.toThrow();
+    expect(merges.mergeOwnedCategories).not.toHaveBeenCalled();
+  });
   it.each([true, false])(
     "updates the current Category only if that Chat was actually moved: %s",
     async (currentChatMoved) => {

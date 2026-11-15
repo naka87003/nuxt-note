@@ -80,6 +80,118 @@ async function connect(owner: string, siteUrl = "https://notes.example") {
 }
 
 describe("remote MCP tools", () => {
+  it.each([0, 2])(
+    "merges Categories atomically without reading bodies (%s Notes)",
+    async (movedNoteCount) => {
+      const client = await connect("owner");
+      const { tools } = await client.listTools();
+      const definition = tools.find((tool) => tool.name === "merge_categories");
+      expect(definition?.inputSchema.required?.slice().sort()).toEqual([
+        "sourceCategoryId",
+        "targetCategoryId",
+      ]);
+      expect(definition?.annotations).toMatchObject({
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+      });
+      writes.$queryRaw
+        .mockResolvedValueOnce([{ id: "source" }, { id: "target" }])
+        .mockResolvedValueOnce([{ movedCount: 1, currentChatMoved: false }]);
+      writes.$executeRaw.mockResolvedValueOnce(movedNoteCount);
+      writes.category.deleteMany.mockResolvedValueOnce({ count: 1 });
+      const args = { sourceCategoryId: "source", targetCategoryId: "target" };
+      expect(
+        await client.callTool({ name: "merge_categories", arguments: args }),
+      ).toMatchObject({
+        structuredContent: { ...args, movedNoteCount, movedChatCount: 1 },
+      });
+      expect(writes.$transaction).toHaveBeenCalledOnce();
+      expect(writes.$executeRaw.mock.calls[0]?.slice(1)).toEqual([
+        "target",
+        "owner",
+        "source",
+      ]);
+      expect(writes.$queryRaw.mock.calls[1]?.slice(1)).toEqual([
+        "target",
+        "owner",
+        "source",
+        null,
+      ]);
+      expect(writes.category.deleteMany).toHaveBeenCalledExactlyOnceWith({
+        where: {
+          id: "source",
+          userId: "owner",
+          notes: { none: {} },
+          chats: { none: {} },
+        },
+      });
+      expect(writes.note.findFirst).not.toHaveBeenCalled();
+      expect(writes.chat.findMany).not.toHaveBeenCalled();
+    },
+  );
+  it("rejects a merge before moving content if either Category is missing or foreign", async () => {
+    const client = await connect("owner");
+    writes.$queryRaw.mockResolvedValueOnce([{ id: "source" }]);
+    expect(
+      await client.callTool({
+        name: "merge_categories",
+        arguments: { sourceCategoryId: "source", targetCategoryId: "foreign" },
+      }),
+    ).toMatchObject({
+      isError: true,
+      content: [{ text: "Category not found." }],
+    });
+    expect(writes.$executeRaw).not.toHaveBeenCalled();
+    expect(writes.category.deleteMany).not.toHaveBeenCalled();
+  });
+  it.each(["move", "delete"])(
+    "hides merge failures and does not retry (%s)",
+    async (stage) => {
+      const client = await connect("owner");
+      writes.$queryRaw
+        .mockResolvedValueOnce([{ id: "source" }, { id: "target" }])
+        .mockResolvedValueOnce([{ movedCount: 1, currentChatMoved: false }]);
+      if (stage === "move") {
+        writes.$executeRaw.mockRejectedValueOnce(
+          new Error("private database details"),
+        );
+      } else {
+        writes.$executeRaw.mockResolvedValueOnce(1);
+        writes.category.deleteMany.mockResolvedValueOnce({ count: 0 });
+      }
+      expect(
+        await client.callTool({
+          name: "merge_categories",
+          arguments: { sourceCategoryId: "source", targetCategoryId: "target" },
+        }),
+      ).toMatchObject({
+        isError: true,
+        content: [
+          { text: expect.stringContaining("Could not merge Categories.") },
+        ],
+      });
+      expect(writes.$transaction).toHaveBeenCalledOnce();
+    },
+  );
+  it.each([
+    {},
+    { sourceCategoryId: "source" },
+    { sourceCategoryId: null, targetCategoryId: "target" },
+    { sourceCategoryId: "source", targetCategoryId: null },
+    { sourceCategoryId: "same", targetCategoryId: "same" },
+    { sourceCategoryId: "", targetCategoryId: "target" },
+    { sourceCategoryId: "source", targetCategoryId: 1 },
+    { sourceCategoryId: "x".repeat(101), targetCategoryId: "target" },
+    { sourceCategoryId: "source", targetCategoryId: "target", userId: "other" },
+  ])("rejects invalid merge input %j", async (args) => {
+    const client = await connect("owner");
+    expect(
+      (await client.callTool({ name: "merge_categories", arguments: args }))
+        .isError,
+    ).toBe(true);
+    expect(writes.$transaction).not.toHaveBeenCalled();
+  });
   it.each([
     ["source", "target", 2],
     [null, "target", 0],
@@ -1575,6 +1687,7 @@ describe("remote MCP tools", () => {
       "list_categories",
       "list_chats",
       "list_notes",
+      "merge_categories",
       "move_category_chats",
       "move_category_notes",
       "update_category",

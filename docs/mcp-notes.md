@@ -167,6 +167,26 @@ intact. Further single-Chat writes require a fresh read/list. Retry attempts
 expose only read tools, and cancellation/ownership checks run before the move.
 External MCP moves appear when the displayed Chat is reloaded.
 
+Use `merge_categories` only for an explicit request to merge two identified
+Categories. Required `sourceCategoryId` and `targetCategoryId` must be distinct,
+existing owned Category IDs; neither accepts null/Uncategorized. It moves all of
+the owner's Notes and Chats currently in the source into the target and
+permanently deletes the source, including an empty source. The target and its
+name are preserved. The result contains both IDs, `movedNoteCount`, and
+`movedChatCount`; no Note bodies or Chat messages are read or returned.
+
+The existing bulk-move SQL runs inside one transaction with source deletion.
+Category row locks prevent new assignments to the source during the merge.
+Deletion requires the source to be empty, so remaining assignments cause the
+whole transaction to roll back rather than becoming Uncategorized. Missing or
+foreign Categories fail before any move. Moved versions advance, content and
+active generation are preserved, and the current Chat uses the same Category
+notification and Note default update as `move_category_chats`. In-app cached
+Note/Chat versions are cleared only for types with a positive moved count after
+success; subsequent writes require fresh reads. Failed or empty moves retain
+those caches. Retry attempts do not expose this mutation. Do not automatically
+retry failed merges or claim that the deleted source can be restored.
+
 Examples:
 
 - “Find my Notes about Nuxt and summarize them.”
@@ -266,6 +286,7 @@ Ordinary users only configure their agent and do not need this repository or fil
 | `update_chat_category` | Required `id`, `categoryId` (nullable), `updatedAt`                    | Updated Chat ID, title, category ID, update time, URL; no messages         |
 | `update_note_title`    | Required `id`, `title`, `updatedAt`                                    | Updated Note metadata and URL; no Markdown                                 |
 | `update_note_category` | Required `id`, `categoryId` (nullable), `updatedAt`                    | Updated Note metadata and URL; no Markdown                                 |
+| `merge_categories`     | Required non-null `sourceCategoryId`, `targetCategoryId`               | Both IDs, `movedNoteCount`, `movedChatCount`; source Category deleted      |
 | `move_category_chats`  | Required nullable `sourceCategoryId`, `targetCategoryId`               | Source and target Category IDs, `movedCount`; no messages                  |
 | `move_category_notes`  | Required nullable `sourceCategoryId`, `targetCategoryId`               | Source and target Category IDs, `movedCount`; no Note bodies               |
 | `delete_category`      | Required `id`                                                          | Deleted Category ID and `deleted: true`                                    |

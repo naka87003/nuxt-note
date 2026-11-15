@@ -10,6 +10,7 @@ import {
 
 const mocks = vi.hoisted(() => ({
   $queryRaw: vi.fn(),
+  $executeRaw: vi.fn(),
   session: vi.fn(),
   body: vi.fn(),
   config: vi.fn(),
@@ -21,7 +22,7 @@ const mocks = vi.hoisted(() => ({
     create: vi.fn(),
     update: vi.fn(),
   },
-  category: { findFirst: vi.fn() },
+  category: { findFirst: vi.fn(), deleteMany: vi.fn() },
   message: {
     findMany: vi.fn(),
     findFirst: vi.fn(),
@@ -117,6 +118,41 @@ beforeEach(() => {
   });
 });
 describe("Chat generation", () => {
+  it.each([true, false])(
+    "notifies the merged current Chat only after commit (%s)",
+    async (succeeds) => {
+      mocks.$queryRaw
+        .mockResolvedValueOnce([{ id: "source" }, { id: "target" }])
+        .mockResolvedValueOnce([{ movedCount: 1, currentChatMoved: true }]);
+      mocks.$executeRaw.mockResolvedValueOnce(2);
+      mocks.category.deleteMany.mockResolvedValueOnce({
+        count: succeeds ? 1 : 0,
+      });
+      mocks.streamText.mockImplementation(({ tools }) => ({
+        fullStream: (async function* () {
+          await tools.merge_categories.execute(
+            { sourceCategoryId: "source", targetCategoryId: "target" },
+            { toolCallId: "test", messages: [] },
+          );
+          yield { type: "text-delta", text: "Answer" };
+          yield { type: "finish", finishReason: "stop" };
+        })(),
+      }));
+      await run();
+      expect(
+        mocks.push.mock.calls.map(([data]) => JSON.parse(data)).at(-1),
+      ).toEqual({
+        type: "done",
+        status: "completed",
+        ...(succeeds ? { categoryId: "target" } : {}),
+      });
+      expect(mocks.message.updateMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          data: { content: "Answer", status: "completed" },
+        }),
+      );
+    },
+  );
   it.each([
     [true, 2, true],
     [false, 2, true],
@@ -415,6 +451,7 @@ describe("Chat generation", () => {
       "list_categories",
       "list_chats",
       "list_notes",
+      "merge_categories",
       "move_category_chats",
       "move_category_notes",
       "read_webpage",

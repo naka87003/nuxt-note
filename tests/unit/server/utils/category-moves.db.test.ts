@@ -21,6 +21,7 @@ import {
   updateOwnedChatTitle,
   deleteOwnedChat,
 } from "../../../../server/utils/chat-writes";
+import { mergeOwnedCategories } from "../../../../server/utils/category-merges";
 import { saveGeneration } from "../../../../server/utils/chat-generation";
 
 vi.mock("../../../../server/utils/prisma", () => ({ getPrisma: vi.fn() }));
@@ -141,6 +142,228 @@ describe.skipIf(!connectionString)("bulk category moves in PostgreSQL", () => {
     if (db) await db.$disconnect();
   });
 
+  it("merges Notes and Chats, deletes only the source, and preserves content and active generation", async () => {
+    // Remove the deliberately invalid cross-owner assignment from the move fixture.
+    await db.note.deleteMany({ where: { userId: other, categoryId: source } });
+    const beforeNote = await db.note.findUniqueOrThrow({
+      where: { id: noteId },
+    });
+    const beforeChat = await db.chat.findUniqueOrThrow({
+      where: { id: chatId },
+      include: { messages: { orderBy: { id: "asc" } } },
+    });
+    const beforeTarget = await db.category.findUniqueOrThrow({
+      where: { id: target },
+    });
+    const untouched = await db.note.findMany({
+      where: { id: { not: noteId } },
+      orderBy: { id: "asc" },
+    });
+    expect(
+      await mergeOwnedCategories(
+        owner,
+        { sourceCategoryId: source, targetCategoryId: target },
+        chatId,
+      ),
+    ).toEqual({
+      sourceCategoryId: source,
+      targetCategoryId: target,
+      movedNoteCount: 1,
+      movedChatCount: 1,
+      currentChatMoved: true,
+    });
+    expect(await db.category.findUnique({ where: { id: source } })).toBeNull();
+    expect(await db.category.findUnique({ where: { id: target } })).toEqual(
+      beforeTarget,
+    );
+    expect(await db.note.findUniqueOrThrow({ where: { id: noteId } })).toEqual({
+      ...beforeNote,
+      categoryId: target,
+      updatedAt: new Date(version.getTime() + 1),
+    });
+    expect(
+      await db.chat.findUniqueOrThrow({
+        where: { id: chatId },
+        include: { messages: { orderBy: { id: "asc" } } },
+      }),
+    ).toEqual({
+      ...beforeChat,
+      categoryId: target,
+      updatedAt: new Date(version.getTime() + 1),
+    });
+    expect(
+      await db.note.findMany({
+        where: { id: { not: noteId } },
+        orderBy: { id: "asc" },
+      }),
+    ).toEqual(untouched);
+    await expect(
+      updateOwnedNoteTitle(owner, {
+        id: noteId,
+        title: "Stale title",
+        updatedAt: version.toISOString(),
+      }),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    await expect(
+      updateOwnedChatTitle(owner, {
+        id: chatId,
+        title: "Stale title",
+        updatedAt: version.toISOString(),
+      }),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    const reply = beforeChat.messages.find(
+      (message) => message.role === "assistant",
+    );
+    if (!reply) throw new Error("Missing fixture reply");
+    expect(
+      await saveGeneration(
+        owner,
+        chatId,
+        "attempt",
+        reply.id,
+        "Continued answer",
+        "generating",
+      ),
+    ).toBe(true);
+    expect(
+      await db.chat.findUniqueOrThrow({ where: { id: chatId } }),
+    ).toMatchObject({ categoryId: target, generationId: "attempt" });
+  });
+  it("deletes an empty source without changing the current Chat or existing content", async () => {
+    const empty = await db.category.create({
+      data: { userId: owner, name: "Empty", nameKey: "empty" },
+    });
+    expect(
+      await mergeOwnedCategories(
+        owner,
+        { sourceCategoryId: empty.id, targetCategoryId: target },
+        chatId,
+      ),
+    ).toEqual({
+      sourceCategoryId: empty.id,
+      targetCategoryId: target,
+      movedNoteCount: 0,
+      movedChatCount: 0,
+      currentChatMoved: false,
+    });
+    expect(
+      await db.category.findUnique({ where: { id: empty.id } }),
+    ).toBeNull();
+    expect(
+      await db.note.findUniqueOrThrow({ where: { id: noteId } }),
+    ).toMatchObject({ categoryId: source, updatedAt: version });
+    expect(
+      await db.chat.findUniqueOrThrow({ where: { id: chatId } }),
+    ).toMatchObject({ categoryId: source, updatedAt: version });
+  });
+  it("rolls back both moves if any assignment remains at deletion, preserving other owners", async () => {
+    const notes = await db.note.findMany({ orderBy: { id: "asc" } });
+    const chats = await db.chat.findMany({
+      include: { messages: true },
+      orderBy: { id: "asc" },
+    });
+    const categories = await db.category.findMany({ orderBy: { id: "asc" } });
+    // The move fixture intentionally includes another owner's Note linked to the source.
+    await expect(
+      mergeOwnedCategories(
+        owner,
+        { sourceCategoryId: source, targetCategoryId: target },
+        chatId,
+      ),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect(await db.note.findMany({ orderBy: { id: "asc" } })).toEqual(notes);
+    expect(
+      await db.chat.findMany({
+        include: { messages: true },
+        orderBy: { id: "asc" },
+      }),
+    ).toEqual(chats);
+    expect(await db.category.findMany({ orderBy: { id: "asc" } })).toEqual(
+      categories,
+    );
+  });
+  it.each(["source", "target", "missing"])(
+    "rejects merges with foreign or missing Categories (%s)",
+    async (kind) => {
+      const notes = await db.note.findMany({ orderBy: { id: "asc" } });
+      const chats = await db.chat.findMany({ orderBy: { id: "asc" } });
+      await expect(
+        mergeOwnedCategories(owner, {
+          sourceCategoryId: kind === "source" ? foreign : source,
+          targetCategoryId:
+            kind === "target"
+              ? foreign
+              : kind === "missing"
+                ? randomUUID()
+                : target,
+        }),
+      ).rejects.toMatchObject({ statusCode: 404 });
+      expect(await db.note.findMany({ orderBy: { id: "asc" } })).toEqual(notes);
+      expect(await db.chat.findMany({ orderBy: { id: "asc" } })).toEqual(chats);
+      expect(await db.category.count({ where: { userId: owner } })).toBe(2);
+    },
+  );
+  it("blocks new assignments to the source during a merge instead of silently uncategorizing them", async () => {
+    await db.note.deleteMany({ where: { userId: other, categoryId: source } });
+    const locked = Promise.withResolvers<undefined>();
+    const release = Promise.withResolvers<undefined>();
+    const holding = db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "Note" WHERE "id" = ${noteId} FOR UPDATE`;
+      locked.resolve(undefined);
+      await release.promise;
+    });
+    await locked.promise;
+    const merging = mergeOwnedCategories(
+      owner,
+      { sourceCategoryId: source, targetCategoryId: target },
+      chatId,
+    );
+    let inserting: Promise<unknown> | undefined;
+    try {
+      await vi.waitFor(
+        async () => {
+          const [activity] = await db.$queryRaw<{ waiting: boolean }[]>`
+          SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE application_name = ${applicationName}
+            AND wait_event_type = 'Lock' AND query LIKE '%UPDATE "Note"%') AS waiting
+        `;
+          expect(activity?.waiting).toBe(true);
+        },
+        { timeout: 2000, interval: 25 },
+      );
+      inserting = db.note
+        .create({
+          data: { userId: owner, categoryId: source, title: "Concurrent Note" },
+        })
+        .then(
+          () => ({ created: true }),
+          (error: unknown) => error,
+        );
+      await vi.waitFor(
+        async () => {
+          const [activity] = await db.$queryRaw<{ waiting: boolean }[]>`
+          SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE application_name = ${applicationName}
+            AND wait_event_type = 'Lock' AND query LIKE '%INSERT INTO%Note%') AS waiting
+        `;
+          expect(activity?.waiting).toBe(true);
+        },
+        { timeout: 2000, interval: 25 },
+      );
+    } finally {
+      release.resolve(undefined);
+      await holding;
+      await merging;
+    }
+    expect(await merging).toMatchObject({
+      movedNoteCount: 1,
+      movedChatCount: 1,
+      currentChatMoved: true,
+    });
+    expect(await inserting).toMatchObject({ code: "P2003" });
+    expect(await db.note.count({ where: { title: "Concurrent Note" } })).toBe(
+      0,
+    );
+    expect(await db.category.findUnique({ where: { id: source } })).toBeNull();
+  });
   it("moves only owned Chats, preserving messages, generation state, Notes, and Categories", async () => {
     const otherChat = await db.chat.create({
       data: { userId: other, categoryId: source, title: "Other owner's Chat" },

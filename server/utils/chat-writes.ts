@@ -1,3 +1,4 @@
+import type { Prisma } from "../../generated/prisma/client";
 import { createError } from "nuxt/server";
 import { getPrisma } from "./prisma";
 import { ownedCategory, lockOwnedCategories } from "./categories";
@@ -20,33 +21,51 @@ export async function moveOwnedCategoryChats(
       input.sourceCategoryId,
       input.targetCategoryId,
     ]);
-    // Aggregate on the server rather than returning every moved Chat ID.
-    const [moved] = await tx.$queryRaw<
-      { movedCount: number; currentChatMoved: boolean }[]
-    >`
-      WITH moved AS (
-        UPDATE "Chat"
-        SET "categoryId" = ${input.targetCategoryId}::text,
-            "updatedAt" = GREATEST(
-              clock_timestamp() AT TIME ZONE 'UTC',
-              "updatedAt" + INTERVAL '1 millisecond'
-            )
-        WHERE "userId" = ${userId}
-          AND "categoryId" IS NOT DISTINCT FROM ${input.sourceCategoryId}::text
-        RETURNING "id"
-      )
-      SELECT COUNT(*)::integer AS "movedCount",
-             COALESCE(bool_or("id" = ${currentChatId ?? null}::text), false) AS "currentChatMoved"
-      FROM moved
-    `;
-    if (!moved) {
-      throw createError({
-        statusCode: 500,
-        statusMessage: "Could not move Chats",
-      });
-    }
+    const moved = await moveCategoryChats(
+      tx,
+      userId,
+      input.sourceCategoryId,
+      input.targetCategoryId,
+      currentChatId,
+    );
     return { ...input, ...moved };
   });
+}
+
+// Shared by standalone moves and Category merges within their transaction.
+export async function moveCategoryChats(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  sourceCategoryId: string | null,
+  targetCategoryId: string | null,
+  currentChatId?: string,
+) {
+  // Aggregate on the server rather than returning every moved Chat ID.
+  const [moved] = await tx.$queryRaw<
+    { movedCount: number; currentChatMoved: boolean }[]
+  >`
+    WITH moved AS (
+      UPDATE "Chat"
+      SET "categoryId" = ${targetCategoryId}::text,
+          "updatedAt" = GREATEST(
+            clock_timestamp() AT TIME ZONE 'UTC',
+            "updatedAt" + INTERVAL '1 millisecond'
+          )
+      WHERE "userId" = ${userId}
+        AND "categoryId" IS NOT DISTINCT FROM ${sourceCategoryId}::text
+      RETURNING "id"
+    )
+    SELECT COUNT(*)::integer AS "movedCount",
+           COALESCE(bool_or("id" = ${currentChatId ?? null}::text), false) AS "currentChatMoved"
+    FROM moved
+  `;
+  if (!moved) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: "Could not move Chats",
+    });
+  }
+  return moved;
 }
 
 async function throwChatWriteError(userId: string, id: string): Promise<never> {

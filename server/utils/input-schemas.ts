@@ -108,6 +108,16 @@ export const moveCategoryInputSchema = z
     error: "Source and target Categories must be different",
   });
 
+export const mergeCategoriesInputSchema = z
+  .object({
+    sourceCategoryId: z.string().min(1).max(100),
+    targetCategoryId: z.string().min(1).max(100),
+  })
+  .strict()
+  .refine((input) => input.sourceCategoryId !== input.targetCategoryId, {
+    error: "Source and target Categories must be different",
+  });
+
 export const updateNoteCategoryInputSchema = z
   .object({
     ...noteVersionShape,
