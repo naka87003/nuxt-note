@@ -6,7 +6,7 @@ import {
   CHAT_NOTES_INSTRUCTIONS,
   CHAT_TOOL_STEPS,
   createChatNoteTools,
-} from "../../server/utils/chat-tools";
+} from "~~/server/utils/chat-tools";
 
 // Explicit opt-in. Uses real AI with fake Notes; never contacts the database.
 // Run explicitly with pnpm test:ai.
@@ -17,8 +17,8 @@ const storage = vi.hoisted(() => ({
   updateOwnedNote: vi.fn(),
   deleteOwnedNote: vi.fn(),
 }));
-vi.mock("../../server/utils/note-reads", () => storage);
-vi.mock("../../server/utils/note-writes", () => storage);
+vi.mock("~~/server/utils/note-reads", () => storage);
+vi.mock("~~/server/utils/note-writes", () => storage);
 
 it("uses a created Note link to edit through the real model, despite an earlier incorrect refusal", async () => {
   loadEnv({ quiet: true });

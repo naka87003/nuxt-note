@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getAuthenticatedUserId } from "../../../../server/utils/auth";
+import { getAuthenticatedUserId } from "~~/server/utils/auth";
 
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),

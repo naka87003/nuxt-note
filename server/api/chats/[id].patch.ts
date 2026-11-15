@@ -1,5 +1,5 @@
-import { getAuthenticatedUserId } from "../../utils/auth";
-import { updateOwnedChatCategory } from "../../utils/chat-writes";
+import { getAuthenticatedUserId } from "~~/server/utils/auth";
+import { updateOwnedChatCategory } from "~~/server/utils/chat-writes";
 
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);

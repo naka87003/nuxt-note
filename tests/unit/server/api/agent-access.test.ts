@@ -1,16 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
-import {
-  readOwnedNote,
-  searchOwnedNotes,
-} from "../../../../server/utils/note-reads";
-import issue from "../../../../server/api/agent-tokens/index.post";
-import tokens from "../../../../server/api/agent-tokens/index.get";
-import remove from "../../../../server/api/agent-tokens/[id].delete";
-import {
-  getAgentUserId,
-  newAgentToken,
-} from "../../../../server/utils/agent-auth";
+import { readOwnedNote, searchOwnedNotes } from "~~/server/utils/note-reads";
+import issue from "~~/server/api/agent-tokens/index.post";
+import tokens from "~~/server/api/agent-tokens/index.get";
+import remove from "~~/server/api/agent-tokens/[id].delete";
+import { getAgentUserId, newAgentToken } from "~~/server/utils/agent-auth";
 
 const mocks = vi.hoisted(() => ({
   agentToken: {
@@ -27,7 +21,7 @@ const mocks = vi.hoisted(() => ({
   body: vi.fn(),
   status: vi.fn(),
 }));
-vi.mock("../../../../server/utils/prisma", () => ({ getPrisma: () => mocks }));
+vi.mock("~~/server/utils/prisma", () => ({ getPrisma: () => mocks }));
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));

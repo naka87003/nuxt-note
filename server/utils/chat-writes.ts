@@ -1,4 +1,4 @@
-import type { Prisma } from "../../generated/prisma/client";
+import type { Prisma } from "~~/generated/prisma/client";
 import { createError } from "nuxt/server";
 import { getPrisma } from "./prisma";
 import { ownedCategory, lockOwnedCategories } from "./categories";

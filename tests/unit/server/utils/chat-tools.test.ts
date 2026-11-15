@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { stepCountIs, streamText } from "ai";
 import { MockLanguageModelV4, simulateReadableStream } from "ai/test";
-import { createWorkspaceTools } from "../../../../server/utils/workspace-tools";
+import { createWorkspaceTools } from "~~/server/utils/workspace-tools";
 import {
   CHAT_NOTES_INSTRUCTIONS,
   createChatNoteTools,
-} from "../../../../server/utils/chat-tools";
+} from "~~/server/utils/chat-tools";
 
 const reads = vi.hoisted(() => ({
   searchOwnedNotes: vi.fn(),
@@ -15,14 +15,14 @@ const chatReads = vi.hoisted(() => ({
   searchOwnedChats: vi.fn(),
   readOwnedChatPage: vi.fn(),
 }));
-vi.mock("../../../../server/utils/chat-reads", () => chatReads);
+vi.mock("~~/server/utils/chat-reads", () => chatReads);
 const chatWrites = vi.hoisted(() => ({
   updateOwnedChatCategory: vi.fn(),
   updateOwnedChatTitle: vi.fn(),
   deleteOwnedChat: vi.fn(),
   moveOwnedCategoryChats: vi.fn(),
 }));
-vi.mock("../../../../server/utils/chat-writes", () => chatWrites);
+vi.mock("~~/server/utils/chat-writes", () => chatWrites);
 const writes = vi.hoisted(() => ({
   createOwnedNote: vi.fn(),
   updateOwnedNote: vi.fn(),
@@ -31,10 +31,10 @@ const writes = vi.hoisted(() => ({
   moveOwnedCategoryNotes: vi.fn(),
   deleteOwnedNote: vi.fn(),
 }));
-vi.mock("../../../../server/utils/note-reads", () => reads);
-vi.mock("../../../../server/utils/note-writes", () => writes);
+vi.mock("~~/server/utils/note-reads", () => reads);
+vi.mock("~~/server/utils/note-writes", () => writes);
 const merges = vi.hoisted(() => ({ mergeOwnedCategories: vi.fn() }));
-vi.mock("../../../../server/utils/category-merges", () => merges);
+vi.mock("~~/server/utils/category-merges", () => merges);
 const version = "2026-11-13T00:00:00.000Z";
 const note = {
   id: "note",
@@ -52,7 +52,7 @@ const categories = vi.hoisted(() => ({
   updateMany: vi.fn(),
   deleteMany: vi.fn(),
 }));
-vi.mock("../../../../server/utils/prisma", () => ({
+vi.mock("~~/server/utils/prisma", () => ({
   getPrisma: () => ({ category: categories }),
 }));
 function setup(

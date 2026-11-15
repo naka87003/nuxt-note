@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderMarkdown } from "./render-markdown";
-import { createNoteMarkdownParser } from "@/utils/markdown";
+import { createNoteMarkdownParser } from "~/utils/markdown";
 import { textContent } from "@comark/nuxt/utils";
 
 async function parsedCode(source: string) {

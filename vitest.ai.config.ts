@@ -1,11 +1,9 @@
 import { defineConfig } from "vitest/config";
-import { fileURLToPath } from "node:url";
+import { aliases } from "./tests/aliases.ts";
 
 export default defineConfig({
   resolve: {
-    alias: {
-      "#shared": fileURLToPath(new URL("./shared", import.meta.url)),
-    },
+    alias: aliases,
   },
   test: {
     name: "ai",

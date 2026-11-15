@@ -2,8 +2,8 @@ import { EventEmitter } from "node:events";
 import type { ChatMessage } from "#shared/types/chat";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createChatNoteDraft } from "../../../../server/utils/chat-note";
-import handler from "../../../../server/api/chats/[id]/note-draft.post";
+import { createChatNoteDraft } from "~~/server/utils/chat-note";
+import handler from "~~/server/api/chats/[id]/note-draft.post";
 
 const mocks = vi.hoisted(() => ({
   generate: vi.fn(),
@@ -22,13 +22,13 @@ vi.mock("ai", async (importOriginal) => ({
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));
-vi.mock("../../../../server/utils/prisma", () => ({
+vi.mock("~~/server/utils/prisma", () => ({
   getPrisma: () => ({
     chat: { findFirst: mocks.findFirst },
     category: { findMany: mocks.categories },
   }),
 }));
-vi.mock("../../../../server/utils/chat-generation", () => ({
+vi.mock("~~/server/utils/chat-generation", () => ({
   recoverGeneration: mocks.recover,
   messageOrder: [{ createdAt: "asc" }, { id: "asc" }],
 }));

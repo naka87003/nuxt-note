@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 import { defineVitestProject } from "@nuxt/test-utils/config";
-import { fileURLToPath } from "node:url";
+import { aliases } from "./tests/aliases.ts";
 
 export default defineConfig({
   test: {
@@ -9,10 +9,7 @@ export default defineConfig({
     projects: [
       {
         resolve: {
-          alias: {
-            "@": fileURLToPath(new URL("./app", import.meta.url)),
-            "#shared": fileURLToPath(new URL("./shared", import.meta.url)),
-          },
+          alias: aliases,
         },
         test: {
           name: "unit",

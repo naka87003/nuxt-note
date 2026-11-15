@@ -1,11 +1,8 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import {
-  createChatWebTools,
-  webSourceLinks,
-} from "../../../../server/utils/web-tools";
-import { readWebpage } from "../../../../server/utils/web-page";
+import { createChatWebTools, webSourceLinks } from "~~/server/utils/web-tools";
+import { readWebpage } from "~~/server/utils/web-page";
 
-vi.mock("../../../../server/utils/web-page", () => ({ readWebpage: vi.fn() }));
+vi.mock("~~/server/utils/web-page", () => ({ readWebpage: vi.fn() }));
 beforeEach(() => vi.resetAllMocks());
 const context = { toolCallId: "call", messages: [] };
 

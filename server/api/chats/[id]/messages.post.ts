@@ -1,12 +1,12 @@
 import { createError } from "nuxt/server";
-import { getAuthenticatedUserId } from "../../../utils/auth";
-import { getPrisma } from "../../../utils/prisma";
+import { getAuthenticatedUserId } from "~~/server/utils/auth";
+import { getPrisma } from "~~/server/utils/prisma";
 import {
   lockIdleChat,
   messageInput,
   recoverGeneration,
   requireChat,
-} from "../../../utils/chat-generation";
+} from "~~/server/utils/chat-generation";
 
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);

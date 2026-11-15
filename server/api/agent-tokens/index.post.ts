@@ -1,12 +1,12 @@
 import { createError } from "nuxt/server";
-import { getAuthenticatedUserId } from "../../utils/auth";
+import { getAuthenticatedUserId } from "~~/server/utils/auth";
 import {
   agentTokenSelect,
   newAgentToken,
   privateAgentResponse,
-} from "../../utils/agent-auth";
-import { getPrisma } from "../../utils/prisma";
-import { agentTokenInputSchema } from "../../utils/input-schemas";
+} from "~~/server/utils/agent-auth";
+import { getPrisma } from "~~/server/utils/prisma";
+import { agentTokenInputSchema } from "~~/server/utils/input-schemas";
 
 export default defineEventHandler(async (event) => {
   privateAgentResponse(event);

@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import create from "../../../../server/api/notes/index.post";
-import list from "../../../../server/api/notes/index.get";
-import read from "../../../../server/api/notes/[id].get";
-import update from "../../../../server/api/notes/[id].patch";
-import remove from "../../../../server/api/notes/[id].delete";
+import create from "~~/server/api/notes/index.post";
+import list from "~~/server/api/notes/index.get";
+import read from "~~/server/api/notes/[id].get";
+import update from "~~/server/api/notes/[id].patch";
+import remove from "~~/server/api/notes/[id].delete";
 
 const mocks = vi.hoisted(() => ({
   create: vi.fn(),
@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => ({
   query: vi.fn(),
   category: vi.fn(),
 }));
-vi.mock("../../../../server/utils/prisma", () => ({
+vi.mock("~~/server/utils/prisma", () => ({
   getPrisma: () => ({ note: mocks, category: { findFirst: mocks.category } }),
 }));
 vi.mock("nuxt/server", () => ({

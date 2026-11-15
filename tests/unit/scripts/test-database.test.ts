@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
   readTestMigrations,
   startTestDatabase,
-} from "../../../scripts/lib/test-database.mjs";
+} from "~~/scripts/lib/test-database.mjs";
 
 const { docker, writeError } = vi.hoisted(() => ({
   docker: vi.fn(),

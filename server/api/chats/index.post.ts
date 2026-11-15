@@ -1,9 +1,9 @@
 import { createError } from "nuxt/server";
-import { getAuthenticatedUserId } from "../../utils/auth";
-import { ownedCategory } from "../../utils/categories";
-import { getPrisma } from "../../utils/prisma";
-import { createChatInputSchema } from "../../utils/input-schemas";
-import { parseInput } from "../../utils/parse-input";
+import { getAuthenticatedUserId } from "~~/server/utils/auth";
+import { ownedCategory } from "~~/server/utils/categories";
+import { getPrisma } from "~~/server/utils/prisma";
+import { createChatInputSchema } from "~~/server/utils/input-schemas";
+import { parseInput } from "~~/server/utils/parse-input";
 
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);

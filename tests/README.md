@@ -35,7 +35,7 @@ pnpm test --project nuxt   # Nuxt component and composable tests only
 separate suites and are excluded rather than reported as skipped. Setting their
 environment variables does not enable them in the normal suite.
 
-The `unit` project imports source modules directly and mocks Nuxt globals, database access and AI providers as needed. Test files use relative source imports. The existing `#shared` alias is retained because application modules import shared code through it; no additional `~` or `~~` aliases are configured for this project.
+The `unit` project imports source modules directly and mocks Nuxt globals, database access and AI providers as needed. The unit, integration and AI projects share Nuxt-compatible aliases from `tests/aliases.ts`: `~/` for `app/`, `~~/` for the repository root and `#shared/` for `shared/`. Use the same paths for source imports and `vi.mock` calls. The `nuxt` project uses Nuxt's built-in aliases.
 
 The `nuxt` project uses `@nuxt/test-utils`, `mountSuspended` and Happy DOM, with the application's auto-imports and plugins. It loads `.env.test` rather than `.env`; application credentials are unnecessary. Note and chat requests are mocked, and authentication uses synthetic session state. These tests do not contact the application database or AI provider.
 

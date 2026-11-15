@@ -1,4 +1,4 @@
-import type { Prisma } from "../../generated/prisma/client";
+import type { Prisma } from "~~/generated/prisma/client";
 import { normalizeNoteContent, normalizeNoteTitle } from "./notes";
 import { ownedCategory, lockOwnedCategories } from "./categories";
 import { getPrisma } from "./prisma";

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@nuxtjs/storybook";
 import { ref } from "vue";
 import { expect, fn, within } from "storybook/test";
-import NoteConflictDialog from "@/components/NoteConflictDialog.vue";
+import NoteConflictDialog from "~/components/NoteConflictDialog.vue";
 
 const meta = {
   title: "Notes/Conflict confirmation",

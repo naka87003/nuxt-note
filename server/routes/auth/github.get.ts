@@ -1,5 +1,5 @@
 import { sendRedirect } from "nuxt/server";
-import { getPrisma } from "../../utils/prisma";
+import { getPrisma } from "~~/server/utils/prisma";
 
 export default defineOAuthGitHubEventHandler({
   config: { emailRequired: false },

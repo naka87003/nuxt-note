@@ -5,7 +5,7 @@ import {
   isPublicAddress,
   readWebpage,
   webpageUrl,
-} from "../../../../server/utils/web-page";
+} from "~~/server/utils/web-page";
 
 const mocks = vi.hoisted(() => ({ request: vi.fn(), lookup: vi.fn() }));
 vi.mock("node:http", () => ({ request: mocks.request }));

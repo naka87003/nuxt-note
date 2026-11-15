@@ -1,8 +1,8 @@
 import { createError } from "nuxt/server";
-import { getAuthenticatedUserId } from "../../utils/auth";
-import { deleteOwnedNote } from "../../utils/note-writes";
-import { deleteNoteBodySchema } from "../../utils/input-schemas";
-import { parseInput } from "../../utils/parse-input";
+import { getAuthenticatedUserId } from "~~/server/utils/auth";
+import { deleteOwnedNote } from "~~/server/utils/note-writes";
+import { deleteNoteBodySchema } from "~~/server/utils/input-schemas";
+import { parseInput } from "~~/server/utils/parse-input";
 
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);

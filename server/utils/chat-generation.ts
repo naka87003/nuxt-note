@@ -1,5 +1,5 @@
 import { createError } from "nuxt/server";
-import type { Prisma } from "../../generated/prisma/client";
+import type { Prisma } from "~~/generated/prisma/client";
 import { getPrisma } from "./prisma";
 import { messageInputSchema } from "./input-schemas";
 import { parseInput } from "./parse-input";

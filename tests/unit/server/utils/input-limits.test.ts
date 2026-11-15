@@ -1,19 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
-import { normalizeNoteContent } from "../../../../server/utils/notes";
+import { normalizeNoteContent } from "~~/server/utils/notes";
 import {
   createNoteInputSchema,
   requestIdSchema,
-} from "../../../../server/utils/input-schemas";
-import { parseInput } from "../../../../server/utils/parse-input";
-import { categoryName } from "../../../../server/utils/categories";
-import { contentQuery } from "../../../../server/utils/content-query";
-import { messageInput } from "../../../../server/utils/chat-generation";
-import { createWorkspaceTools } from "../../../../server/utils/workspace-tools";
+} from "~~/server/utils/input-schemas";
+import { parseInput } from "~~/server/utils/parse-input";
+import { categoryName } from "~~/server/utils/categories";
+import { contentQuery } from "~~/server/utils/content-query";
+import { messageInput } from "~~/server/utils/chat-generation";
+import { createWorkspaceTools } from "~~/server/utils/workspace-tools";
 
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));
-vi.mock("../../../../server/utils/prisma", () => ({ getPrisma: vi.fn() }));
+vi.mock("~~/server/utils/prisma", () => ({ getPrisma: vi.fn() }));
 
 const messageId = "11111111-1111-4111-8111-111111111111";
 const fields = [

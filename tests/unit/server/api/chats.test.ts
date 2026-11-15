@@ -1,12 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import chats from "../../../../server/api/chats/index.get";
-import readChat from "../../../../server/api/chats/[id].get";
-import assignChat from "../../../../server/api/chats/[id].patch";
-import removeChat from "../../../../server/api/chats/[id].delete";
-import {
-  readOwnedChat,
-  readOwnedChatPage,
-} from "../../../../server/utils/chat-reads";
+import chats from "~~/server/api/chats/index.get";
+import readChat from "~~/server/api/chats/[id].get";
+import assignChat from "~~/server/api/chats/[id].patch";
+import removeChat from "~~/server/api/chats/[id].delete";
+import { readOwnedChat, readOwnedChatPage } from "~~/server/utils/chat-reads";
 
 const mocks = vi.hoisted(() => {
   const model = () => ({
@@ -31,7 +28,7 @@ const mocks = vi.hoisted(() => {
     status: vi.fn(),
   };
 });
-vi.mock("../../../../server/utils/prisma", () => ({ getPrisma: () => mocks }));
+vi.mock("~~/server/utils/prisma", () => ({ getPrisma: () => mocks }));
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));

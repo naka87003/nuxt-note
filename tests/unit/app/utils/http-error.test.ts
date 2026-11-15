@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getErrorStatusCode, getErrorStatusMessage } from "@/utils/http-error";
+import { getErrorStatusCode, getErrorStatusMessage } from "~/utils/http-error";
 
 describe("HTTP error details", () => {
   it("reads status details attached to an Error", () => {

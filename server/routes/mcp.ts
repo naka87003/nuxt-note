@@ -1,8 +1,11 @@
 import { createMcpHandler } from "@modelcontextprotocol/server";
 import { createError } from "nuxt/server";
-import { getAgentUserId, privateAgentResponse } from "../utils/agent-auth";
-import { createRemoteNotesServer } from "../utils/mcp-notes";
-import { validateMcpRequest } from "../utils/mcp-http";
+import {
+  getAgentUserId,
+  privateAgentResponse,
+} from "~~/server/utils/agent-auth";
+import { createRemoteNotesServer } from "~~/server/utils/mcp-notes";
+import { validateMcpRequest } from "~~/server/utils/mcp-http";
 
 export default defineEventHandler(async (event) => {
   privateAgentResponse(event);

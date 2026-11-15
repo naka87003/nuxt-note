@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import generate from "../../../../server/api/chats/[id]/generate.post";
-import sendMessage from "../../../../server/api/chats/[id]/messages.post";
-import createChat from "../../../../server/api/chats/index.post";
-import summarizeTitle from "../../../../server/api/chats/[id]/title.post";
+import generate from "~~/server/api/chats/[id]/generate.post";
+import sendMessage from "~~/server/api/chats/[id]/messages.post";
+import createChat from "~~/server/api/chats/index.post";
+import summarizeTitle from "~~/server/api/chats/[id]/title.post";
 import {
   saveGeneration,
   recoverGeneration,
-} from "../../../../server/utils/chat-generation";
+} from "~~/server/utils/chat-generation";
 
 const mocks = vi.hoisted(() => ({
   $queryRaw: vi.fn(),
@@ -37,7 +37,7 @@ const mocks = vi.hoisted(() => ({
   send: vi.fn(),
   onClosed: vi.fn(),
 }));
-vi.mock("../../../../server/utils/prisma", () => ({ getPrisma: () => mocks }));
+vi.mock("~~/server/utils/prisma", () => ({ getPrisma: () => mocks }));
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));

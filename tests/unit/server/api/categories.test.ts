@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import create from "../../../../server/api/categories/index.post";
-import list from "../../../../server/api/categories/index.get";
-import rename from "../../../../server/api/categories/[id].patch";
-import remove from "../../../../server/api/categories/[id].delete";
+import create from "~~/server/api/categories/index.post";
+import list from "~~/server/api/categories/index.get";
+import rename from "~~/server/api/categories/[id].patch";
+import remove from "~~/server/api/categories/[id].delete";
 
 const mocks = vi.hoisted(() => {
   const model = () => ({
@@ -24,7 +24,7 @@ const mocks = vi.hoisted(() => {
     status: vi.fn(),
   };
 });
-vi.mock("../../../../server/utils/prisma", () => ({ getPrisma: () => mocks }));
+vi.mock("~~/server/utils/prisma", () => ({ getPrisma: () => mocks }));
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderMarkdown } from "./render-markdown";
-import { createNoteMarkdownParser } from "@/utils/markdown";
+import { createNoteMarkdownParser } from "~/utils/markdown";
 import { render } from "@comark/nuxt/render";
 describe("Chat Markdown", () => {
   it("renders code, tables, lists and safe links", async () => {

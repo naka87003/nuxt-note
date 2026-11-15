@@ -1,8 +1,8 @@
 import { createError } from "nuxt/server";
-import { getAuthenticatedUserId } from "../../../utils/auth";
-import { messageOrder, requireChat } from "../../../utils/chat-generation";
-import { summarizeChatTitle } from "../../../utils/chat-title";
-import { getPrisma } from "../../../utils/prisma";
+import { getAuthenticatedUserId } from "~~/server/utils/auth";
+import { messageOrder, requireChat } from "~~/server/utils/chat-generation";
+import { summarizeChatTitle } from "~~/server/utils/chat-title";
+import { getPrisma } from "~~/server/utils/prisma";
 
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);

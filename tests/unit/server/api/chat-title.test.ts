@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import createChat from "../../../../server/api/chats/index.post";
-import summarizeTitle from "../../../../server/api/chats/[id]/title.post";
+import createChat from "~~/server/api/chats/index.post";
+import summarizeTitle from "~~/server/api/chats/[id]/title.post";
 
 const mocks = vi.hoisted(() => ({
   session: vi.fn(),
@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   },
   $transaction: vi.fn(),
 }));
-vi.mock("../../../../server/utils/prisma", () => ({ getPrisma: () => mocks }));
+vi.mock("~~/server/utils/prisma", () => ({ getPrisma: () => mocks }));
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));

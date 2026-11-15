@@ -4,14 +4,14 @@ import {
   StreamableHTTPClientTransport,
 } from "@modelcontextprotocol/client";
 import { createMcpHandler } from "@modelcontextprotocol/server";
-import { createRemoteNotesServer } from "../../../../server/utils/mcp-notes";
-import { validateMcpRequest } from "../../../../server/utils/mcp-http";
+import { createRemoteNotesServer } from "~~/server/utils/mcp-notes";
+import { validateMcpRequest } from "~~/server/utils/mcp-http";
 
 const reads = vi.hoisted(() => ({
   searchOwnedNotes: vi.fn(),
   readOwnedNote: vi.fn(),
 }));
-vi.mock("../../../../server/utils/note-reads", () => reads);
+vi.mock("~~/server/utils/note-reads", () => reads);
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));
@@ -39,7 +39,7 @@ const writes = vi.hoisted(() => ({
     deleteMany: vi.fn(),
   },
 }));
-vi.mock("../../../../server/utils/prisma", () => ({ getPrisma: () => writes }));
+vi.mock("~~/server/utils/prisma", () => ({ getPrisma: () => writes }));
 const clients: Client[] = [];
 const handlers: ReturnType<typeof createMcpHandler>[] = [];
 beforeEach(() => {

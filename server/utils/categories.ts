@@ -1,5 +1,5 @@
 import { INPUT_LIMITS } from "#shared/utils/input-limits";
-import { Prisma } from "../../generated/prisma/client";
+import { Prisma } from "~~/generated/prisma/client";
 import { createError } from "nuxt/server";
 import { getPrisma } from "./prisma";
 import { categoryIdSchema, categoryNameSchema } from "./input-schemas";

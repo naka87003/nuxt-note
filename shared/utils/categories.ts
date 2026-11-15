@@ -1,4 +1,4 @@
-import type { CategoriesResponse } from "../types/workspace";
+import type { CategoriesResponse } from "#shared/types/workspace";
 
 export function sortCategoriesByCount(
   categories: readonly CategoriesResponse["items"][number][],

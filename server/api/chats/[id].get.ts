@@ -1,5 +1,5 @@
-import { getAuthenticatedUserId } from "../../utils/auth";
-import { readOwnedChat } from "../../utils/chat-reads";
+import { getAuthenticatedUserId } from "~~/server/utils/auth";
+import { readOwnedChat } from "~~/server/utils/chat-reads";
 
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);

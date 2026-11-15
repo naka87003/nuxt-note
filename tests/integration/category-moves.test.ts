@@ -10,21 +10,21 @@ import {
   vi,
 } from "vitest";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../../generated/prisma/client";
-import { getPrisma } from "../../server/utils/prisma";
+import { PrismaClient } from "~~/generated/prisma/client";
+import { getPrisma } from "~~/server/utils/prisma";
 import {
   moveOwnedCategoryNotes,
   updateOwnedNoteTitle,
-} from "../../server/utils/note-writes";
+} from "~~/server/utils/note-writes";
 import {
   moveOwnedCategoryChats,
   updateOwnedChatTitle,
   deleteOwnedChat,
-} from "../../server/utils/chat-writes";
-import { mergeOwnedCategories } from "../../server/utils/category-merges";
-import { saveGeneration } from "../../server/utils/chat-generation";
+} from "~~/server/utils/chat-writes";
+import { mergeOwnedCategories } from "~~/server/utils/category-merges";
+import { saveGeneration } from "~~/server/utils/chat-generation";
 
-vi.mock("../../server/utils/prisma", () => ({ getPrisma: vi.fn() }));
+vi.mock("~~/server/utils/prisma", () => ({ getPrisma: vi.fn() }));
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));

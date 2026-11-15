@@ -1,6 +1,9 @@
-import { getAuthenticatedUserId } from "../../utils/auth";
-import { agentTokenSelect, privateAgentResponse } from "../../utils/agent-auth";
-import { getPrisma } from "../../utils/prisma";
+import { getAuthenticatedUserId } from "~~/server/utils/auth";
+import {
+  agentTokenSelect,
+  privateAgentResponse,
+} from "~~/server/utils/agent-auth";
+import { getPrisma } from "~~/server/utils/prisma";
 
 export default defineEventHandler(async (event) => {
   privateAgentResponse(event);

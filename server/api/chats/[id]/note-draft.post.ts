@@ -1,16 +1,16 @@
 import { createError } from "nuxt/server";
-import { getAuthenticatedUserId } from "../../../utils/auth";
-import { getPrisma } from "../../../utils/prisma";
-import { listOwnedCategories } from "../../../utils/category-reads";
+import { getAuthenticatedUserId } from "~~/server/utils/auth";
+import { getPrisma } from "~~/server/utils/prisma";
+import { listOwnedCategories } from "~~/server/utils/category-reads";
 import {
   messageOrder,
   recoverGeneration,
-} from "../../../utils/chat-generation";
+} from "~~/server/utils/chat-generation";
 import {
   createChatNoteDraft,
   NOTE_DRAFT_INPUT_LIMIT,
   NOTE_DRAFT_TIMEOUT,
-} from "../../../utils/chat-note";
+} from "~~/server/utils/chat-note";
 
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);

@@ -7,15 +7,15 @@ import {
   CHAT_NOTES_INSTRUCTIONS,
   CHAT_TOOL_STEPS,
   createChatNoteTools,
-} from "../../../utils/chat-tools";
+} from "~~/server/utils/chat-tools";
 import {
   CHAT_WEB_INSTRUCTIONS,
   createChatWebTools,
   webSourceLinks,
-} from "../../../utils/web-tools";
-import { getAuthenticatedUserId } from "../../../utils/auth";
-import { getPrisma } from "../../../utils/prisma";
-import { createChatOutput } from "../../../utils/chat-output";
+} from "~~/server/utils/web-tools";
+import { getAuthenticatedUserId } from "~~/server/utils/auth";
+import { getPrisma } from "~~/server/utils/prisma";
+import { createChatOutput } from "~~/server/utils/chat-output";
 import {
   GENERATION_TIMEOUT,
   lockIdleChat,
@@ -23,9 +23,9 @@ import {
   recoverGeneration,
   requireChat,
   saveGeneration,
-} from "../../../utils/chat-generation";
-import { generateChatInputSchema } from "../../../utils/input-schemas";
-import { parseInput } from "../../../utils/parse-input";
+} from "~~/server/utils/chat-generation";
+import { generateChatInputSchema } from "~~/server/utils/input-schemas";
+import { parseInput } from "~~/server/utils/parse-input";
 
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);

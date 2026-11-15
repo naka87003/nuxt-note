@@ -4,7 +4,7 @@ import {
   prepareNotes,
   sourceDate,
   stableId,
-} from "../../../scripts/lib/notebook-import.mjs";
+} from "~~/scripts/lib/notebook-import.mjs";
 
 describe("Notebook migration", () => {
   it("preserves multiline bodies, commas, quotes, CRLF and trailing empty fields", () => {

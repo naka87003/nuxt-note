@@ -1,6 +1,6 @@
 import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import type { ChatMessage, ChatStatus, Conversation } from "#shared/types/chat";
-import { readChatStream } from "../utils/chat-stream";
+import { readChatStream } from "~/utils/chat-stream";
 export function useChatGeneration(
   chat: Ref<Conversation | null | undefined>,
   refresh: () => Promise<unknown>,

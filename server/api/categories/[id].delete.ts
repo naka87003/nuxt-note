@@ -1,6 +1,6 @@
 import { createError } from "nuxt/server";
-import { deleteOwnedCategory } from "../../utils/categories";
-import { getAuthenticatedUserId } from "../../utils/auth";
+import { deleteOwnedCategory } from "~~/server/utils/categories";
+import { getAuthenticatedUserId } from "~~/server/utils/auth";
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);
   const id = getRouterParam(event, "id");

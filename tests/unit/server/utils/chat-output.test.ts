@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { createChatOutput } from "../../../../server/utils/chat-output";
+import { createChatOutput } from "~~/server/utils/chat-output";
 
 afterEach(() => vi.useRealTimers());
 
