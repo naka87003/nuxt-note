@@ -10,6 +10,7 @@ export async function searchOwnedNotes(
   // MCP's input schema validates pagination before calling this operation.
   const { limit, offset } = query;
   const notes = await listOwnedNotes(userId, query, { limit, offset });
+
   return {
     notes: notes.slice(0, limit),
     nextOffset: notes.length > limit ? offset + limit : null,
@@ -33,6 +34,7 @@ export async function listOwnedNotes(
     orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
     ...(page ? { take: page.limit + 1, skip: page.offset } : {}),
   });
+
   return Promise.all(
     notes.map(async ({ markdown, ...note }) => ({
       ...note,
@@ -45,6 +47,7 @@ export async function readOwnedNote(userId: string, id: string | undefined) {
   if (!id) {
     throw createError({ statusCode: 404, statusMessage: "Note not found" });
   }
+
   const note = await getPrisma().note.findFirst({
     where: { id, userId },
     select: {
@@ -56,8 +59,10 @@ export async function readOwnedNote(userId: string, id: string | undefined) {
       updatedAt: true,
     },
   });
+
   if (!note) {
     throw createError({ statusCode: 404, statusMessage: "Note not found" });
   }
+
   return note;
 }

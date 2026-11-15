@@ -35,6 +35,7 @@ describe("note date groups", () => {
       { id: "earlier", updatedAt: ago(2 * DAY) },
       { id: "later", updatedAt: ago(DAY + 1) },
     ];
+
     expect(
       groupNotesByUpdatedAt(notes, now).map((g) => [
         g.label,

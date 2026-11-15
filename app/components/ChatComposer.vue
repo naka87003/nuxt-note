@@ -22,6 +22,7 @@ function focusInput() {
 
 onMounted(() => {
   resize();
+
   if (props.autofocus) {
     focusInput();
     textarea.value?.setSelectionRange(value.value.length, value.value.length);
@@ -31,6 +32,7 @@ onMounted(() => {
 watch(value, resize, { flush: "post" });
 
 const emit = defineEmits<{ send: [] }>();
+
 const canSend = computed(
   () =>
     !props.busy &&

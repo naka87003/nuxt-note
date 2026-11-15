@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   query: vi.fn(),
   category: vi.fn(),
 }));
+
 vi.mock("~~/server/utils/prisma", () => ({
   getPrisma: () => ({ note: mocks, category: { findFirst: mocks.category } }),
 }));
@@ -197,6 +198,7 @@ describe("notes API ownership and validation", () => {
       title: "Private",
       markdown: "secret",
     };
+
     mocks.findFirst.mockImplementation(({ where }) =>
       where.id === note.id && where.userId === note.userId ? note : null,
     );
@@ -264,6 +266,7 @@ describe("saved-note mutations", () => {
     categoryId: null,
     updatedAt: version,
   };
+
   beforeEach(() => {
     mocks.findFirst.mockResolvedValue({ id: "note" });
     mocks.update.mockImplementation(async ({ data }) => ({
@@ -389,6 +392,7 @@ describe("saved-note mutations", () => {
     mocks.update.mockImplementation(async ({ where, data }) => {
       if (where.updatedAt.toISOString() !== current) throw { code: "P2025" };
       current = data.updatedAt.toISOString();
+
       return { id: "note", ...data };
     });
     const results = await Promise.allSettled([update(event), update(event)]);

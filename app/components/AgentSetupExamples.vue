@@ -7,6 +7,7 @@ url = ${JSON.stringify(props.endpoint)}
 
 [mcp_servers.nuxt-note.http_headers]
 Authorization = "Bearer YOUR_TOKEN"`;
+
   return ["```toml", config, "```"].join("\n");
 });
 </script>

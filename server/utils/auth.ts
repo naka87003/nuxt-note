@@ -10,8 +10,10 @@ export async function getAuthenticatedUserId(
 ): Promise<string> {
   const session = await requireUserSession(event);
   const id = session.user?.id;
+
   if (typeof id !== "string" || !USER_ID.test(id)) {
     throw createError({ statusCode: 401, statusMessage: "Unauthorized" });
   }
+
   return id;
 }

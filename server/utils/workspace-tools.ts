@@ -56,18 +56,21 @@ interface WorkspaceToolConfig<S extends z.ZodObject> {
 }
 
 const READ_TOOL_ANNOTATIONS = { readOnlyHint: true, openWorldHint: false };
+
 const CREATE_TOOL_ANNOTATIONS = {
   readOnlyHint: false,
   destructiveHint: false,
   idempotentHint: false,
   openWorldHint: false,
 };
+
 const DELETE_TOOL_ANNOTATIONS = {
   readOnlyHint: false,
   destructiveHint: true,
   idempotentHint: true,
   openWorldHint: false,
 };
+
 const CATEGORY_CONFLICT_MESSAGE =
   "A Category with this name already exists. Use list_categories to find its ID.";
 
@@ -93,6 +96,7 @@ export function createWorkspaceTools(
   } = {},
 ) {
   const site = new URL(siteUrl);
+
   async function result(
     operation: () => Promise<Record<string, unknown>>,
     messages: { missing: string; failure: string; conflict?: string } = {
@@ -102,6 +106,7 @@ export function createWorkspaceTools(
   ) {
     try {
       const data = await operation();
+
       return {
         content: [
           { type: "text" as const, text: JSON.stringify(data, null, 2) },
@@ -113,6 +118,7 @@ export function createWorkspaceTools(
         error && typeof error === "object" && "statusCode" in error
           ? error.statusCode
           : undefined;
+
       return {
         isError: true,
         content: [
@@ -129,6 +135,7 @@ export function createWorkspaceTools(
       };
     }
   }
+
   return {
     create_category: workspaceTool(
       {
@@ -220,9 +227,11 @@ export function createWorkspaceTools(
               input,
               context.chatId,
             );
+
             if (currentChatMoved) {
               context.onChatCategoryUpdated?.(data.targetCategoryId);
             }
+
             return data;
           },
           {
@@ -252,9 +261,11 @@ export function createWorkspaceTools(
               input,
               context.chatId,
             );
+
             if (currentChatMoved) {
               context.onChatCategoryUpdated?.(data.targetCategoryId);
             }
+
             return data;
           },
           {
@@ -314,6 +325,7 @@ export function createWorkspaceTools(
         result(
           async () => {
             const page = await searchOwnedChats(userId, query);
+
             return {
               ...page,
               chats: page.chats.map((chat) => ({
@@ -346,6 +358,7 @@ export function createWorkspaceTools(
         result(
           async () => {
             const chat = await readOwnedChatPage(userId, input);
+
             return {
               ...chat,
               url: new URL(`/chats/${encodeURIComponent(chat.id)}`, site).href,
@@ -373,6 +386,7 @@ export function createWorkspaceTools(
         result(
           async () => {
             const chat = await updateOwnedChatCategory(userId, input.id, input);
+
             return {
               ...chat,
               url: new URL(`/chats/${encodeURIComponent(chat.id)}`, site).href,
@@ -402,6 +416,7 @@ export function createWorkspaceTools(
         result(
           async () => {
             const chat = await updateOwnedChatTitle(userId, input);
+
             return {
               ...chat,
               url: new URL(`/chats/${encodeURIComponent(chat.id)}`, site).href,
@@ -478,6 +493,7 @@ export function createWorkspaceTools(
         result(
           async () => {
             const note = await createOwnedNote(userId, input);
+
             return {
               ...note,
               url: new URL(`/notes/${encodeURIComponent(note.id)}`, site).href,
@@ -509,6 +525,7 @@ export function createWorkspaceTools(
         result(
           async () => {
             const note = await updateOwnedNote(userId, input);
+
             return {
               ...note,
               url: new URL(`/notes/${encodeURIComponent(note.id)}`, site).href,
@@ -538,6 +555,7 @@ export function createWorkspaceTools(
         result(
           async () => {
             const note = await updateOwnedNoteCategory(userId, input);
+
             return {
               ...note,
               url: new URL(`/notes/${encodeURIComponent(note.id)}`, site).href,
@@ -567,6 +585,7 @@ export function createWorkspaceTools(
         result(
           async () => {
             const note = await updateOwnedNoteTitle(userId, input);
+
             return {
               ...note,
               url: new URL(`/notes/${encodeURIComponent(note.id)}`, site).href,

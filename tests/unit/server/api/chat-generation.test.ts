@@ -37,6 +37,7 @@ const mocks = vi.hoisted(() => ({
   send: vi.fn(),
   onClosed: vi.fn(),
 }));
+
 vi.mock("~~/server/utils/prisma", () => ({ getPrisma: () => mocks }));
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
@@ -69,10 +70,13 @@ vi.hoisted(() => {
 const owner = "11111111-1111-4111-8111-111111111111";
 const questionId = "11111111-1111-4111-8111-111111111112";
 const attemptId = "11111111-1111-4111-8111-111111111113";
+
 const event = {
   node: { res: { once: vi.fn(), off: vi.fn() } },
 } as unknown as Parameters<typeof generate>[0];
+
 let complete: () => void;
+
 const question = {
   id: questionId,
   role: "user",
@@ -81,9 +85,11 @@ const question = {
   replyToId: null,
   createdAt: new Date(),
 };
+
 async function run() {
   await generate(event);
 }
+
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.param.mockReturnValue("chat");
@@ -186,6 +192,7 @@ describe("Chat generation", () => {
     "notifies a changed current Category after bulk moves (%s, count %s, success %s)",
     async (currentChatMoved, movedCount, succeeds) => {
       mocks.$queryRaw.mockResolvedValueOnce([{ id: "source" }]);
+
       if (succeeds) {
         mocks.$queryRaw.mockResolvedValueOnce([
           { movedCount, currentChatMoved },
@@ -193,6 +200,7 @@ describe("Chat generation", () => {
       } else {
         mocks.$queryRaw.mockRejectedValueOnce(new Error("storage unavailable"));
       }
+
       mocks.streamText.mockImplementation(({ tools }) => ({
         fullStream: (async function* () {
           await tools.move_category_chats.execute(
@@ -232,6 +240,7 @@ describe("Chat generation", () => {
         updatedAt: new Date(updatedAt),
         messages: [],
       });
+
       if (succeeds) {
         mocks.chat.update.mockResolvedValue({
           id,
@@ -241,6 +250,7 @@ describe("Chat generation", () => {
       } else {
         mocks.chat.update.mockRejectedValue({ code: "P2025" });
       }
+
       mocks.streamText.mockImplementation(({ tools }) => ({
         fullStream: (async function* () {
           const context = { toolCallId: "test", messages: [] };
@@ -283,12 +293,14 @@ describe("Chat generation", () => {
         messageId: questionId,
         ...invalid,
       });
+
       for (const handler of [createChat, sendMessage]) {
         await expect(handler(event)).rejects.toMatchObject({
           statusCode: 400,
           statusMessage,
         });
       }
+
       expect(mocks.chat.create).not.toHaveBeenCalled();
       expect(mocks.message.create).not.toHaveBeenCalled();
       expect(mocks.$transaction).not.toHaveBeenCalled();
@@ -586,8 +598,10 @@ describe("Chat generation", () => {
       })(),
     });
     await run();
+
     const content =
       "Web answer.\n\nSources:\n- [Article](https://example.com/article)";
+
     expect(mocks.message.updateMany).toHaveBeenLastCalledWith(
       expect.objectContaining({ data: { content, status: "completed" } }),
     );
@@ -674,17 +688,21 @@ describe("Chat generation", () => {
       promise: started,
       resolve: checkpointStarted,
     }: PromiseWithResolvers<void> = Promise.withResolvers();
+
     const {
       promise: checkpoint,
       resolve: releaseCheckpoint,
     }: PromiseWithResolvers<void> = Promise.withResolvers();
+
     const {
       promise: providerFinished,
       resolve: finishProvider,
     }: PromiseWithResolvers<void> = Promise.withResolvers();
+
     mocks.message.updateMany.mockImplementationOnce(async () => {
       checkpointStarted();
       await checkpoint;
+
       return { count: 1 };
     });
     let consumed = false;
@@ -723,13 +741,16 @@ describe("Chat generation", () => {
       promise: started,
       resolve: checkpointStarted,
     }: PromiseWithResolvers<void> = Promise.withResolvers();
+
     const {
       promise: checkpoint,
       resolve: releaseCheckpoint,
     }: PromiseWithResolvers<void> = Promise.withResolvers();
+
     mocks.message.updateMany.mockImplementationOnce(async () => {
       checkpointStarted();
       await checkpoint;
+
       return { count: 1 };
     });
     mocks.streamText.mockReturnValue({
@@ -763,6 +784,7 @@ describe("Chat generation", () => {
   });
   it("marks a timed-out stream failed and releases the guard", async () => {
     vi.useFakeTimers();
+
     try {
       mocks.streamText.mockImplementation(({ abortSignal }) => ({
         fullStream: (async function* () {

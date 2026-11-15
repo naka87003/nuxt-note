@@ -12,6 +12,7 @@ export async function mergeOwnedCategories(
   currentChatId?: string,
 ) {
   const input = parseInput(mergeCategoriesInputSchema, body);
+
   return getPrisma().$transaction(async (tx) => {
     const { sourceCategoryId, targetCategoryId } = input;
     // Block new foreign-key assignments until the source has been removed.
@@ -21,12 +22,14 @@ export async function mergeOwnedCategories(
       [sourceCategoryId, targetCategoryId],
       "update",
     );
+
     const movedNoteCount = await moveCategoryNotes(
       tx,
       userId,
       sourceCategoryId,
       targetCategoryId,
     );
+
     const { movedCount: movedChatCount, currentChatMoved } =
       await moveCategoryChats(
         tx,
@@ -35,6 +38,7 @@ export async function mergeOwnedCategories(
         targetCategoryId,
         currentChatId,
       );
+
     // Never let ON DELETE SET NULL silently detach any remaining assignments.
     const deleted = await tx.category.deleteMany({
       where: {
@@ -44,12 +48,14 @@ export async function mergeOwnedCategories(
         chats: { none: {} },
       },
     });
+
     if (!deleted.count) {
       throw createError({
         statusCode: 409,
         statusMessage: "Category could not be emptied",
       });
     }
+
     return { ...input, movedNoteCount, movedChatCount, currentChatMoved };
   });
 }

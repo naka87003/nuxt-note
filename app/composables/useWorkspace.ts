@@ -50,6 +50,7 @@ export function useWorkspace() {
   const { data: categories } = useNuxtData<CategoriesResponse>(
     "workspace-categories",
   );
+
   const selectedCategoryName = computed(
     () =>
       categories.value?.items.find((item) => item.id === categoryId.value)
@@ -60,6 +61,7 @@ export function useWorkspace() {
 
   async function confirmEdits() {
     if (state.value.editor.busy) return false;
+
     return !state.value.editor.dirty || (await $unsavedChanges.confirm());
   }
 

@@ -5,12 +5,15 @@ import { textContent } from "@comark/vue/utils";
 
 async function parsedCode(source: string) {
   const document = await createNoteMarkdownParser()(source);
+
   const code = document.nodes.find(
     (node) => Array.isArray(node) && node[0] === "pre",
   );
+
   if (!Array.isArray(code)) {
     throw new Error("Expected a code block in the parsed Markdown.");
   }
+
   return code;
 }
 
@@ -20,10 +23,13 @@ describe("shared GitHub Dark Markdown", () => {
   it("uses the Figma palette in both Notes and Chat", async () => {
     const source =
       "```ts\n// Fetch notes\nconst data = await useFetch('/api/notes')\n```";
+
     const html = await renderMarkdown(source);
+
     for (const color of ["F97583", "B392F0", "9ECBFF", "6A737D"]) {
       expect(html).toContain(`color:#${color}`);
     }
+
     expect(withoutSpans(html)).toContain(
       "// Fetch notes\nconst data = await useFetch('/api/notes')",
     );
@@ -69,6 +75,7 @@ describe("shared GitHub Dark Markdown", () => {
     const html = await renderMarkdown(
       `\`\`\`${language}\n<script>& test</script>\n\`\`\``,
     );
+
     expect(
       textContent(
         await parsedCode(`\`\`\`${language}\n<script>& test</script>\n\`\`\``),
@@ -81,6 +88,7 @@ describe("shared GitHub Dark Markdown", () => {
     const html = await renderMarkdown(
       "`<img src=x>`\n\n    <script>alert(1)</script>",
     );
+
     expect(html).toContain("<code>&lt;img src=x&gt;</code>");
     expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
     expect(html).not.toContain("<script>");
@@ -92,6 +100,7 @@ describe("shared GitHub Dark Markdown", () => {
       const html = await renderMarkdown(
         `\`\`\`${language}\n</code></pre><img src=x onerror=alert(1)>\n<NuxtLink to="javascript:alert(1)">x</NuxtLink>\n\`\`\``,
       );
+
       expect(html).not.toMatch(/<img|<NuxtLink|<script/);
       expect(withoutSpans(html)).toContain("&lt;/code&gt;&lt;/pre&gt;&lt;img");
       expect(html.match(/<pre(?:\s[^>]*)?>/g)).toHaveLength(1);

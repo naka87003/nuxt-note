@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   param: vi.fn(),
   config: vi.fn(),
 }));
+
 vi.mock("@ai-sdk/openai", () => ({ createOpenAI: () => () => "test-model" }));
 vi.mock("ai", async (importOriginal) => ({
   ...(await importOriginal<typeof import("ai")>()),
@@ -41,15 +42,19 @@ vi.hoisted(() => {
 const config = { openaiApiKey: "test", openaiModel: "test" };
 const emptyCategoryContext = { categories: [], chatCategoryId: null };
 const owner = "11111111-1111-4111-8111-111111111111";
+
 const history: Pick<ChatMessage, "role" | "content">[] = [
   { role: "user", content: "Question" },
   { role: "assistant", content: "Answer" },
 ];
+
 const goodDraft = { title: "Title", markdown: "# Summary\n\nUseful content." };
+
 const response = (draft: unknown, finishReason = "stop") => ({
   output: draft,
   finishReason,
 });
+
 const event = () =>
   ({ node: { res: new EventEmitter() } }) as Parameters<typeof handler>[0];
 
@@ -110,6 +115,7 @@ describe("AI Note draft output", () => {
       mocks.generate.mockResolvedValue(
         response({ ...goodDraft, ...selection }),
       );
+
       const context = {
         categories: ["explicit", "chat", "content"].map((id) => ({
           id,
@@ -117,6 +123,7 @@ describe("AI Note draft output", () => {
         })),
         chatCategoryId,
       };
+
       expect(
         await createChatNoteDraft(
           history,
@@ -218,6 +225,7 @@ describe("AI Note draft output", () => {
       title: "Title",
       markdown: "#\n" + "😀".repeat(1499) + "あ".repeat(1499),
     };
+
     mocks.generate.mockResolvedValue(response(draft));
     await expect(
       createChatNoteDraft(
@@ -356,6 +364,7 @@ describe("Chat Note draft API", () => {
   });
   it("times out all generation attempts within a single budget and cleans up", async () => {
     vi.useFakeTimers();
+
     try {
       mocks.generate.mockImplementation(
         ({ abortSignal }) =>
@@ -368,9 +377,11 @@ describe("Chat Note draft API", () => {
           ),
       );
       const e = event();
+
       const check = expect(handler(e)).rejects.toMatchObject({
         statusCode: 504,
       });
+
       await vi.advanceTimersByTimeAsync(120_000);
       await check;
       expect(e.node.res.listenerCount("close")).toBe(0);
@@ -383,12 +394,14 @@ describe("Chat Note draft API", () => {
     mocks.generate.mockImplementation(async ({ abortSignal }) => {
       e.node.res.emit("close");
       expect(abortSignal.aborted).toBe(true);
+
       return response(goodDraft);
     });
     await expect(handler(e)).rejects.toMatchObject({ statusCode: 504 });
   });
   it("does not reset the timeout budget for the shortening request", async () => {
     vi.useFakeTimers();
+
     try {
       mocks.generate
         .mockImplementationOnce(
@@ -413,9 +426,11 @@ describe("Chat Note draft API", () => {
               );
             }),
         );
+
       const check = expect(handler(event())).rejects.toMatchObject({
         statusCode: 504,
       });
+
       await vi.advanceTimersByTimeAsync(90_000);
       expect(mocks.generate).toHaveBeenCalledTimes(2);
       expect(mocks.generate.mock.calls[1]![0].abortSignal.aborted).toBe(false);

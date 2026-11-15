@@ -3,20 +3,25 @@
 import { setTimeout as delay } from "node:timers/promises";
 const originalFetch = globalThis.fetch;
 let failures = 0;
+
 globalThis.fetch = async (input, init) => {
   if (!String(input).startsWith("https://api.openai.com/")) {
     return originalFetch(input, init);
   }
+
   const body = JSON.parse(init.body);
   const prompt = JSON.stringify(body.input);
   const fail = prompt.includes("FAIL") && failures++ === 0;
   const slow = prompt.includes("SLOW");
   const signal = init.signal;
+
   if (!body.stream) {
     await delay(slow ? 3000 : 30, undefined, { signal });
+
     const isNote = JSON.stringify(body).includes(
       "Organize the supplied conversation",
     );
+
     const text = isNote
       ? JSON.stringify({
           title: "Conversation summary",
@@ -24,6 +29,7 @@ globalThis.fetch = async (input, init) => {
             "# Summary\n\n## Key points\n\n- Completed answers are organized into a note.\n- Review this draft before saving.",
         })
       : "Conversation title";
+
     return Response.json({
       id: "resp-test",
       object: "response",
@@ -42,11 +48,14 @@ globalThis.fetch = async (input, init) => {
       usage: { input_tokens: 1, output_tokens: 2, total_tokens: 3 },
     });
   }
+
   const encoder = new TextEncoder();
+
   const stream = new ReadableStream({
     async start(controller) {
       const send = (data) =>
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+
       try {
         send({
           type: "response.created",
@@ -63,6 +72,7 @@ globalThis.fetch = async (input, init) => {
           delta: "Partial",
         });
         await delay(slow ? 3000 : 30, undefined, { signal });
+
         if (fail) {
           send({
             type: "response.failed",
@@ -87,12 +97,14 @@ globalThis.fetch = async (input, init) => {
             response: { usage: { input_tokens: 1, output_tokens: 2 } },
           });
         }
+
         controller.close();
       } catch (error) {
         controller.error(error);
       }
     },
   });
+
   return new Response(stream, {
     headers: { "Content-Type": "text/event-stream" },
   });

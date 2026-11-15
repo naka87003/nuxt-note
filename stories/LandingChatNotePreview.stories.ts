@@ -19,6 +19,7 @@ export const Responsive: Story = {
     const view = canvasElement.ownerDocument.defaultView;
     if (!view) throw new Error("The story must be attached to a window.");
     const desktop = view.matchMedia("(min-width: 1024px)").matches;
+
     if (desktop) {
       // Wait for the real lazy component, rather than capturing the SSR fallback.
       await expect(
@@ -36,6 +37,7 @@ export const Responsive: Story = {
         canvas.queryByRole("button", { name: "Generate draft" }),
       ).not.toBeInTheDocument();
     }
+
     await waitForLandingAssets(canvasElement);
   },
 };

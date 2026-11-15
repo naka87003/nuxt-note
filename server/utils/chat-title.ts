@@ -8,6 +8,7 @@ function normalizeChatTitle(text: string) {
     .replace(/^["'「『“]+|["'」』”]+$/g, "")
     .replace(/\s+/g, " ")
     .trim();
+
   return title && Array.from(title).length <= MAX_CHAT_TITLE_CHARACTERS
     ? title
     : null;
@@ -32,6 +33,7 @@ export async function summarizeChatTitle(
     abortSignal: AbortSignal.timeout(20_000),
     providerOptions: { openai: { store: false } },
   });
+
   return result.finishReason === "stop"
     ? normalizeChatTitle(result.text)
     : null;

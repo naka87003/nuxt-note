@@ -8,10 +8,12 @@ const context = { toolCallId: "call", messages: [] };
 
 it("checks generation ownership before reading a page", async () => {
   const assertActive = vi.fn().mockRejectedValue(new Error("inactive"));
+
   const tools = createChatWebTools({
     signal: new AbortController().signal,
     assertActive,
   });
+
   await expect(
     tools.read_webpage.execute({ url: "https://example.com" }, context),
   ).rejects.toThrow("inactive");
@@ -20,10 +22,12 @@ it("checks generation ownership before reading a page", async () => {
 
 it("returns page data and sanitized failures so the model can try another source", async () => {
   const signal = new AbortController().signal;
+
   const tools = createChatWebTools({
     signal,
     assertActive: vi.fn().mockResolvedValue(undefined),
   });
+
   vi.mocked(readWebpage).mockResolvedValueOnce({
     url: "https://example.com/",
     title: "Page",
@@ -37,20 +41,24 @@ it("returns page data and sanitized failures so the model can try another source
   vi.mocked(readWebpage).mockRejectedValueOnce(
     new Error("private network detail"),
   );
+
   const result = await tools.read_webpage.execute(
     { url: "https://example.com" },
     context,
   );
+
   expect(result).toHaveProperty("error");
   expect(JSON.stringify(result)).not.toContain("private network detail");
 });
 
 it("propagates cancellation instead of returning an ordinary tool failure", async () => {
   const controller = new AbortController();
+
   const tools = createChatWebTools({
     signal: controller.signal,
     assertActive: vi.fn(),
   });
+
   controller.abort();
   await expect(
     tools.read_webpage.execute({ url: "https://example.com" }, context),
@@ -66,6 +74,7 @@ it("formats safe clickable source links and excludes unsafe URLs", () => {
       ["not a URL", "Bad"],
     ]),
   );
+
   expect(result).toBe(
     "\n\nSources:\n- [Title \\[link\\] next](https://example.com/a%28b%29)",
   );

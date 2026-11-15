@@ -31,12 +31,15 @@ vi.mock("nuxt/server", () => ({
 
 // Explicit integration suite; never reads .env or uses the application's DB URL.
 const connectionString = process.env.NUXT_NOTE_MOVE_TEST_DATABASE_URL;
+
 if (!connectionString) {
   throw new Error(
     "NUXT_NOTE_MOVE_TEST_DATABASE_URL is required for the integration suite.",
   );
 }
+
 const databaseUrl = new URL(connectionString);
+
 if (
   databaseUrl.hostname !== "127.0.0.1" ||
   !databaseUrl.pathname.startsWith("/nuxt_note_move_test")
@@ -147,20 +150,25 @@ describe("bulk category moves in PostgreSQL", () => {
   it("merges Notes and Chats, deletes only the source, and preserves content and active generation", async () => {
     // Remove the deliberately invalid cross-owner assignment from the move fixture.
     await db.note.deleteMany({ where: { userId: other, categoryId: source } });
+
     const beforeNote = await db.note.findUniqueOrThrow({
       where: { id: noteId },
     });
+
     const beforeChat = await db.chat.findUniqueOrThrow({
       where: { id: chatId },
       include: { messages: { orderBy: { id: "asc" } } },
     });
+
     const beforeTarget = await db.category.findUniqueOrThrow({
       where: { id: target },
     });
+
     const untouched = await db.note.findMany({
       where: { id: { not: noteId } },
       orderBy: { id: "asc" },
     });
+
     expect(
       await mergeOwnedCategories(
         owner,
@@ -213,9 +221,11 @@ describe("bulk category moves in PostgreSQL", () => {
         updatedAt: version.toISOString(),
       }),
     ).rejects.toMatchObject({ statusCode: 409 });
+
     const reply = beforeChat.messages.find(
       (message) => message.role === "assistant",
     );
+
     if (!reply) throw new Error("Missing fixture reply");
     expect(
       await saveGeneration(
@@ -236,6 +246,7 @@ describe("bulk category moves in PostgreSQL", () => {
     const empty = await db.category.create({
       data: { userId: owner, name: "Empty", nameKey: "empty" },
     });
+
     expect(
       await mergeOwnedCategories(
         owner,
@@ -262,10 +273,12 @@ describe("bulk category moves in PostgreSQL", () => {
 
   it("rolls back both moves if any assignment remains at deletion, preserving other owners", async () => {
     const notes = await db.note.findMany({ orderBy: { id: "asc" } });
+
     const chats = await db.chat.findMany({
       include: { messages: true },
       orderBy: { id: "asc" },
     });
+
     const categories = await db.category.findMany({ orderBy: { id: "asc" } });
     // The move fixture intentionally includes another owner's Note linked to the source.
     await expect(
@@ -313,18 +326,23 @@ describe("bulk category moves in PostgreSQL", () => {
     await db.note.deleteMany({ where: { userId: other, categoryId: source } });
     const locked = Promise.withResolvers<undefined>();
     const release = Promise.withResolvers<undefined>();
+
     const holding = db.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT "id" FROM "Note" WHERE "id" = ${noteId} FOR UPDATE`;
       locked.resolve(undefined);
       await release.promise;
     });
+
     await locked.promise;
+
     const merging = mergeOwnedCategories(
       owner,
       { sourceCategoryId: source, targetCategoryId: target },
       chatId,
     );
+
     let inserting: Promise<unknown> | undefined;
+
     try {
       await vi.waitFor(
         async () => {
@@ -332,6 +350,7 @@ describe("bulk category moves in PostgreSQL", () => {
           SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE application_name = ${applicationName}
             AND wait_event_type = 'Lock' AND query LIKE '%UPDATE "Note"%') AS waiting
         `;
+
           expect(activity?.waiting).toBe(true);
         },
         { timeout: 2000, interval: 25 },
@@ -350,6 +369,7 @@ describe("bulk category moves in PostgreSQL", () => {
           SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE application_name = ${applicationName}
             AND wait_event_type = 'Lock' AND query LIKE '%INSERT INTO%Note%') AS waiting
         `;
+
           expect(activity?.waiting).toBe(true);
         },
         { timeout: 2000, interval: 25 },
@@ -359,6 +379,7 @@ describe("bulk category moves in PostgreSQL", () => {
       await holding;
       await merging;
     }
+
     expect(await merging).toMatchObject({
       movedNoteCount: 1,
       movedChatCount: 1,
@@ -375,10 +396,12 @@ describe("bulk category moves in PostgreSQL", () => {
     const otherChat = await db.chat.create({
       data: { userId: other, categoryId: source, title: "Other owner's Chat" },
     });
+
     const before = await db.chat.findUniqueOrThrow({
       where: { id: chatId },
       include: { messages: { orderBy: { id: "asc" } } },
     });
+
     const notes = await db.note.findMany({ orderBy: { id: "asc" } });
     expect(
       await moveOwnedCategoryChats(
@@ -417,9 +440,11 @@ describe("bulk category moves in PostgreSQL", () => {
     await expect(
       deleteOwnedChat(owner, chatId, { updatedAt: version.toISOString() }),
     ).rejects.toMatchObject({ statusCode: 409 });
+
     const reply = before.messages.find(
       (message) => message.role === "assistant",
     );
+
     if (!reply) throw new Error("Missing fixture reply");
     expect(
       await saveGeneration(
@@ -443,6 +468,7 @@ describe("bulk category moves in PostgreSQL", () => {
     const uncategorizedChat = await db.chat.create({
       data: { userId: owner, title: "Uncategorized Chat", updatedAt: version },
     });
+
     expect(
       await moveOwnedCategoryChats(
         owner,
@@ -515,6 +541,7 @@ describe("bulk category moves in PostgreSQL", () => {
   it("does not pull back a Chat concurrently moved out of the source", async () => {
     const locked = Promise.withResolvers<undefined>();
     const release = Promise.withResolvers<undefined>();
+
     const concurrentMove = db.$transaction(async (tx) => {
       await tx.chat.update({
         where: { id: chatId },
@@ -523,12 +550,15 @@ describe("bulk category moves in PostgreSQL", () => {
       locked.resolve(undefined);
       await release.promise;
     });
+
     await locked.promise;
+
     const bulkMove = moveOwnedCategoryChats(
       owner,
       { sourceCategoryId: source, targetCategoryId: target },
       chatId,
     );
+
     try {
       await vi.waitFor(
         async () => {
@@ -538,6 +568,7 @@ describe("bulk category moves in PostgreSQL", () => {
               AND wait_event_type = 'Lock' AND query LIKE '%UPDATE "Chat"%'
           ) AS waiting
         `;
+
           expect(activity?.waiting).toBe(true);
         },
         { timeout: 2000, interval: 25 },
@@ -547,6 +578,7 @@ describe("bulk category moves in PostgreSQL", () => {
       await concurrentMove;
       await bulkMove;
     }
+
     expect(await bulkMove).toMatchObject({
       movedCount: 0,
       currentChatMoved: false,
@@ -639,6 +671,7 @@ describe("bulk category moves in PostgreSQL", () => {
     const empty = await db.category.create({
       data: { userId: owner, name: "Empty", nameKey: "empty" },
     });
+
     expect(
       (
         await moveOwnedCategoryNotes(owner, {
@@ -656,6 +689,7 @@ describe("bulk category moves in PostgreSQL", () => {
   it("does not pull back a Note concurrently moved out of the source", async () => {
     const locked = Promise.withResolvers<undefined>();
     const release = Promise.withResolvers<undefined>();
+
     const concurrentMove = db.$transaction(async (tx) => {
       await tx.note.update({
         where: { id: noteId },
@@ -664,11 +698,14 @@ describe("bulk category moves in PostgreSQL", () => {
       locked.resolve(undefined);
       await release.promise;
     });
+
     await locked.promise;
+
     const bulkMove = moveOwnedCategoryNotes(owner, {
       sourceCategoryId: source,
       targetCategoryId: target,
     });
+
     try {
       await vi.waitFor(
         async () => {
@@ -679,6 +716,7 @@ describe("bulk category moves in PostgreSQL", () => {
               AND wait_event_type = 'Lock' AND query LIKE '%UPDATE "Note"%'
           ) AS waiting
         `;
+
           expect(activity?.waiting).toBe(true);
         },
         { timeout: 2000, interval: 25 },
@@ -688,6 +726,7 @@ describe("bulk category moves in PostgreSQL", () => {
       await concurrentMove;
       await bulkMove;
     }
+
     expect((await bulkMove).movedCount).toBe(0);
     expect(await db.note.findUnique({ where: { id: noteId } })).toMatchObject({
       categoryId: null,

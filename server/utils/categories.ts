@@ -11,12 +11,14 @@ export async function lockOwnedCategories(
   lock: "share" | "update" = "share",
 ) {
   const categoryIds = ids.filter((id) => id !== null);
+
   // Consistent lock order keeps both Categories owned and present until commit.
   const categories = await tx.$queryRaw<{ id: string }[]>`
     SELECT "id" FROM "Category"
     WHERE "userId" = ${userId} AND "id" IN (${Prisma.join(categoryIds)})
     ORDER BY "id" ${lock === "update" ? Prisma.sql`FOR UPDATE` : Prisma.sql`FOR SHARE`}
   `;
+
   if (categories.length !== categoryIds.length) {
     throw createError({ statusCode: 404, statusMessage: "Category not found" });
   }
@@ -24,8 +26,10 @@ export async function lockOwnedCategories(
 
 export function categoryName(body: unknown) {
   const parsed = categoryNameSchema.safeParse(body);
+
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
+
     if (issue?.code === "invalid_type") {
       throw createError({
         statusCode: 400,
@@ -34,27 +38,34 @@ export function categoryName(body: unknown) {
           : "Invalid category",
       });
     }
+
     throw createError({
       statusCode: 400,
       statusMessage: `Use 1–${INPUT_LIMITS.categoryName} characters for the category name`,
     });
   }
+
   return parsed.data;
 }
 
 export async function ownedCategory(userId: string, value: unknown) {
   const parsed = categoryIdSchema.safeParse(value);
+
   if (!parsed.success) {
     throw createError({ statusCode: 400, statusMessage: "Invalid category" });
   }
+
   if (parsed.data == null) return null;
+
   const category = await getPrisma().category.findFirst({
     where: { id: parsed.data, userId },
     select: { id: true },
   });
+
   if (!category) {
     throw createError({ statusCode: 404, statusMessage: "Category not found" });
   }
+
   return category.id;
 }
 
@@ -70,11 +81,13 @@ export function categoryConflict(error: unknown): never {
       statusMessage: "A category with this name already exists",
     });
   }
+
   throw error;
 }
 
 export async function createOwnedCategory(userId: string, input: unknown) {
   const data = categoryName(input);
+
   try {
     return await getPrisma().category.create({
       data: { ...data, userId },
@@ -91,17 +104,20 @@ export async function updateOwnedCategory(
   input: unknown,
 ) {
   const data = categoryName(input);
+
   try {
     const result = await getPrisma().category.updateMany({
       where: { id, userId },
       data,
     });
+
     if (!result.count) {
       throw createError({
         statusCode: 404,
         statusMessage: "Category not found",
       });
     }
+
     return { id, name: data.name };
   } catch (error) {
     categoryConflict(error);
@@ -113,8 +129,10 @@ export async function deleteOwnedCategory(userId: string, id: string) {
   const result = await getPrisma().category.deleteMany({
     where: { id, userId },
   });
+
   if (!result.count) {
     throw createError({ statusCode: 404, statusMessage: "Category not found" });
   }
+
   return { id, deleted: true };
 }

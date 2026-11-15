@@ -28,12 +28,15 @@ const previewAriaLabel = computed(() => {
   if (interactive.value) {
     return "Interactive demo: turn a conversation into a note";
   }
+
   if (props.noteDraft) {
     return "Example Chat workspace with a Generate draft confirmation: AI organizes the conversation into a draft to review and edit before saving";
   }
+
   if (isChat.value) {
     return "Example Chat workspace summarizing saved Nuxt notes with shared categories";
   }
+
   return "Example Notes workspace with categories, recent notes, and a Markdown note about Nuxt data fetching";
 });
 
@@ -42,6 +45,7 @@ const noteCategories = [
   { name: "Nuxt", count: 6 },
   { name: "TypeScript", count: 6 },
 ];
+
 const chatCategories = [
   { name: "English", count: 3 },
   { name: "Nuxt", count: 4 },
@@ -53,6 +57,7 @@ const categories = computed(() => {
 
   // The static preview includes a Nuxt note; the demo adds its note after saving.
   const addedNoteCategory = interactive.value ? props.savedCategory : "Nuxt";
+
   return noteCategories.map((category) => ({
     name: category.name,
     count: category.count + Number(category.name === addedNoteCategory),
@@ -62,8 +67,10 @@ const categories = computed(() => {
 const noteCount = computed(() =>
   interactive.value ? 23 + Number(!!props.savedCategory) : 24,
 );
+
 const listCount = computed(() => {
   if (props.savedCategory) return noteCount.value;
+
   return (
     categories.value.find((category) => category.name === "Nuxt")?.count ?? 0
   );
@@ -101,6 +108,7 @@ const chatConversation = computed(() =>
     ? landingConversations.useFetch
     : landingConversations.savedNotes,
 );
+
 const chatGroups = computed(() => [
   {
     group: "Today",
@@ -133,6 +141,7 @@ const visibleGroups = computed(() =>
     const isFirstGroup = index === 0;
     const saved = isFirstGroup && !!props.savedCategory;
     if (isFirstGroup && !isChat.value && interactive.value && !saved) return [];
+
     return [
       {
         group: item.group,

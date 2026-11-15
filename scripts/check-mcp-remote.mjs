@@ -10,11 +10,13 @@ const client = new Client({
   name: "nuxt-note-connection-check",
   version: "0.1.0",
 });
+
 try {
   config({
     path: fileURLToPath(new URL("../.env.mcp.local", import.meta.url)),
     quiet: true,
   });
+
   const transport = new StreamableHTTPClientTransport(
     new URL("/mcp", process.env.NUXT_NOTE_URL ?? "http://localhost:3001"),
     {
@@ -25,27 +27,34 @@ try {
       },
     },
   );
+
   await client.connect(transport);
   const { tools } = await client.listTools();
   console.log("Connected tools:", tools.map((tool) => tool.name).join(", "));
+
   const list = await client.callTool({
     name: "list_notes",
     arguments: { limit: 1 },
   });
+
   if (list.isError) throw new Error(list.content[0].text);
   const first = list.structuredContent.notes[0];
+
   if (first) {
     const result = await client.callTool({
       name: "get_note",
       arguments: { id: first.id },
     });
+
     if (result.isError) throw new Error(result.content[0].text);
+
     if (
       result.structuredContent.id !== first.id ||
       typeof result.structuredContent.markdown !== "string"
     ) {
       throw new Error("Unexpected Note response.");
     }
+
     console.log(
       "Authenticated search and full Note reading succeeded. Note content is omitted.",
     );

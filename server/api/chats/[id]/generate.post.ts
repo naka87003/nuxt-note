@@ -30,44 +30,56 @@ import { parseInput } from "~~/server/utils/parse-input";
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);
   const id = getRouterParam(event, "id");
+
   if (!id) {
     throw createError({ statusCode: 404, statusMessage: "Chat not found" });
   }
+
   await requireChat(userId, id);
   const body: unknown = await readBody(event);
   const { messageId, attemptId } = parseInput(generateChatInputSchema, body);
   const config = useRuntimeConfig(event);
+
   if (!config.openaiApiKey || !config.openaiModel) {
     throw createError({
       statusCode: 503,
       statusMessage: "AI is not configured",
     });
   }
+
   await recoverGeneration(userId, id);
+
   const generation = await getPrisma().$transaction(async (tx) => {
     await lockIdleChat(tx, userId, id);
+
     const chat = await tx.chat.findFirst({
       where: { id, userId },
       select: { categoryId: true, category: { select: { name: true } } },
     });
+
     const messages = await tx.message.findMany({
       where: { chatId: id },
       orderBy: messageOrder,
     });
+
     const question = messages.findLast((m) => m.role === "user");
+
     if (!question || question.id !== messageId) {
       throw createError({
         statusCode: 409,
         statusMessage: "Only the latest question can be retried",
       });
     }
+
     const previous = messages.find((m) => m.replyToId === messageId);
+
     if (previous?.status === "completed") {
       throw createError({
         statusCode: 409,
         statusMessage: "This response is already complete",
       });
     }
+
     const reply = await tx.message.upsert({
       where: { replyToId: messageId },
       create: {
@@ -83,10 +95,12 @@ export default defineEventHandler(async (event) => {
       },
       update: { content: "", status: "generating" },
     });
+
     await tx.chat.updateMany({
       where: { id, userId },
       data: { generationId: attemptId, generationStartedAt: new Date() },
     });
+
     // Include successful/stopped exchanges and the current question. Failed partial text is excluded.
     const history = messages
       .filter(
@@ -103,12 +117,14 @@ export default defineEventHandler(async (event) => {
       )
       .filter((m) => m.id !== previous?.id)
       .map((m) => ({ role: m.role, content: m.content }));
+
     if (history.reduce((size, m) => size + m.content.length, 0) > 100_000) {
       throw createError({
         statusCode: 413,
         statusMessage: "This conversation is too long. Start a new chat.",
       });
     }
+
     return {
       reply,
       history,
@@ -117,28 +133,35 @@ export default defineEventHandler(async (event) => {
       isRetry: !!previous,
     };
   });
+
   const { reply, history, categoryName, categoryId, isRetry } = generation;
   const controller = new AbortController();
   let timedOut = false;
   let finished = false;
+
   const timer = setTimeout(() => {
     timedOut = true;
     controller.abort();
   }, GENERATION_TIMEOUT);
+
   const stream = createEventStream(event, { autoclose: false });
+
   const disconnected = () => {
     if (!finished) controller.abort();
   };
+
   event.node.res.once("close", disconnected);
   stream.onClosed(() => {
     if (!finished) controller.abort();
   });
   setResponseHeader(event, "X-Accel-Buffering", "no");
+
   // Consume provider events on the server, including error/incomplete terminal states.
   const run = async () => {
     let status: ChatStatus = "failed";
     let updatedTitle: string | undefined;
     let updatedCategoryId: string | null | undefined;
+
     const output = createChatOutput({
       controller,
       save: (content) =>
@@ -148,7 +171,9 @@ export default defineEventHandler(async (event) => {
           JSON.stringify({ type: "text", text } satisfies ChatStreamEvent),
         ),
     });
+
     const sources = new Map<string, string>();
+
     try {
       await stream.push(
         JSON.stringify({
@@ -157,16 +182,19 @@ export default defineEventHandler(async (event) => {
         } satisfies ChatStreamEvent),
       );
       const openai = createOpenAI({ apiKey: config.openaiApiKey });
+
       const assertActive = async () => {
         const active = await getPrisma().chat.findFirst({
           where: { id, userId, generationId: attemptId },
           select: { id: true },
         });
+
         if (!active) {
           controller.abort();
           throw new Error("This response is no longer active.");
         }
       };
+
       const response = streamText({
         model: openai.responses(config.openaiModel),
         messages: history,
@@ -211,6 +239,7 @@ export default defineEventHandler(async (event) => {
         onError: () => {},
         providerOptions: { openai: { store: false, parallelToolCalls: false } },
       });
+
       for await (const part of response.fullStream) {
         if (part.type === "text-delta") {
           await output.append(part.text);
@@ -223,9 +252,11 @@ export default defineEventHandler(async (event) => {
           throw new Error("Could not execute a Chat tool.");
         } else if (part.type === "finish") {
           const references = webSourceLinks(sources);
+
           if (output.content.trim() && references) {
             await output.append(references);
           }
+
           status =
             part.finishReason === "stop" && output.content.trim()
               ? "completed"
@@ -237,9 +268,11 @@ export default defineEventHandler(async (event) => {
     } finally {
       await output.flush();
       clearTimeout(timer);
+
       if (controller.signal.aborted) {
         status = timedOut || output.failed ? "failed" : "stopped";
       }
+
       try {
         const saved = await saveGeneration(
           userId,
@@ -249,7 +282,9 @@ export default defineEventHandler(async (event) => {
           output.content,
           status,
         );
+
         finished = true;
+
         if (saved && !controller.signal.aborted) {
           await stream.push(
             JSON.stringify({
@@ -267,8 +302,10 @@ export default defineEventHandler(async (event) => {
       }
     }
   };
+
   void run().catch(() => {
     controller.abort();
   });
+
   return stream.send();
 });

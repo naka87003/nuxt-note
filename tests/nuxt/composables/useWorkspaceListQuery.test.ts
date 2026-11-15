@@ -15,18 +15,23 @@ it("debounces useFetch requests and switches endpoints with a fixed key", async 
   const category = ref("all");
   const search = ref("");
   const requests: { url: string; category: string; q: string }[] = [];
+
   const request = vi.fn(async (url, options) => {
     requests.push({ url, ...options.query });
+
     return [];
   });
+
   const { unmount } = await mountComposable(() => {
     const query = useWorkspaceListQuery(mode, category, search);
+
     return useFetch(() => `/api/${mode.value}`, {
       key: "workspace-query-test",
       query,
       $fetch: request as unknown as typeof $fetch,
     });
   });
+
   await flushPromises();
   expect(requests).toEqual([{ url: "/api/notes", category: "all", q: "" }]);
   vi.useFakeTimers();

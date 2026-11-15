@@ -20,6 +20,7 @@ const draftOutputSchema = z.object({
   explicitCategoryId: z.unknown().optional(),
   suggestedCategoryId: z.unknown().optional(),
 });
+
 const draftContentSchema = noteContentSchema.extend({
   markdown: noteContentShape.markdown.refine(
     (value) => Array.from(value).length <= NOTE_DRAFT_BODY_LIMIT,
@@ -47,8 +48,10 @@ export async function createChatNoteDraft(
   const model = createOpenAI({ apiKey: config.openaiApiKey })(
     config.openaiModel,
   );
+
   let prompt = JSON.stringify({ conversation: messages, ...categoryContext });
   let categoryId: string | null = null;
+
   // One bounded shortening attempt; never truncate Markdown or accept incomplete output.
   for (let attempt = 0; attempt < 2; attempt++) {
     const result = await generateText({
@@ -69,8 +72,10 @@ export async function createChatNoteDraft(
       abortSignal: signal,
       providerOptions: { openai: { store: false } },
     });
+
     if (result.finishReason !== "stop") throw new Error("Incomplete draft");
     const parsed = draftOutputSchema.safeParse(result.output);
+
     if (!parsed.success) {
       throw new Error(
         parsed.error.issues[0]?.path.length === 0
@@ -78,18 +83,22 @@ export async function createChatNoteDraft(
           : "Empty draft",
       );
     }
+
     const { title, markdown, ...selection } = parsed.data;
+
     if (attempt === 0) {
       const existingId = (id: unknown) =>
         typeof id === "string" &&
         categoryContext.categories.some((category) => category.id === id)
           ? id
           : null;
+
       categoryId = Object.hasOwn(selection, "explicitCategoryId")
         ? existingId(selection.explicitCategoryId)
         : (existingId(categoryContext.chatCategoryId) ??
           existingId(selection.suggestedCategoryId));
     }
+
     const draft = { title, markdown };
     const content = draftContentSchema.safeParse(draft);
     if (content.success) return { ...content.data, categoryId };
@@ -97,5 +106,6 @@ export async function createChatNoteDraft(
       draft,
     });
   }
+
   throw new Error("Draft exceeds limits");
 }

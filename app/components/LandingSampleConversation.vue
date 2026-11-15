@@ -4,6 +4,7 @@ import { landingConversations } from "~/utils/landing-conversations";
 const props = withDefaults(defineProps<{ notesAware?: boolean }>(), {
   notesAware: false,
 });
+
 const conversation = computed(() =>
   props.notesAware
     ? landingConversations.savedNotes

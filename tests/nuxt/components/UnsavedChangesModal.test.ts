@@ -21,12 +21,15 @@ describe("UnsavedChangesModal", () => {
         },
       },
     });
+
     const confirmation = useNuxtApp().$unsavedChanges;
     const decision = confirmation.confirm();
     await flushPromises();
+
     const button = wrapper
       .findAll("button")
       .find((item) => item.text() === label)!;
+
     await button.trigger("click");
     await expect(decision).resolves.toBe(expected);
     expect(confirmation.open.value).toBe(false);
@@ -36,6 +39,7 @@ describe("UnsavedChangesModal", () => {
     const wrapper = await mountSuspended(UnsavedChangesModal, {
       global: { stubs: { UModal: true } },
     });
+
     const confirmation = useNuxtApp().$unsavedChanges;
     const decision = confirmation.confirm();
     await flushPromises();

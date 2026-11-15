@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => {
     deleteMany: vi.fn(),
     count: vi.fn(),
   });
+
   return {
     category: model(),
     note: model(),
@@ -24,6 +25,7 @@ const mocks = vi.hoisted(() => {
     status: vi.fn(),
   };
 });
+
 vi.mock("~~/server/utils/prisma", () => ({ getPrisma: () => mocks }));
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
@@ -58,11 +60,13 @@ describe("Category API authentication", () => {
         Object.assign(new Error(), { statusCode: 401 }),
       );
       await expect(handler(event)).rejects.toMatchObject({ statusCode: 401 });
+
       for (const model of [mocks.category, mocks.note, mocks.chat]) {
         for (const method of Object.values(model)) {
           expect(method).not.toHaveBeenCalled();
         }
       }
+
       expect(mocks.body).not.toHaveBeenCalled();
     },
   );
@@ -135,10 +139,12 @@ describe("shared categories", () => {
       mocks.category.updateMany.mockResolvedValue({ count: 0 });
       mocks.category.deleteMany.mockResolvedValue({ count: 0 });
       await expect(handler(event)).rejects.toMatchObject({ statusCode: 404 });
+
       const calls = [
         ...mocks.category.updateMany.mock.calls,
         ...mocks.category.deleteMany.mock.calls,
       ];
+
       expect(calls[0]?.[0].where).toEqual({ id: "item", userId: owner });
     },
   );

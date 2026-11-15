@@ -35,18 +35,21 @@ async function setup() {
   const category = ref<string | null>("category");
   const onCreated = vi.fn();
   const refresh = vi.fn().mockResolvedValue(undefined);
+
   const { result: generation, unmount } = await mountComposable(() =>
     useChatGeneration(chat, refresh, {
       categoryId: () => category.value,
       onCreated,
     }),
   );
+
   return { chat, category, onCreated, refresh, generation, unmount };
 }
 
 it("shows the first question and cursor immediately, then generates in the same conversation", async () => {
   const { promise, resolve: acknowledge }: PromiseWithResolvers<void> =
     Promise.withResolvers();
+
   save.mockReturnValueOnce(promise);
   const { chat, onCreated, refresh, generation } = await setup();
   generation.draft.value = " First question ";
@@ -124,6 +127,7 @@ it("uses a new request when the category changes after a failed creation", async
 it("does not navigate or start generation if the user leaves while creation is pending", async () => {
   const { promise, resolve: acknowledge }: PromiseWithResolvers<void> =
     Promise.withResolvers();
+
   save.mockReturnValueOnce(promise);
   const { onCreated, generation, unmount } = await setup();
   generation.draft.value = "Question";

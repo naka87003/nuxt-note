@@ -5,6 +5,7 @@ import { startTestDatabase } from "./lib/test-database.mjs";
 const root = new URL("../", import.meta.url);
 let database;
 let runner;
+
 try {
   database = await startTestDatabase({
     name: `nuxt-note-integration-test-${process.pid}-${Date.now()}`,

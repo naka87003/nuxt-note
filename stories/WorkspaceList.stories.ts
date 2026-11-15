@@ -24,9 +24,11 @@ const meta = {
     setup() {
       useState("workspace-list-now", () => "2026-11-08T12:00:00.000Z").value =
         "2026-11-08T12:00:00.000Z";
+
       const { data: categories } = useNuxtData<CategoriesResponse>(
         "workspace-categories",
       );
+
       categories.value = {
         items: [
           {
@@ -48,6 +50,7 @@ const meta = {
           hidden: false,
         };
       });
+
       return { args };
     },
     template:

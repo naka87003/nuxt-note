@@ -20,9 +20,11 @@ const { request, leave, update } = vi.hoisted(() => ({
   leave: vi.fn(),
   update: vi.fn(),
 }));
+
 mockNuxtImport("$fetch", () => request);
 mockNuxtImport("onBeforeRouteLeave", () => leave);
 mockNuxtImport("onBeforeRouteUpdate", () => update);
+
 const savedNote = {
   id: "note-1",
   updatedAt: "2026-11-13T00:00:00.000Z",
@@ -66,6 +68,7 @@ describe("NoteEditor", () => {
       const wrapper = await mountSuspended(NoteEditor, {
         props: existing ? { note: savedNote } : {},
       });
+
       await edit(wrapper);
       const form = wrapper.getComponent(NoteEditorForm);
       form.vm.$emit("update:markdown", "Changed body");
@@ -120,9 +123,11 @@ describe("NoteEditor", () => {
 
   it("preserves edits on failure and allows a manual retry", async () => {
     request.mockRejectedValueOnce(new Error("offline"));
+
     const wrapper = await mountSuspended(NoteEditor, {
       props: { note: savedNote },
     });
+
     await edit(wrapper);
     await wrapper.get("form").trigger("submit");
     await flushPromises();
@@ -161,6 +166,7 @@ describe("NoteEditor", () => {
     const wrapper = await mountSuspended(NoteEditor, {
       props: { note: savedNote },
     });
+
     await edit(wrapper);
     await wrapper.setProps({
       note: {
@@ -183,6 +189,7 @@ describe("NoteEditor", () => {
     const wrapper = await mountSuspended(NoteEditor, {
       props: { note: savedNote },
     });
+
     await edit(wrapper);
     const confirmation = useNuxtApp().$unsavedChanges;
     wrapper.getComponent(NoteEditorForm).vm.$emit("cancel");
@@ -203,6 +210,7 @@ describe("NoteEditor", () => {
     const wrapper = await mountSuspended(NoteEditor, {
       props: { note: savedNote },
     });
+
     const canLeave = leave.mock.calls[0]![0] as () => Promise<boolean>;
     await expect(canLeave()).resolves.toBe(true);
     await edit(wrapper);
@@ -210,17 +218,21 @@ describe("NoteEditor", () => {
     expect(useNuxtApp().$unsavedChanges.open.value).toBe(true);
     useNuxtApp().$unsavedChanges.resolve(false);
     await expect(decision).resolves.toBe(false);
+
     const canUpdate = update.mock.calls[0]![0] as (
       to: { fullPath: string },
       from: { fullPath: string },
     ) => Promise<boolean> | undefined;
+
     expect(
       canUpdate({ fullPath: "/notes/note-1" }, { fullPath: "/notes/note-1" }),
     ).toBeUndefined();
+
     const updateDecision = canUpdate(
       { fullPath: "/notes/note-2" },
       { fullPath: "/notes/note-1" },
     );
+
     useNuxtApp().$unsavedChanges.resolve(true);
     await expect(updateDecision).resolves.toBe(true);
   });
@@ -229,6 +241,7 @@ describe("NoteEditor", () => {
     const wrapper = await mountSuspended(NoteEditor, {
       props: { note: savedNote },
     });
+
     await edit(wrapper);
     const before = new Event("beforeunload", { cancelable: true });
     window.dispatchEvent(before);
@@ -241,11 +254,13 @@ describe("NoteEditor", () => {
 
   it("retains an oversized imported draft and prevents API calls", async () => {
     const markdown = "x".repeat(INPUT_LIMITS.noteBody + 1);
+
     const wrapper = await mountSuspended(NoteEditor, {
       props: {
         initialDraft: { title: "Imported", markdown, categoryId: null },
       },
     });
+
     const form = wrapper.getComponent(NoteEditorForm);
     expect(form.props("overLimit")).toBe(true);
     expect(form.props("markdown")).toBe(markdown);
@@ -260,20 +275,24 @@ const modal = defineComponent({
   template:
     '<section v-if="open" role="dialog"><h2>{{ title }}</h2><slot name="body"/><slot name="footer"/></section>',
 });
+
 const latestNote = {
   ...savedNote,
   title: "Remote title",
   markdown: "Remote body",
   updatedAt: "2026-11-13T00:00:02.000Z",
 };
+
 async function conflictEditor(prepareError?: unknown) {
   request.mockRejectedValueOnce({ statusCode: 409 });
   if (prepareError) request.mockRejectedValueOnce(prepareError);
   else request.mockResolvedValueOnce(latestNote);
+
   const wrapper = await mountSuspended(NoteEditor, {
     props: { note: savedNote },
     global: { stubs: { UModal: modal } },
   });
+
   await edit(wrapper);
   wrapper
     .getComponent(NoteEditorForm)
@@ -282,14 +301,17 @@ async function conflictEditor(prepareError?: unknown) {
   await flushPromises();
   wrapper.getComponent(NoteEditorForm).vm.$emit("save");
   await flushPromises();
+
   return wrapper;
 }
+
 function action(
   wrapper: Awaited<ReturnType<typeof conflictEditor>>,
   label: string,
 ) {
   return wrapper.findAll("button").find((button) => button.text() === label)!;
 }
+
 describe("NoteEditor conflicts", () => {
   it("preserves the draft and requires an explicit confirmation without displaying either full Note", async () => {
     const wrapper = await conflictEditor();
@@ -426,6 +448,7 @@ it("keeps save success when the success callback throws instead of treating it a
   const callbackError = Object.assign(new Error("View failed"), {
     statusCode: 409,
   });
+
   const { result } = await mountComposable(() =>
     useNoteEditor({
       note: savedNote,
@@ -435,6 +458,7 @@ it("keeps save success when the success callback throws instead of treating it a
       },
     }),
   );
+
   await expect(result.save()).rejects.toBe(callbackError);
   expect(result.saved.value).toBe(true);
   expect(result.saving.value).toBe(false);

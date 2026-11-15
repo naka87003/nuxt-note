@@ -63,6 +63,7 @@ const {
 if (!props.chatId && props.initialDraft) draft.value = props.initialDraft;
 
 const requestFetch = useRequestFetch();
+
 const refreshConversation = useChatRefresh(chat, activeId, sending, (id) =>
   requestFetch<Conversation>(`/api/chats/${id}`),
 );
@@ -127,9 +128,11 @@ watch(
 
 function onScroll() {
   const pane = messagePane.value;
+
   if (pane) {
     const atBottom =
       pane.scrollHeight - pane.scrollTop - pane.clientHeight < 80;
+
     if (atBottom) followBottom.value = true;
     else if (pane.scrollTop < lastScrollTop) followBottom.value = false;
     lastScrollTop = pane.scrollTop;
@@ -182,6 +185,7 @@ const {
       ),
     }),
 );
+
 const canCreateNote = computed(
   () =>
     persisted.value &&
@@ -199,6 +203,7 @@ watch(
     if (!chat.value || route.path !== `/chats/${chat.value.id}`) return;
     const filter = chat.value.categoryId ?? "uncategorized";
     state.value.filter = filter;
+
     if (route.query.category !== filter) {
       await navigateTo(location(route.path, filter), { replace: true });
     }
@@ -210,6 +215,7 @@ watch(
   [() => categories.value?.items, () => chat.value?.categoryId, sending],
   () => {
     const currentCategory = chat.value?.categoryId;
+
     if (
       sending.value ||
       !currentCategory ||
@@ -218,6 +224,7 @@ watch(
     ) {
       return;
     }
+
     // Recheck the server after a shared Category disappears, outside the stream.
     void refreshConversation().catch(() => {
       navigationFailure.value =
@@ -236,6 +243,7 @@ async function saveCategory() {
   if (busy.value || !chat.value) return;
   busy.value = true;
   failure.value = "";
+
   try {
     const categoryId = target.value === "uncategorized" ? null : target.value;
     await $fetch(`/api/chats/${chat.value.id}`, {
@@ -259,6 +267,7 @@ async function remove() {
   if (busy.value || !chat.value) return;
   busy.value = true;
   failure.value = "";
+
   try {
     await $fetch(`/api/chats/${chat.value.id}`, { method: "DELETE" });
     deletion.value = false;

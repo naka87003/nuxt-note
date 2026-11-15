@@ -25,17 +25,20 @@ const savedNoteSelect = { ...savedNoteMetadataSelect, markdown: true } as const;
 
 export async function moveOwnedCategoryNotes(userId: string, body: unknown) {
   const input = parseInput(moveCategoryInputSchema, body);
+
   return getPrisma().$transaction(async (tx) => {
     await lockOwnedCategories(tx, userId, [
       input.sourceCategoryId,
       input.targetCategoryId,
     ]);
+
     const movedCount = await moveCategoryNotes(
       tx,
       userId,
       input.sourceCategoryId,
       input.targetCategoryId,
     );
+
     return { ...input, movedCount };
   });
 }
@@ -58,6 +61,7 @@ export async function moveCategoryNotes(
     WHERE "userId" = ${userId}
       AND "categoryId" IS NOT DISTINCT FROM ${sourceCategoryId}::text
   `;
+
   return movedCount;
 }
 
@@ -66,29 +70,36 @@ async function throwNoteWriteError(userId: string, id: string): Promise<never> {
     where: { id, userId },
     select: { id: true },
   });
+
   if (!note) {
     throw createError({ statusCode: 404, statusMessage: "Note not found" });
   }
+
   throw createError({ statusCode: 409, statusMessage: "Note has changed" });
 }
 
 export async function deleteOwnedNote(userId: string, body: unknown) {
   const input = parseInput(deleteNoteInputSchema, body);
   const db = getPrisma();
+
   const deleted = await db.note.deleteMany({
     where: { id: input.id, userId, updatedAt: new Date(input.updatedAt) },
   });
+
   if (deleted.count) return { id: input.id, deleted: true };
+
   return throwNoteWriteError(userId, input.id);
 }
 
 export async function updateOwnedNote(userId: string, body: unknown) {
   const input = parseInput(updateNoteInputSchema, body);
   const content = normalizeNoteContent(input);
+
   const categoryId =
     input.categoryId === undefined
       ? undefined
       : await ownedCategory(userId, input.categoryId);
+
   return updateNoteVersion(
     userId,
     input,
@@ -103,6 +114,7 @@ export async function updateOwnedNote(userId: string, body: unknown) {
 export async function updateOwnedNoteCategory(userId: string, body: unknown) {
   const input = parseInput(updateNoteCategoryInputSchema, body);
   const categoryId = await ownedCategory(userId, input.categoryId);
+
   return updateNoteVersion(
     userId,
     input,
@@ -113,6 +125,7 @@ export async function updateOwnedNoteCategory(userId: string, body: unknown) {
 
 export async function updateOwnedNoteTitle(userId: string, body: unknown) {
   const input = parseInput(updateNoteTitleInputSchema, body);
+
   return updateNoteVersion(
     userId,
     input,
@@ -131,6 +144,7 @@ async function updateNoteVersion<S extends Prisma.NoteSelect>(
 ) {
   const db = getPrisma();
   const expectedUpdatedAt = new Date(input.updatedAt);
+
   try {
     return await db.note.update({
       where: { id: input.id, userId, updatedAt: expectedUpdatedAt },
@@ -152,6 +166,7 @@ async function updateNoteVersion<S extends Prisma.NoteSelect>(
     ) {
       throw error;
     }
+
     return throwNoteWriteError(userId, input.id);
   }
 }
@@ -160,6 +175,7 @@ export async function createOwnedNote(userId: string, body: unknown) {
   const input = parseInput(createNoteInputSchema, body);
   const content = normalizeNoteContent(input);
   const categoryId = await ownedCategory(userId, input.categoryId);
+
   return getPrisma().note.create({
     data: { ...content, userId, categoryId },
     select: savedNoteSelect,

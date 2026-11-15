@@ -15,6 +15,7 @@ const { values } = parseArgs({
     apply: { type: "boolean", default: false },
   },
 });
+
 for (const key of [
   "source",
   "source-user",
@@ -24,25 +25,32 @@ for (const key of [
 ]) {
   if (!values[key]) throw new Error(`Missing --${key}`);
 }
+
 const load = async (name) =>
   parseCsv(await readFile(resolve(values.source, `${name}.csv`), "utf8"));
+
 const prepared = prepareNotes(
   await load("notes"),
   await load("tags"),
   values["source-user"],
   values["target-user"],
 );
+
 if (!prepared.length || prepared.length !== Number(values["expected-count"])) {
   throw new Error("Unexpected source count");
 }
+
 const client = new pg.Client({
   connectionString: process.env.DIRECT_URL || process.env.DATABASE_URL,
   connectionTimeoutMillis: 10000,
 });
+
 if (!process.env.DIRECT_URL && !process.env.DATABASE_URL) {
   throw new Error("Database is not configured");
 }
+
 let inTransaction = false;
+
 try {
   await client.connect();
   await client.query(
@@ -51,30 +59,37 @@ try {
       : "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY",
   );
   inTransaction = true;
+
   if (values.apply) {
     await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
       `notebook-import:${values["target-user"]}`,
     ]);
   }
+
   const { rows: users } = await client.query(
     'SELECT id, "githubLogin" FROM "User" WHERE id = $1',
     [values["target-user"]],
   );
+
   if (users.length !== 1 || users[0].githubLogin !== values["github-login"]) {
     throw new Error("Target identity mismatch");
   }
+
   const { rows: categories } = await client.query(
     'SELECT * FROM "Category" WHERE "userId" = $1',
     [values["target-user"]],
   );
+
   const { rows: existing } = await client.query(
     'SELECT * FROM "Note" WHERE "userId" = $1',
     [values["target-user"]],
   );
+
   const categoryIds = new Map(categories.map((c) => [c.nameKey, c.id]));
   const existingIds = new Set(existing.map((n) => n.id));
   const pending = prepared.filter((n) => !existingIds.has(n.id));
   const newCategories = new Map();
+
   for (const note of pending) {
     if (note.categoryKey && !categoryIds.has(note.categoryKey)) {
       const id = stableId(values["target-user"], "category", note.categoryKey);
@@ -82,6 +97,7 @@ try {
       newCategories.set(id, note);
     }
   }
+
   const summary = {
     mode: values.apply ? "apply" : "dry-run",
     githubLogin: users[0].githubLogin,
@@ -93,7 +109,9 @@ try {
     insertCategories: newCategories.size,
     uncategorized: prepared.filter((n) => !n.categoryKey).length,
   };
+
   console.log(JSON.stringify(summary, null, 2));
+
   if (values.apply) {
     const output = resolve(".data/notebook-import");
     await mkdir(output, { recursive: true, mode: 0o700 });
@@ -108,6 +126,7 @@ try {
       ),
       { mode: 0o600, flag: "wx" },
     );
+
     const manifest = {
       ...summary,
       targetUserId: values["target-user"],
@@ -118,18 +137,21 @@ try {
         targetId: n.id,
       })),
     };
+
     const manifestPath = resolve(output, `${stamp}-manifest.json`);
     await writeFile(
       manifestPath,
       JSON.stringify({ ...manifest, status: "pending" }, null, 2),
       { mode: 0o600, flag: "wx" },
     );
+
     for (const [id, note] of newCategories) {
       await client.query(
         'INSERT INTO "Category" (id, name, "nameKey", "userId", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
         [id, note.categoryName, note.categoryKey, values["target-user"]],
       );
     }
+
     for (const note of pending) {
       await client.query(
         'INSERT INTO "Note" (id, title, markdown, "userId", "categoryId", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6::timestamp, $7::timestamp)',
@@ -144,13 +166,17 @@ try {
         ],
       );
     }
+
     const { rows: verified } = await client.query(
       'SELECT id, title, markdown, "categoryId", to_char("createdAt", \'YYYY-MM-DD HH24:MI:SS.MS\') AS "createdAt", to_char("updatedAt", \'YYYY-MM-DD HH24:MI:SS.MS\') AS "updatedAt" FROM "Note" WHERE "userId" = $1 AND id = ANY($2::text[])',
       [values["target-user"], pending.map((n) => n.id)],
     );
+
     const byId = new Map(verified.map((n) => [n.id, n]));
+
     for (const note of pending) {
       const saved = byId.get(note.id);
+
       if (
         !saved ||
         saved.title !== note.title ||
@@ -162,6 +188,7 @@ try {
         throw new Error("Imported content verification failed");
       }
     }
+
     await client.query("COMMIT");
     inTransaction = false;
     await writeFile(

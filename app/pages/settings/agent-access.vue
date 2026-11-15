@@ -20,9 +20,11 @@ const busy = computed(() => creating.value || deleting.value);
 const createFailure = ref("");
 const deleteFailure = ref("");
 const deleteId = ref("");
+
 const deleteTarget = computed(() =>
   tokens.value?.find((token) => token.id === deleteId.value),
 );
+
 const deleteOpen = computed({
   get: () => Boolean(deleteId.value),
   set: (open) => {
@@ -38,11 +40,13 @@ async function issue() {
   if (busy.value || issued.value) return;
   creating.value = true;
   createFailure.value = "";
+
   try {
     const result = await $fetch("/api/agent-tokens", {
       method: "POST",
       body: { name: name.value },
     });
+
     issued.value = { id: result.id, token: result.token };
     await refresh();
   } catch {
@@ -56,6 +60,7 @@ async function deleteToken() {
   if (busy.value || !deleteId.value) return;
   deleting.value = true;
   deleteFailure.value = "";
+
   try {
     await $fetch(`/api/agent-tokens/${deleteId.value}`, { method: "DELETE" });
     if (deleteId.value === issued.value?.id) issued.value = null;

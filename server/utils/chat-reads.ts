@@ -15,6 +15,7 @@ export async function searchOwnedChats(
 ) {
   const { limit, offset } = query;
   const chats = await listOwnedChats(userId, query, { limit, offset });
+
   return {
     chats: chats.slice(0, limit),
     nextOffset: chats.length > limit ? offset + limit : null,
@@ -43,6 +44,7 @@ export async function listOwnedChats(
     orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
     ...(page ? { take: page.limit + 1, skip: page.offset } : {}),
   });
+
   return Promise.all(
     chats.map(async ({ messages, ...chat }) => ({
       ...chat,
@@ -57,6 +59,7 @@ export async function readOwnedChatPage(
   input: { id: string; limit: number; offset: number },
 ) {
   const { id, limit, offset } = input;
+
   const chat = await getPrisma().chat.findFirst({
     where: { id, userId },
     select: {
@@ -72,9 +75,11 @@ export async function readOwnedChatPage(
       },
     },
   });
+
   if (!chat) {
     throw createError({ statusCode: 404, statusMessage: "Chat not found" });
   }
+
   return {
     ...chat,
     messages: chat.messages.slice(0, limit).map((message) => ({
@@ -89,7 +94,9 @@ export async function readOwnedChat(userId: string, id: string | undefined) {
   if (!id) {
     throw createError({ statusCode: 404, statusMessage: "Chat not found" });
   }
+
   await recoverGeneration(userId, id);
+
   const chat = await getPrisma().chat.findFirst({
     where: { id, userId },
     select: {
@@ -104,9 +111,11 @@ export async function readOwnedChat(userId: string, id: string | undefined) {
       },
     },
   });
+
   if (!chat) {
     throw createError({ statusCode: 404, statusMessage: "Chat not found" });
   }
+
   return {
     ...chat,
     messages: chat.messages.map((message) => ({

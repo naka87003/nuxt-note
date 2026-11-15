@@ -6,9 +6,11 @@ import { readWebpage } from "./web-page";
 // and are also available when generating a Note draft from the conversation.
 export function webSourceLinks(sources: Map<string, string>): string {
   const links: string[] = [];
+
   for (const [value, title] of sources) {
     try {
       const url = new URL(value);
+
       if (
         !["http:", "https:"].includes(url.protocol) ||
         url.username ||
@@ -16,9 +18,11 @@ export function webSourceLinks(sources: Map<string, string>): string {
       ) {
         continue;
       }
+
       const label = title
         .replace(/[\r\n\t]/g, " ")
         .replace(/[\\[\]<>*_`]/g, "\\$&");
+
       links.push(
         `- [${label}](${url.href.replace(/\(/g, "%28").replace(/\)/g, "%29")})`,
       );
@@ -26,6 +30,7 @@ export function webSourceLinks(sources: Map<string, string>): string {
       /* Ignore malformed provider URLs. */
     }
   }
+
   return links.length ? `\n\nSources:\n${links.join("\n")}` : "";
 }
 
@@ -51,10 +56,12 @@ export function createChatWebTools(options: {
         options.signal.throwIfAborted();
         await options.assertActive();
         options.signal.throwIfAborted();
+
         try {
           return await readWebpage(url, options.signal);
         } catch {
           options.signal.throwIfAborted();
+
           return {
             error:
               "Could not read this public web page. It may be blocked, unavailable, too large, or require login or JavaScript. Try another source or ask the user to paste the text.",

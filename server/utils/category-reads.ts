@@ -15,9 +15,11 @@ export async function readOwnedCategory(userId: string, id: string) {
       },
     },
   });
+
   if (!category) {
     throw createError({ statusCode: 404, statusMessage: "Category not found" });
   }
+
   return {
     id: category.id,
     name: category.name,
@@ -32,11 +34,13 @@ export async function listOwnedCategories(userId: string) {
     orderBy: [{ nameKey: "asc" }, { id: "asc" }],
     select: { id: true, name: true },
   });
+
   return { categories };
 }
 
 export async function listOwnedCategoriesWithCounts(userId: string) {
   const db = getPrisma();
+
   const [items, notes, chats, uncategorizedNotes, uncategorizedChats] =
     await Promise.all([
       db.category.findMany({
@@ -58,6 +62,7 @@ export async function listOwnedCategoriesWithCounts(userId: string) {
       db.note.count({ where: { userId, categoryId: null } }),
       db.chat.count({ where: { userId, categoryId: null } }),
     ]);
+
   return {
     items,
     totals: { notes, chats },

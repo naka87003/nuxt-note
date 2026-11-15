@@ -18,11 +18,14 @@ if (!process.argv.includes("--live")) {
   );
   process.exit(1);
 }
+
 config({ quiet: true });
+
 const db = new pg.Client({
   connectionString: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
   connectionTimeoutMillis: 10_000,
 });
+
 const marker = `MCP ${randomUUID()}`;
 const other = randomUUID();
 const ownNote = randomUUID();
@@ -36,17 +39,21 @@ let remote;
 let remoteOther;
 const createdNotes = [];
 let failed = false;
+
 try {
   await db.connect();
+
   const users = await db.query(
     'SELECT u.id FROM "User" u LEFT JOIN "Note" n ON n."userId"=u.id GROUP BY u.id ORDER BY count(n.id) DESC, u.id LIMIT 1',
   );
+
   assert(users.rowCount, "Sign in to the app once before live verification.");
   owner = users.rows[0].id;
   await db.query(
     'INSERT INTO "User" (id,"githubId","githubLogin",name,"updatedAt") VALUES ($1,$2,$2,$2,now())',
     [other, marker],
   );
+
   for (const [id, userId] of [
     [ownNote, owner],
     [secondNote, owner],
@@ -57,6 +64,7 @@ try {
       [id, marker, "# MCP verification\n\nLiteral 50%_ search.", userId],
     );
   }
+
   const port = await new Promise((resolve) => {
     const socket = createServer();
     socket.listen(0, "127.0.0.1", () => {
@@ -64,6 +72,7 @@ try {
       socket.close(() => resolve(port));
     });
   });
+
   app = spawn(
     process.execPath,
     [new URL(".output/server/index.mjs", root).pathname],
@@ -80,6 +89,7 @@ try {
   );
   const base = `http://127.0.0.1:${port}`;
   let ready = false;
+
   for (let i = 0; i < 100; i++) {
     try {
       if ((await fetch(`${base}/api/health`)).ok) {
@@ -89,30 +99,39 @@ try {
     } catch {
       /* Waiting for the isolated local app. */
     }
+
     await delay(100);
   }
+
   assert(ready, "Built app did not start.");
+
   // A test-only session secret is used by this isolated process, not the running app.
   const password = Buffer.from(
     hkdfSync("sha256", secret, "nuxt", "nuxt-session:nuxt-auth-session", 32),
   ).toString("hex");
+
   const cookieFor = async (id) =>
     `nuxt-auth-session=${await seal({ nuxt: 1, id: randomUUID(), data: { user: { id, name: "MCP verification", githubLogin: "verification" } } }, password)}`;
+
   const cookie = await cookieFor(owner);
   const api = (path, options = {}) => fetch(base + path, options);
+
   const issue = await api("/api/agent-tokens", {
     method: "POST",
     headers: { Cookie: cookie, "Content-Type": "application/json" },
     body: JSON.stringify({ name: marker, userId: other }),
   });
+
   assert.equal(issue.status, 201);
   assert.match(issue.headers.get("cache-control"), /no-store/);
   const issued = await issue.json();
   assert(!("tokenHash" in issued));
+
   const stored = await db.query(
     'SELECT "tokenHash","userId" FROM "AgentToken" WHERE id=$1',
     [issued.id],
   );
+
   assert.equal(stored.rows[0].userId, owner);
   assert.equal(
     stored.rows[0].tokenHash,
@@ -130,9 +149,11 @@ try {
     ).status,
     401,
   );
+
   const metadata = await (
     await api("/api/agent-tokens", { headers: { Cookie: cookie } })
   ).json();
+
   assert(metadata.some((t) => t.id === issued.id));
   assert(metadata.every((t) => !("token" in t) && !("tokenHash" in t)));
   assert.equal(
@@ -150,6 +171,7 @@ try {
     Accept: "application/json, text/event-stream",
     "Content-Type": "application/json",
   };
+
   assert.equal(
     (
       await api("/mcp", {
@@ -211,6 +233,7 @@ try {
     ).status,
     413,
   );
+
   const legacy = await api("/mcp", {
     method: "POST",
     headers: rpcHeaders,
@@ -225,6 +248,7 @@ try {
       },
     }),
   });
+
   assert.equal(legacy.status, 200);
   assert.match(legacy.headers.get("cache-control"), /no-store/);
   assert.equal(legacy.headers.get("mcp-session-id"), null);
@@ -246,17 +270,21 @@ try {
     "update_category",
     "update_note",
   ]);
+
   const remoteSearch = await remote.callTool({
     name: "list_notes",
     arguments: { q: marker, limit: 1 },
   });
+
   assert(!remoteSearch.isError);
   assert.equal(remoteSearch.structuredContent.notes.length, 1);
   assert.equal(remoteSearch.structuredContent.nextOffset, 1);
+
   const remoteNote = await remote.callTool({
     name: "get_note",
     arguments: { id: ownNote },
   });
+
   assert(!remoteNote.isError);
   assert.equal(
     remoteNote.structuredContent.markdown,
@@ -264,6 +292,7 @@ try {
   );
   assert(!("userId" in remoteNote.structuredContent));
   assert(!("markdown" in remoteSearch.structuredContent.notes[0]));
+
   const lastPage = await remote.callTool({
     name: "list_notes",
     arguments: {
@@ -272,6 +301,7 @@ try {
       offset: remoteSearch.structuredContent.nextOffset,
     },
   });
+
   assert(!lastPage.isError);
   assert.equal(lastPage.structuredContent.nextOffset, null);
   assert.equal(lastPage.structuredContent.notes.length, 1);
@@ -279,10 +309,12 @@ try {
     lastPage.structuredContent.notes[0].id,
     remoteSearch.structuredContent.notes[0].id,
   );
+
   const wildcard = await remote.callTool({
     name: "list_notes",
     arguments: { q: "50%_" },
   });
+
   assert(!wildcard.isError);
   assert(wildcard.structuredContent.notes.some((n) => n.id === ownNote));
   assert.equal(
@@ -308,10 +340,12 @@ try {
       .isError,
     true,
   );
+
   const created = await remote.callTool({
     name: "create_note",
     arguments: { title: marker, markdown: "# Created through MCP" },
   });
+
   assert(!created.isError);
   createdNotes.push(created.structuredContent.id);
   assert.equal(created.structuredContent.categoryId, null);
@@ -322,22 +356,27 @@ try {
       process.env.NUXT_PUBLIC_SITE_URL ?? "https://nuxt-note.com",
     ).href,
   );
+
   const saved = await remote.callTool({
     name: "get_note",
     arguments: { id: createdNotes[0] },
   });
+
   assert(!saved.isError);
   assert.equal(saved.structuredContent.markdown, "# Created through MCP");
+
   const updateArguments = {
     id: saved.structuredContent.id,
     title: marker,
     markdown: "# Updated through MCP",
     updatedAt: saved.structuredContent.updatedAt,
   };
+
   const updates = await Promise.all([
     remote.callTool({ name: "update_note", arguments: updateArguments }),
     remote.callTool({ name: "update_note", arguments: updateArguments }),
   ]);
+
   assert.equal(updates.filter((result) => !result.isError).length, 1);
   assert.equal(updates.filter((result) => result.isError).length, 1);
   const updated = updates.find((result) => !result.isError);
@@ -346,26 +385,32 @@ try {
     updated.structuredContent.updatedAt,
     updateArguments.updatedAt,
   );
+
   const readback = await remote.callTool({
     name: "get_note",
     arguments: { id: updateArguments.id },
   });
+
   assert.equal(readback.structuredContent.markdown, updateArguments.markdown);
   assert.equal(
     readback.structuredContent.updatedAt,
     updated.structuredContent.updatedAt,
   );
+
   for (const id of [foreignNote, randomUUID()]) {
     const denied = await remote.callTool({
       name: "update_note",
       arguments: { ...updateArguments, id },
     });
+
     assert.equal(denied.isError, true);
     assert.equal(denied.content[0].text, "Note or category not found.");
   }
+
   const savedOwner = await db.query('SELECT "userId" FROM "Note" WHERE id=$1', [
     createdNotes[0],
   ]);
+
   assert.equal(savedOwner.rows[0].userId, owner);
   // A category owned by the temporary second user must not be attachable.
   const foreignCategory = randomUUID();
@@ -373,10 +418,12 @@ try {
     'INSERT INTO "Category" (id,name,"nameKey","userId","updatedAt") VALUES ($1,$2,$2,$3,now())',
     [foreignCategory, "mcp-verification", other],
   );
+
   const deniedCategory = await remote.callTool({
     name: "create_note",
     arguments: { title: marker, markdown: "", categoryId: foreignCategory },
   });
+
   assert.equal(deniedCategory.isError, true);
   assert.equal(
     (
@@ -387,6 +434,7 @@ try {
     ).rows[0].count,
     3,
   );
+
   const otherIssue = await api("/api/agent-tokens", {
     method: "POST",
     headers: {
@@ -395,6 +443,7 @@ try {
     },
     body: JSON.stringify({ name: marker }),
   });
+
   assert.equal(otherIssue.status, 201);
   const otherToken = (await otherIssue.json()).token;
   remoteOther = new Client({
@@ -406,10 +455,12 @@ try {
       requestInit: { headers: { Authorization: `Bearer ${otherToken}` } },
     }),
   );
+
   const [owned, foreign] = await Promise.all([
     remote.callTool({ name: "get_note", arguments: { id: ownNote } }),
     remoteOther.callTool({ name: "get_note", arguments: { id: ownNote } }),
   ]);
+
   assert(!owned.isError);
   assert.equal(foreign.isError, true);
   assert.equal(
@@ -435,6 +486,7 @@ try {
     name: "delete_note",
     arguments: { id: updateArguments.id, updatedAt: updateArguments.updatedAt },
   });
+
   assert.equal(staleDelete.isError, true);
   assert.match(staleDelete.content[0].text, /ask the user to confirm deletion/);
   assert.equal(
@@ -445,14 +497,17 @@ try {
     ).rows[0].count,
     1,
   );
+
   const deleteArguments = {
     id: updateArguments.id,
     updatedAt: updated.structuredContent.updatedAt,
   };
+
   const foreignVersion = await db.query(
     'SELECT "updatedAt" FROM "Note" WHERE id=$1',
     [foreignNote],
   );
+
   for (const id of [foreignNote, randomUUID()]) {
     const denied = await remote.callTool({
       name: "delete_note",
@@ -461,9 +516,11 @@ try {
         updatedAt: foreignVersion.rows[0].updatedAt.toISOString(),
       },
     });
+
     assert.equal(denied.isError, true);
     assert.equal(denied.content[0].text, "Note not found.");
   }
+
   assert.equal(
     (
       await db.query('SELECT count(*)::int AS count FROM "Note" WHERE id=$1', [
@@ -472,10 +529,12 @@ try {
     ).rows[0].count,
     1,
   );
+
   const deletes = await Promise.all([
     remote.callTool({ name: "delete_note", arguments: deleteArguments }),
     remote.callTool({ name: "delete_note", arguments: deleteArguments }),
   ]);
+
   assert.equal(deletes.filter((result) => !result.isError).length, 1);
   assert.equal(
     deletes.find((result) => result.isError).content[0].text,
@@ -493,10 +552,12 @@ try {
     ).rows[0].count,
     0,
   );
+
   const deletedRead = await remote.callTool({
     name: "get_note",
     arguments: { id: deleteArguments.id },
   });
+
   assert.equal(deletedRead.isError, true);
 
   assert.equal(
@@ -517,9 +578,11 @@ try {
     ).rows[0].count,
     0,
   );
+
   const remainingTokens = await (
     await api("/api/agent-tokens", { headers: { Cookie: cookie } })
   ).json();
+
   assert(!remainingTokens.some((t) => t.id === issued.id));
   await assert.rejects(remote.callTool({ name: "list_notes", arguments: {} }));
   await assert.rejects(
@@ -556,6 +619,7 @@ try {
   await remoteOther?.close();
   await remote?.close();
   app?.kill("SIGTERM");
+
   try {
     if (owner) {
       await db.query('DELETE FROM "AgentToken" WHERE "userId"=$1 AND name=$2', [
@@ -567,6 +631,7 @@ try {
         [owner, [ownNote, secondNote, ...createdNotes]],
       );
     }
+
     await db.query('DELETE FROM "User" WHERE id=$1 AND "githubId"=$2', [
       other,
       marker,
@@ -579,6 +644,8 @@ try {
     );
     failed = true;
   }
+
   await db.end();
 }
+
 if (failed) process.exitCode = 1;

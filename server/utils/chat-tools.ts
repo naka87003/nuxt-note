@@ -14,6 +14,7 @@ export const CHAT_TOOL_STEPS = 8;
 const noteVersionSchema = z.object(noteVersionShape);
 const noteListVersionsSchema = z.object({ notes: z.array(noteVersionSchema) });
 const chatListVersionsSchema = z.object({ chats: z.array(noteVersionSchema) });
+
 const toolResultSchema = z.looseObject({
   isError: z.boolean().optional(),
   content: z
@@ -60,6 +61,7 @@ function noteIdFromReference(
 ): string | null {
   const value = reference.trim();
   if (value && value.length <= 100 && !/[\\/\s?#:]/.test(value)) return value;
+
   try {
     const site = new URL(siteUrl);
     const url = new URL(value, site);
@@ -67,6 +69,7 @@ function noteIdFromReference(
     const encodedId = /^\/notes\/([^/]+)\/?$/.exec(url.pathname)?.[1];
     if (!encodedId) return null;
     const id = decodeURIComponent(encodedId);
+
     return id && id.length <= 100 && !/[\\/\s?#:]/.test(id) ? id : null;
   } catch {
     return null;
@@ -88,14 +91,17 @@ export function createChatNoteTools(
   },
 ) {
   let categoryId = options.categoryId;
+
   function updateCurrentCategory(nextCategoryId: string | null) {
     categoryId = nextCategoryId;
     options.onChatCategoryUpdated?.(nextCategoryId);
   }
+
   const definitions = createWorkspaceTools(userId, siteUrl, {
     chatId: options.chatId,
     onChatCategoryUpdated: updateCurrentCategory,
   });
+
   const versions = new Map<string, string>();
   const metadataVersions = new Map<string, string>();
   const chatVersions = new Map<string, string>();
@@ -109,8 +115,10 @@ export function createChatNoteTools(
           "Use list_chats or get_chat first, then pass its exact id and updatedAt.",
       };
     }
+
     // Require a fresh read after every write attempt, including conflicts.
     chatVersions.delete(input.id);
+
     return undefined;
   }
 
@@ -131,6 +139,7 @@ export function createChatNoteTools(
         options.signal.throwIfAborted();
         // Validate here as well so direct calls cannot bypass defaults/limits.
         const parsed = definition.inputSchema.parse(input);
+
         if (
           name === "update_note" ||
           name === "update_note_title" ||
@@ -138,17 +147,21 @@ export function createChatNoteTools(
           name === "delete_note"
         ) {
           const { id, updatedAt } = noteVersionSchema.parse(parsed);
+
           if (name === "delete_note" && deletionConflict) {
             return {
               error:
                 "Ask the user to confirm deletion of the changed Note in a new message before retrying.",
             };
           }
+
           const metadataOnly =
             name === "update_note_title" || name === "update_note_category";
+
           const expectedVersion = metadataOnly
             ? metadataVersions.get(id)
             : versions.get(id);
+
           if (expectedVersion !== updatedAt) {
             return {
               error: metadataOnly
@@ -156,40 +169,50 @@ export function createChatNoteTools(
                 : "Use get_note to read the Note first, then pass its exact updatedAt.",
             };
           }
+
           // A subsequent write must read again, including after a conflict.
           versions.delete(id);
           metadataVersions.delete(id);
         }
+
         const result = await definition.execute(parsed);
+
         // Dates must reach the model in the same ISO format as the MCP result.
         const serialized = toolResultSchema.parse(
           JSON.parse(JSON.stringify(result)),
         );
+
         if (name === "list_chats" && !serialized.isError) {
           const { chats } = chatListVersionsSchema.parse(
             serialized.structuredContent,
           );
+
           for (const chat of chats) {
             chatVersions.set(chat.id, chat.updatedAt);
           }
         }
+
         if (name === "get_chat" && !serialized.isError) {
           const chat = noteVersionSchema.parse(serialized.structuredContent);
           chatVersions.set(chat.id, chat.updatedAt);
         }
+
         if (name === "list_notes" && !serialized.isError) {
           const { notes } = noteListVersionsSchema.parse(
             serialized.structuredContent,
           );
+
           for (const note of notes) {
             metadataVersions.set(note.id, note.updatedAt);
           }
         }
+
         if (name === "get_note" && !serialized.isError) {
           const note = noteVersionSchema.parse(serialized.structuredContent);
           versions.set(note.id, note.updatedAt);
           metadataVersions.set(note.id, note.updatedAt);
         }
+
         if (
           name === "delete_note" &&
           serialized.isError &&
@@ -199,6 +222,7 @@ export function createChatNoteTools(
         ) {
           deletionConflict = true;
         }
+
         return serialized;
       },
     });
@@ -212,6 +236,7 @@ export function createChatNoteTools(
       ...definitions.get_chat,
       execute: (input) => {
         chatVersions.delete(input.id);
+
         return definitions.get_chat.execute(input);
       },
     }),
@@ -233,6 +258,7 @@ export function createChatNoteTools(
         .strict(),
       execute: async ({ id: reference }) => {
         const id = noteIdFromReference(reference, siteUrl);
+
         if (!id) {
           return {
             isError: true,
@@ -244,8 +270,10 @@ export function createChatNoteTools(
             ],
           };
         }
+
         versions.delete(id);
         metadataVersions.delete(id);
+
         return definitions.get_note.execute({ id });
       },
     }),
@@ -255,17 +283,21 @@ export function createChatNoteTools(
             ...definitions.merge_categories,
             execute: async (input) => {
               const result = await definitions.merge_categories.execute(input);
+
               if (!result.isError) {
                 const { movedNoteCount, movedChatCount } =
                   result.structuredContent ?? {};
+
                 if (typeof movedNoteCount === "number" && movedNoteCount > 0) {
                   versions.clear();
                   metadataVersions.clear();
                 }
+
                 if (typeof movedChatCount === "number" && movedChatCount > 0) {
                   chatVersions.clear();
                 }
               }
+
               return result;
             },
           }),
@@ -274,7 +306,9 @@ export function createChatNoteTools(
             execute: async (input) => {
               const result =
                 await definitions.move_category_chats.execute(input);
+
               const movedCount = result.structuredContent?.movedCount;
+
               if (
                 !result.isError &&
                 typeof movedCount === "number" &&
@@ -282,6 +316,7 @@ export function createChatNoteTools(
               ) {
                 chatVersions.clear();
               }
+
               return result;
             },
           }),
@@ -290,7 +325,9 @@ export function createChatNoteTools(
             execute: async (input) => {
               const result =
                 await definitions.move_category_notes.execute(input);
+
               const movedCount = result.structuredContent?.movedCount;
+
               if (
                 !result.isError &&
                 typeof movedCount === "number" &&
@@ -300,6 +337,7 @@ export function createChatNoteTools(
                 versions.clear();
                 metadataVersions.clear();
               }
+
               return result;
             },
           }),
@@ -312,15 +350,18 @@ export function createChatNoteTools(
                     "Cannot delete the Chat currently being used for this conversation. Use the app's Chat deletion controls instead.",
                 };
               }
+
               if (chatDeletionConflict) {
                 return {
                   error:
                     "Ask the user to confirm deletion of the changed Chat in a new message before retrying.",
                 };
               }
+
               const error = consumeChatVersion(input);
               if (error) return error;
               const result = await definitions.delete_chat.execute(input);
+
               if (
                 result.isError &&
                 result.content.some((part) =>
@@ -329,6 +370,7 @@ export function createChatNoteTools(
               ) {
                 chatDeletionConflict = true;
               }
+
               return result;
             },
           }),
@@ -339,6 +381,7 @@ export function createChatNoteTools(
               if (error) return error;
               const result = await definitions.update_chat_title.execute(input);
               const title = result.structuredContent?.title;
+
               if (
                 !result.isError &&
                 input.id === options.chatId &&
@@ -346,6 +389,7 @@ export function createChatNoteTools(
               ) {
                 options.onChatTitleUpdated?.(title);
               }
+
               return result;
             },
           }),
@@ -354,11 +398,14 @@ export function createChatNoteTools(
             execute: async (input) => {
               const error = consumeChatVersion(input);
               if (error) return error;
+
               const result =
                 await definitions.update_chat_category.execute(input);
+
               if (!result.isError && input.id === options.chatId) {
                 updateCurrentCategory(input.categoryId);
               }
+
               return result;
             },
           }),
@@ -374,9 +421,11 @@ export function createChatNoteTools(
             ...definitions.delete_category,
             execute: async (input) => {
               const result = await definitions.delete_category.execute(input);
+
               if (!result.isError && input.id === categoryId) {
                 updateCurrentCategory(null);
               }
+
               return result;
             },
           }),

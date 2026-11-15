@@ -42,6 +42,7 @@ async function saved(result: SavedNote) {
   if (note.value) note.value = { ...note.value, ...result };
   const savedSnapshot = note.value;
   editing.value = false;
+
   try {
     if (result.categoryId !== previousCategory) {
       assertNavigationSucceeded(
@@ -51,6 +52,7 @@ async function saved(result: SavedNote) {
         ),
       );
     }
+
     await Promise.all([
       refresh(),
       refreshNuxtData("workspace-list"),
@@ -78,6 +80,7 @@ function startDeletion() {
 
 async function loadLatestAfterDeletionConflict() {
   await refresh();
+
   if (!error.value && note.value) {
     failure.value =
       "Review the latest content below, then choose Delete again if you still want to delete it.";
@@ -88,6 +91,7 @@ async function remove() {
   if (busy.value || !deletion.value || !deleteTarget.value) return;
   busy.value = true;
   failure.value = "";
+
   try {
     await $fetch(`/api/notes/${deleteTarget.value.id}`, {
       method: "DELETE",
@@ -96,6 +100,7 @@ async function remove() {
     });
   } catch (cause) {
     const code = getErrorStatusCode(cause);
+
     if (code === 409 || code === 404) {
       deletion.value = false;
       deleteTarget.value = null;
@@ -109,15 +114,18 @@ async function remove() {
     } else {
       failure.value = "Could not delete the note. Please try again.";
     }
+
     return;
   } finally {
     busy.value = false;
   }
+
   deleted.value = true;
   deletion.value = false;
   deleteTarget.value = null;
   note.value = undefined;
   state.value.notes.selected = "";
+
   try {
     assertNavigationSucceeded(await navigateTo(location("/notes")));
     await Promise.all([

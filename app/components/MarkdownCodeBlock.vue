@@ -8,6 +8,7 @@ const props = defineProps<{ __node: ElementNode }>();
 const code = computed(() => textContent(props.__node));
 const copyable = inject<Ref<boolean>>("markdown-copyable", ref(true));
 const active = ref(false);
+
 const { state, pending, feedback, copy } = useCopyFeedback(
   code,
   "Code copied to clipboard.",

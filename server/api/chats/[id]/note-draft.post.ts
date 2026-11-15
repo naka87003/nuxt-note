@@ -15,10 +15,13 @@ import {
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);
   const id = getRouterParam(event, "id");
+
   if (!id) {
     throw createError({ statusCode: 404, statusMessage: "Chat not found" });
   }
+
   await recoverGeneration(userId, id);
+
   const chat = await getPrisma().chat.findFirst({
     where: { id, userId },
     select: {
@@ -30,27 +33,32 @@ export default defineEventHandler(async (event) => {
       },
     },
   });
+
   if (!chat) {
     throw createError({ statusCode: 404, statusMessage: "Chat not found" });
   }
+
   if (chat.generationId) {
     throw createError({
       statusCode: 409,
       statusMessage: "Wait for the current response to finish",
     });
   }
+
   const messages = chat.messages
     .filter(
       (m) =>
         (m.role === "user" || m.status === "completed") && m.content.trim(),
     )
     .map(({ role, content }) => ({ role, content }));
+
   if (!messages.some((m) => m.role === "assistant")) {
     throw createError({
       statusCode: 400,
       statusMessage: "A completed response is required",
     });
   }
+
   if (
     messages.reduce((size, m) => size + m.content.length, 0) >
     NOTE_DRAFT_INPUT_LIMIT
@@ -60,7 +68,9 @@ export default defineEventHandler(async (event) => {
       statusMessage: "This conversation is too long to organize into a note",
     });
   }
+
   const config = useRuntimeConfig(event);
+
   if (!config.openaiApiKey || !config.openaiModel) {
     throw createError({
       statusCode: 503,
@@ -73,15 +83,19 @@ export default defineEventHandler(async (event) => {
   // Leaving/reloading does not produce a background draft or navigate back later.
   const disconnected = () => controller.abort();
   event.node.res.once("close", disconnected);
+
   try {
     const { categories } = await listOwnedCategories(userId);
+
     const draft = await createChatNoteDraft(
       messages,
       config,
       controller.signal,
       { categories, chatCategoryId: chat.categoryId },
     );
+
     if (controller.signal.aborted) throw new Error("Draft request ended");
+
     return draft;
   } catch {
     throw createError({

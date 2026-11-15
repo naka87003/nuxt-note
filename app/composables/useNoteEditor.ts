@@ -14,11 +14,13 @@ interface NoteEditorOptions {
 export function useNoteEditor(options: NoteEditorOptions) {
   // Snapshot once: background refreshes must never replace a local draft.
   const supplied = options.note ?? options.initialDraft;
+
   const initial: NoteDraft = {
     title: supplied?.title ?? "",
     markdown: supplied?.markdown ?? "",
     categoryId: supplied ? supplied.categoryId : options.categoryId,
   };
+
   const noteId = options.note?.id;
   const version = options.note?.updatedAt;
   const conflicted = ref(false);
@@ -58,10 +60,12 @@ export function useNoteEditor(options: NoteEditorOptions) {
     if (saving.value || !noteId || unavailable.value || saved.value) return;
     saving.value = true;
     overwriteVersion.value = undefined;
+
     try {
       const latest = await $fetch<SavedNote>(`/api/notes/${noteId}`, {
         retry: 0,
       });
+
       overwriteVersion.value = latest.updatedAt;
       failure.value = "";
       confirmation.value = true;
@@ -79,6 +83,7 @@ export function useNoteEditor(options: NoteEditorOptions) {
     if (saving.value || saved.value || overLimit.value || unavailable.value) {
       return;
     }
+
     if (confirmation.value && !overwrite) return;
     if (conflicted.value && !overwrite) return prepareOverwrite();
     const expectedVersion = overwrite ? overwriteVersion.value : version;
@@ -88,6 +93,7 @@ export function useNoteEditor(options: NoteEditorOptions) {
     const body = draft.value;
     let needsConfirmation = false;
     let result: NoteSaveResult | undefined;
+
     try {
       result = noteId
         ? await $fetch<NoteSaveResult>(`/api/notes/${noteId}`, {
@@ -102,6 +108,7 @@ export function useNoteEditor(options: NoteEditorOptions) {
           });
     } catch (error) {
       const code = getErrorStatusCode(error);
+
       if (code === 409) {
         conflicted.value = true;
         confirmation.value = false;
@@ -122,6 +129,7 @@ export function useNoteEditor(options: NoteEditorOptions) {
     } finally {
       saving.value = false;
     }
+
     if (result) {
       saved.value = true;
       confirmation.value = false;
@@ -135,6 +143,7 @@ export function useNoteEditor(options: NoteEditorOptions) {
       await prepareOverwrite();
     }
   }
+
   return {
     title,
     markdown,

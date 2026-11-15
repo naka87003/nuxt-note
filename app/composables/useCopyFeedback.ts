@@ -6,6 +6,7 @@ export function useCopyFeedback(
 ) {
   const pending = ref(false);
   const state = ref<"idle" | "copied" | "failed">("idle");
+
   const feedbackByState = {
     idle: { icon: "i-lucide-copy", color: "neutral", message: "" },
     copied: {
@@ -20,6 +21,7 @@ export function useCopyFeedback(
         "Unable to copy. Try again or select the code and copy it manually.",
     },
   } as const;
+
   const feedback = computed(() => ({
     ...feedbackByState[state.value],
     message:
@@ -27,6 +29,7 @@ export function useCopyFeedback(
         ? toValue(copiedMessage)
         : feedbackByState[state.value].message,
   }));
+
   let timer: ReturnType<typeof setTimeout>;
   let disposed = false;
 
@@ -46,6 +49,7 @@ export function useCopyFeedback(
     state.value = "idle";
     pending.value = true;
     let copied = false;
+
     try {
       await navigator.clipboard.writeText(source);
       copied = true;
@@ -54,6 +58,7 @@ export function useCopyFeedback(
     } finally {
       pending.value = false;
     }
+
     if (disposed || source !== value.value) return;
     state.value = copied ? "copied" : "failed";
     timer = setTimeout(() => {

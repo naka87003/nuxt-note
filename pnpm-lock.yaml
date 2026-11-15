@@ -236,6 +236,9 @@ importers:
       '@nuxtjs/storybook':
         specifier: 10.0.3
         version: 10.0.3(c0849c871354944fa35f4c9fb2ef4138)
+      '@stylistic/eslint-plugin':
+        specifier: ^5.10.0
+        version: 5.10.0(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6

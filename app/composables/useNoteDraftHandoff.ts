@@ -2,6 +2,7 @@ import type { NoteDraftTransfer } from "#shared/types/note";
 
 export function useNoteDraftHandoff() {
   const router = useRouter();
+
   const pending = useState<NoteDraftTransfer | null>(
     "chat-note-transfer",
     () => null,
@@ -10,6 +11,7 @@ export function useNoteDraftHandoff() {
   function consume() {
     const transfer = pending.value;
     pending.value = null;
+
     return transfer;
   }
 
@@ -17,11 +19,13 @@ export function useNoteDraftHandoff() {
     pending.value = transfer;
     // Capture the reactive value, rather than comparing it with the raw object.
     const handoff = pending.value;
+
     try {
       const result = await navigateTo({
         path: "/notes/new",
         query: { category: transfer.draft.categoryId ?? "uncategorized" },
       });
+
       if (
         result === false ||
         result instanceof Error ||

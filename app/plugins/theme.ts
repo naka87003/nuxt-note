@@ -4,11 +4,13 @@ import { neutralColors, primaryColors, resolveThemeColor } from "~/utils/theme";
 
 export default defineNuxtPlugin(() => {
   const appConfig = useAppConfig();
+
   const options = {
     maxAge: 60 * 60 * 24 * 365,
     sameSite: "lax" as const,
     path: "/",
   };
+
   const primary = useCookie<string>("nuxt-note-primary", options);
   const neutral = useCookie<string>("nuxt-note-neutral", options);
 
@@ -29,8 +31,10 @@ export default defineNuxtPlugin(() => {
       primaryColors,
       "green",
     );
+
     const color = name === "green" ? "#00c16a" : colors[name][500];
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 54 324 216"><path fill="${color}" d="${nuxtSymbolPath}"/></svg>`;
+
     return {
       link: [
         {

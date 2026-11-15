@@ -12,6 +12,7 @@ const toast = useToast();
 const { consume } = useNoteDraftHandoff();
 // Consume once. Reloading or opening another new-note screen starts a blank note.
 const transfer = consume();
+
 async function saved(note: SavedNote) {
   const destination = location(
     `/notes/${note.id}`,
@@ -19,6 +20,7 @@ async function saved(note: SavedNote) {
       ? filter.value
       : (note.categoryId ?? "uncategorized"),
   );
+
   try {
     assertNavigationSucceeded(await navigateTo(destination));
     await Promise.all([

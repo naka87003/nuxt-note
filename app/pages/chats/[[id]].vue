@@ -23,18 +23,22 @@ function createNoteLinkDraft(note: unknown): string {
     `/notes/${encodeURIComponent(note)}`,
     config.public.siteUrl,
   );
+
   return `${url.href}\n\n`;
 }
 
 let revision = 0;
+
 function newSession() {
   const id = chatId();
+
   return {
     key: revision,
     id,
     initialDraft: id ? "" : createNoteLinkDraft(route.query.note),
   };
 }
+
 const session = ref(newSession());
 
 watch([() => route.path, () => route.query.note], () => {

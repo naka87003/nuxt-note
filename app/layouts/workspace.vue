@@ -5,6 +5,7 @@ import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import type { WorkspaceItem } from "#shared/types/workspace";
 
 const route = useRoute();
+
 const {
   state,
   mode,
@@ -31,6 +32,7 @@ const sidebarToggleIcon = computed(() =>
 
 onMounted(() => {
   const viewport = window.visualViewport;
+
   const fitKeyboard = () => {
     // Let pinch zoom pan naturally instead of resizing the app around it.
     if (!workspaceRoot.value || (viewport && viewport.scale !== 1)) return;
@@ -39,6 +41,7 @@ onMounted(() => {
     workspaceRoot.value.style.top = `${viewport?.offsetTop ?? 0}px`;
     workspaceRoot.value.style.height = `${viewport?.height ?? window.innerHeight}px`;
   };
+
   fitKeyboard();
   if (viewport) useEventListener(viewport, ["resize", "scroll"], fitKeyboard);
 });
@@ -109,9 +112,11 @@ watch(
   () => route.fullPath,
   () => {
     state.value.filter = filter.value;
+
     if (typeof route.params.id === "string") {
       current.value.selected = route.params.id;
     }
+
     drawer.value = false;
   },
   { immediate: true },
@@ -129,27 +134,34 @@ async function editCategory(
   name = "",
 ) {
   if (state.value.editor.busy) return;
+
   if (state.value.editor.dirty) {
     await navigateTo(location("/notes"));
     if (route.path !== "/notes") return;
   }
+
   operation.value = action;
   categoryTarget.value = id;
   categoryLabel.value = name;
   failure.value = "";
   categoryDialog.value = true;
 }
+
 async function saveCategory() {
   if (busy.value) return;
+
   if (
     operation.value !== "delete" &&
     categoryLabel.value.length > INPUT_LIMITS.categoryName
   ) {
     failure.value = `Use at most ${INPUT_LIMITS.categoryName} characters for the category name.`;
+
     return;
   }
+
   busy.value = true;
   failure.value = "";
+
   try {
     if (operation.value === "create") {
       await $fetch("/api/categories", {
@@ -165,6 +177,7 @@ async function saveCategory() {
       await $fetch(`/api/categories/${categoryTarget.value}`, {
         method: "DELETE",
       });
+
       if (filter.value === categoryTarget.value) {
         state.value.filter = "uncategorized";
         await navigateTo(location(route.path, "uncategorized"), {
@@ -172,6 +185,7 @@ async function saveCategory() {
         });
       }
     }
+
     categoryDialog.value = false;
     await refreshNuxtData();
   } catch (error) {

@@ -7,6 +7,7 @@ const props = withDefaults(
   defineProps<{ content: string; streaming?: boolean; copyable?: boolean }>(),
   { streaming: false, copyable: true },
 );
+
 provide(
   "markdown-copyable",
   computed(() => props.copyable),
@@ -23,6 +24,7 @@ const document = shallowRef<MarkdownDocument>({
 });
 
 let revision = 0;
+
 async function update(content: string, streaming: boolean) {
   const current = ++revision;
   const result = await parse(content, { streaming });

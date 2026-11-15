@@ -15,20 +15,24 @@ it.each([1, 7, 10_000])(
         categoryId: "travel",
       },
     ];
+
     const bytes = new TextEncoder().encode(
       ": keep-alive\r\n\r\n" +
         events
           .map((event) => `data: ${JSON.stringify(event)}\r\n\r\n`)
           .join(""),
     );
+
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
         for (let offset = 0; offset < bytes.length; offset += chunkSize) {
           controller.enqueue(bytes.slice(offset, offset + chunkSize));
         }
+
         controller.close();
       },
     });
+
     const received = [];
     for await (const event of readChatStream(body)) received.push(event);
     expect(received).toEqual(events);
@@ -39,9 +43,11 @@ it.each(["invalid JSON", '{"type":"text","text":"unfinished', ""])(
   "reports malformed JSON with a user-facing error: %j",
   async (data) => {
     const body = new Response(`data: ${data}\n\n`).body!;
+
     const reading = async () => {
       for await (const event of readChatStream(body)) void event;
     };
+
     await expect(reading()).rejects.toThrow(
       "Invalid response data. Please try again.",
     );
@@ -68,9 +74,11 @@ it.each([
 ])("rejects an invalid event without yielding it: %j", async (event) => {
   const body = new Response(`data: ${JSON.stringify(event)}\n\n`).body!;
   const received = [];
+
   const reading = async () => {
     for await (const value of readChatStream(body)) received.push(value);
   };
+
   await expect(reading()).rejects.toThrow(
     "Invalid response data. Please try again.",
   );
@@ -87,9 +95,11 @@ it.each(["completed", "stopped", "failed"])(
       { type: "text", text: " \n😀 " },
       { type: "done", status },
     ];
+
     const body = new Response(
       events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""),
     ).body!;
+
     const received = [];
     for await (const event of readChatStream(body)) received.push(event);
     expect(received).toEqual([

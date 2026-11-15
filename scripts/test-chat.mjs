@@ -13,6 +13,7 @@ const root = new URL("../", import.meta.url);
 const name = `nuxt-note-chat-test-${process.pid}`;
 const owner = "11111111-1111-4111-8111-111111111111";
 const secret = randomBytes(32).toString("hex");
+
 const freePort = await new Promise((resolve) => {
   const s = createServer();
   s.listen(0, "127.0.0.1", () => {
@@ -20,9 +21,11 @@ const freePort = await new Promise((resolve) => {
     s.close(() => resolve(port));
   });
 });
+
 let app;
 let logs = "";
 let database;
+
 try {
   database = await startTestDatabase({
     name,
@@ -60,20 +63,26 @@ try {
     logs = (logs + data).slice(-6000);
   });
   const base = `http://127.0.0.1:${freePort}`;
+
   for (let i = 0; i < 80; i++) {
     try {
       if ((await fetch(base + "/api/health")).ok) break;
     } catch {
       /* startup */
     }
+
     await delay(100);
   }
+
   const password = Buffer.from(
     hkdfSync("sha256", secret, "nuxt", "nuxt-session:nuxt-auth-session", 32),
   ).toString("hex");
+
   const cookieFor = async (id) =>
     `nuxt-auth-session=${await seal({ nuxt: 1, id: randomUUID(), data: { user: { id, name: "Test", githubLogin: "test" } } }, password)}`;
+
   const cookie = await cookieFor(owner);
+
   const api = (path, body, options = {}) =>
     fetch(base + path, {
       method: body ? "POST" : "GET",
@@ -81,6 +90,7 @@ try {
       ...(body ? { body: JSON.stringify(body) } : {}),
       ...options,
     });
+
   assert.equal((await fetch(base + "/api/chats")).status, 401);
   const chatId = randomUUID();
   const messageId = randomUUID();
@@ -90,19 +100,23 @@ try {
   const path = `/api/chats/${chatId}`;
   const attemptId = randomUUID();
   const abort = new AbortController();
+
   const response = await api(
     path + "/generate",
     { messageId, attemptId },
     { signal: abort.signal },
   );
+
   assert.equal(response.status, 200);
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
   let events = "";
+
   while (!events.includes('"type":"text"')) {
     const next = await reader.read();
     assert(!next.done);
     events += next.value;
   }
+
   assert.equal(
     (await api(path + "/generate", { messageId, attemptId: randomUUID() }))
       .status,
@@ -110,19 +124,23 @@ try {
   );
   abort.abort();
   let saved;
+
   for (let i = 0; i < 40; i++) {
     saved = await (await api(path)).json();
     if (!saved.generationId) break;
     await delay(50);
   }
+
   assert.equal(saved.generationId, null);
   assert.equal(saved.messages.at(-1).status, "stopped");
   assert.equal(saved.messages.at(-1).content, "Partial");
   const replyId = saved.messages.at(-1).id;
+
   const retry = await api(path + "/generate", {
     messageId,
     attemptId: randomUUID(),
   });
+
   assert.match(await retry.text(), /"status":"completed"/);
   saved = await (await api(path)).json();
   assert.equal(saved.messages.length, 2);
@@ -139,15 +157,19 @@ try {
       .status,
     200,
   );
+
   const failed = await api(path + "/generate", {
     messageId: nextId,
     attemptId: randomUUID(),
   });
+
   assert.match(await failed.text(), /"status":"failed"/);
+
   const again = await api(path + "/generate", {
     messageId: nextId,
     attemptId: randomUUID(),
   });
+
   assert.match(await again.text(), /"status":"completed"/);
   saved = await (await api(path)).json();
   assert.equal(saved.messages.length, 4);
@@ -158,26 +180,33 @@ try {
     content: "SLOW disconnect",
   });
   const disconnected = new AbortController();
+
   const interrupted = await api(
     path + "/generate",
     { messageId: disconnectId, attemptId: randomUUID() },
     { signal: disconnected.signal },
   );
+
   const interruptedReader = interrupted.body
     .pipeThrough(new TextDecoderStream())
     .getReader();
+
   let partial = "";
+
   while (!partial.includes('"type":"text"')) {
     const next = await interruptedReader.read();
     assert(!next.done);
     partial += next.value;
   }
+
   disconnected.abort();
+
   for (let i = 0; i < 40; i++) {
     saved = await (await api(path)).json();
     if (!saved.generationId) break;
     await delay(50);
   }
+
   assert.equal(saved.generationId, null);
   assert.equal(saved.messages.at(-1).status, "stopped");
   assert.equal(saved.messages.at(-1).content, "Partial");
@@ -206,9 +235,11 @@ try {
       .status,
     404,
   );
+
   const draftCategory = await (
     await api("/api/categories", { name: "AI Notes" })
   ).json();
+
   assert.equal(
     (await api(path, { categoryId: draftCategory.id }, { method: "PATCH" }))
       .status,
@@ -259,15 +290,18 @@ try {
     ).status,
     404,
   );
+
   const category = await (
     await api("/api/categories", { name: "Notes fixture" })
   ).json();
+
   const changed = {
     title: "  ",
     markdown: "## Updated\n\n| A | B |\n| - | - |\n| 1 | 2 |",
     categoryId: category.id,
     updatedAt: newNote.updatedAt,
   };
+
   assert.equal((await api(notePath, changed, { method: "PATCH" })).status, 200);
   const updatedNote = await (await api(notePath)).json();
   assert.equal(updatedNote.title, "Untitled note");
@@ -297,6 +331,7 @@ try {
     409,
   );
   assert.deepEqual(await (await api(notePath)).json(), updatedNote);
+
   const concurrent = await Promise.all(
     ["Tab A", "Tab B"].map((title) =>
       api(
@@ -306,6 +341,7 @@ try {
       ),
     ),
   );
+
   assert.deepEqual(
     concurrent.map((response) => response.status).sort(),
     [200, 409],
@@ -354,6 +390,7 @@ try {
   console.log(
     "Chat HTTP smoke passed: auth, create/send idempotency, streaming, concurrency, disconnect/partial save, retry, provider failure, owner isolation.",
   );
+
   if (process.argv.includes("--preview")) {
     const preview = httpServer(async (request, response) => {
       try {
@@ -365,6 +402,7 @@ try {
             : {}),
           redirect: "manual",
         });
+
         response.writeHead(
           upstream.status,
           Object.fromEntries(
@@ -380,6 +418,7 @@ try {
         response.end("Preview unavailable");
       }
     });
+
     await new Promise((resolve) => preview.listen(3012, "127.0.0.1", resolve));
     console.log(
       "Fixture preview: http://127.0.0.1:3012/chats/new (mock AI; temporary database)",

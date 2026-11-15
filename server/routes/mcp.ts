@@ -11,11 +11,13 @@ export default defineEventHandler(async (event) => {
   privateAgentResponse(event);
   const config = useRuntimeConfig(event);
   const request = toWebRequest(event);
+
   const origin = validateMcpRequest(request, {
     siteUrl: config.public.siteUrl,
     allowedOrigins: config.mcpAllowedOrigins,
     deploymentUrl: process.env.VERCEL_URL,
   });
+
   if (origin) {
     setHeader(event, "Access-Control-Allow-Origin", origin);
     setHeader(event, "Vary", "Origin");
@@ -25,6 +27,7 @@ export default defineEventHandler(async (event) => {
       "WWW-Authenticate, MCP-Protocol-Version",
     );
   }
+
   if (event.method === "OPTIONS") {
     setHeader(event, "Access-Control-Allow-Methods", "POST, OPTIONS");
     setHeader(
@@ -32,14 +35,18 @@ export default defineEventHandler(async (event) => {
       "Access-Control-Allow-Headers",
       "Authorization, Content-Type, Accept, MCP-Protocol-Version, MCP-Method, MCP-Name",
     );
+
     return sendNoContent(event, 204);
   }
+
   if (event.method !== "POST") {
     setHeader(event, "Allow", "POST, OPTIONS");
     throw createError({ statusCode: 405, statusMessage: "Method not allowed" });
   }
+
   // Authenticate every exchange, including discovery and initialized clients.
   const userId = await getAgentUserId(event);
+
   const handler = createMcpHandler(
     () => createRemoteNotesServer(userId, config.public.siteUrl),
     {
@@ -49,9 +56,11 @@ export default defineEventHandler(async (event) => {
       maxSubscriptions: 0,
     },
   );
+
   try {
     const response = await handler.fetch(request);
     response.headers.set("Cache-Control", "private, no-store");
+
     return await sendWebResponse(event, response);
   } finally {
     await handler.close();

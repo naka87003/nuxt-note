@@ -17,23 +17,28 @@ const storage = vi.hoisted(() => ({
   updateOwnedNote: vi.fn(),
   deleteOwnedNote: vi.fn(),
 }));
+
 vi.mock("~~/server/utils/note-reads", () => storage);
 vi.mock("~~/server/utils/note-writes", () => storage);
 
 it("uses a created Note link to edit through the real model, despite an earlier incorrect refusal", async () => {
   loadEnv({ quiet: true });
   const apiKey = process.env.NUXT_OPENAI_API_KEY;
+
   if (!apiKey) {
     throw new Error("NUXT_OPENAI_API_KEY is required for pnpm test:ai.");
   }
+
   const note = {
     id: "11111111-1111-4111-8111-111111111111",
     title: "Nuxt memo",
     markdown: "# Nuxt\nNuxt is a web framework.",
     updatedAt: new Date("2026-11-13T00:00:00.000Z"),
   };
+
   storage.readOwnedNote.mockImplementation(async (_owner, id) => {
     if (id !== note.id) throw { statusCode: 404 };
+
     return note;
   });
   storage.searchOwnedNotes.mockResolvedValue({
@@ -46,6 +51,7 @@ it("uses a created Note link to edit through the real model, despite an earlier 
     updatedAt: new Date("2026-11-13T00:00:01.000Z"),
   }));
   const url = `https://notes.example/notes/${note.id}`;
+
   const result = await generateText({
     model: createOpenAI({ apiKey })(
       process.env.NUXT_OPENAI_MODEL || "gpt-6.1-sol",
@@ -76,6 +82,7 @@ it("uses a created Note link to edit through the real model, despite an earlier 
     maxOutputTokens: 2048,
     providerOptions: { openai: { store: false, parallelToolCalls: false } },
   });
+
   expect(storage.readOwnedNote).toHaveBeenCalledWith("fake-owner", note.id);
   expect(storage.updateOwnedNote).toHaveBeenCalledOnce();
   expect(storage.updateOwnedNote.mock.calls[0]![1]).toMatchObject({

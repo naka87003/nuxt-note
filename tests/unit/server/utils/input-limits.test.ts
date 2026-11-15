@@ -16,6 +16,7 @@ vi.mock("nuxt/server", () => ({
 vi.mock("~~/server/utils/prisma", () => ({ getPrisma: vi.fn() }));
 
 const messageId = "11111111-1111-4111-8111-111111111111";
+
 const fields = [
   {
     name: "category",
@@ -73,6 +74,7 @@ describe("input validation compatibility", () => {
           statusMessage: "Invalid note",
         }),
       );
+
       for (const [validate, statusMessage] of [
         [categoryName, "Invalid category"],
         [messageInput, "Invalid message"],
@@ -91,6 +93,7 @@ describe("input validation compatibility", () => {
       categoryId: null,
       extra: true,
     });
+
     expect(normalizeNoteContent(note)).toEqual({
       title: "Untitled note",
       markdown: "  body\n",
@@ -118,6 +121,7 @@ describe("input validation compatibility", () => {
     expect(parseInput(requestIdSchema, messageId.toUpperCase())).toBe(
       messageId.toUpperCase(),
     );
+
     for (const id of [
       null,
       42,
@@ -147,6 +151,7 @@ describe("input validation compatibility", () => {
 
   it("uses the same UTF-16 limits for MCP and API note content", () => {
     const tools = createWorkspaceTools("owner", "https://notes.example");
+
     for (const input of [
       { title: "😀".repeat(25) + "a", markdown: "" },
       { title: "", markdown: "😀".repeat(2500) + "a" },
@@ -158,6 +163,7 @@ describe("input validation compatibility", () => {
         expect.objectContaining({ statusCode: 400 }),
       );
     }
+
     expect(
       tools.list_notes.inputSchema.safeParse({ q: "😀".repeat(25) + "a" })
         .success,

@@ -6,10 +6,12 @@ import { INPUT_LIMITS } from "#shared/utils/input-limits";
 describe("ChatComposer", () => {
   it("focuses after the prefilled link so the user can append a question", async () => {
     const link = "https://example.com/notes/note-1\n\n";
+
     const wrapper = await mountSuspended(ChatComposer, {
       props: { modelValue: link, autofocus: true },
       attachTo: document.body,
     });
+
     const input = wrapper.get("textarea").element;
     expect(document.activeElement).toBe(input);
     expect(input.selectionStart).toBe(link.length);
@@ -37,6 +39,7 @@ describe("ChatComposer", () => {
       const wrapper = await mountSuspended(ChatComposer, {
         props: { modelValue: "日本語" },
       });
+
       await wrapper
         .get("textarea")
         .trigger("keydown", { key: "Enter", ...event });
@@ -61,6 +64,7 @@ describe("ChatComposer", () => {
     const wrapper = await mountSuspended(ChatComposer, {
       props: { modelValue: "x".repeat(INPUT_LIMITS.chatMessage) },
     });
+
     expect(wrapper.get("button").attributes("disabled")).toBeUndefined();
     await wrapper.get("form").trigger("submit");
     expect(wrapper.emitted("send")).toHaveLength(1);

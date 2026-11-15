@@ -19,12 +19,14 @@ export function useChatRefresh(
     const startedAt = revision;
     const request = ++latestRequest;
     const snapshot = await load(activeId.value);
+
     if (
       request === latestRequest &&
       (force || (startedAt === revision && !sending.value))
     ) {
       chat.value = snapshot;
     }
+
     return chat.value;
   };
 }

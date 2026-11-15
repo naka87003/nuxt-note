@@ -4,9 +4,11 @@ const desktop = ref(false);
 
 onMounted(() => {
   const media = window.matchMedia("(min-width: 1024px)");
+
   const update = () => {
     desktop.value = media.matches;
   };
+
   update();
   media.addEventListener("change", update);
   onBeforeUnmount(() => media.removeEventListener("change", update));

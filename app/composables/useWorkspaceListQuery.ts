@@ -7,9 +7,11 @@ export function useWorkspaceListQuery(
   search: Ref<string>,
 ) {
   const query = ref({ category: category.value, q: search.value });
+
   const update = () => {
     query.value = { category: category.value, q: search.value };
   };
+
   const debouncedUpdate = useDebounceFn(update, 500);
 
   watch(
@@ -20,6 +22,7 @@ export function useWorkspaceListQuery(
       // Clear and context changes apply immediately, including pending input.
       if (!search || mode !== previousMode || category !== previousCategory) {
         update();
+
         return;
       }
 

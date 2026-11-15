@@ -14,6 +14,7 @@ const dir = await mkdtemp(resolve(tmpdir(), "notebook-import-"));
 const script = resolve("scripts/import-notebook.mjs");
 let client;
 let database;
+
 try {
   database = await startTestDatabase({
     name,
@@ -33,9 +34,12 @@ try {
     [owner],
   );
   await writeFile(resolve(dir, "tags.csv"), "id,name,user_id\n4,Work,12\n");
+
   const csv =
     'id,user_id,category_id,status_id,tag_id,title,content,created_at,updated_at\n1,12,1,1,4,,"First\nSecond",2026-01-01 00:30:00,2026-01-01 00:30:00\n2,12,1,1,,Plain,Body,2026-01-01 00:30:00,2026-01-01 00:30:00\n3,99,1,1,,Dummy,Ignored,2026-01-01 00:30:00,2026-01-01 00:30:00\n';
+
   await writeFile(resolve(dir, "notes.csv"), csv);
+
   const run = (apply = false, login = "fixture") =>
     spawnSync(
       process.execPath,
@@ -59,12 +63,14 @@ try {
         encoding: "utf8",
       },
     );
+
   const counts = async () =>
     (
       await client.query(
         'SELECT (SELECT count(*)::int FROM "Note") AS notes,(SELECT count(*)::int FROM "Category") AS categories',
       )
     ).rows[0];
+
   assert.equal(run().status, 0);
   assert.deepEqual(await counts(), { notes: 1, categories: 0 });
   assert.notEqual(run(true, "wrong-account").status, 0);
@@ -78,11 +84,13 @@ try {
   const applied = run(true);
   assert.equal(applied.status, 0, applied.stderr + applied.stdout);
   assert.deepEqual(await counts(), { notes: 3, categories: 1 });
+
   const imported = (
     await client.query(
       'SELECT title,markdown,"categoryId",to_char("createdAt",\'YYYY-MM-DD HH24:MI:SS\') AS created FROM "Note" WHERE title = \'First\'',
     )
   ).rows[0];
+
   assert.equal(imported.markdown, "First\nSecond");
   assert.equal(imported.created, "2025-12-31 15:30:00");
   assert.ok(imported.categoryId);

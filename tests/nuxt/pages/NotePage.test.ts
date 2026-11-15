@@ -17,6 +17,7 @@ const { fetchNote, request, navigate, refreshWorkspace, addToast } = vi.hoisted(
     addToast: vi.fn(),
   }),
 );
+
 mockNuxtImport("useToast", () => () => ({ add: addToast }));
 mockNuxtImport("$fetch", () => request);
 mockNuxtImport("navigateTo", () => navigate);
@@ -50,6 +51,7 @@ it("shows loading before opening a note and keeps its content during background 
     createdAt: "2026-11-13T00:00:00Z",
     updatedAt: "2026-11-13T00:00:00Z",
   };
+
   const data = ref<typeof note | null>(null);
   const status = ref("pending");
   fetchNote.mockResolvedValue({
@@ -58,10 +60,12 @@ it("shows loading before opening a note and keeps its content during background 
     error: ref(null),
     refresh: vi.fn(),
   });
+
   const wrapper = await mountSuspended(NotePage, {
     route: "/notes/note-2",
     global: { stubs: { MarkdownContent: true, UIcon: true } },
   });
+
   expect(wrapper.get('[role="status"]').text()).toBe("Loading…");
   expect(wrapper.find(".note-reader-actions").exists()).toBe(false);
 
@@ -96,13 +100,16 @@ it.each(["work", null])(
       status: ref("success"),
       refresh: vi.fn(),
     });
+
     const wrapper = await mountSuspended(NotePage, {
       route: "/notes/note-1?category=all",
       global: { stubs: { MarkdownContent: true, UIcon: true } },
     });
+
     const button = wrapper
       .findAll("a")
       .find((link) => link.text() === "Ask AI")!;
+
     expect(button).toBeDefined();
     const target = new URL(button.attributes("href")!, "https://example.com");
     expect(target.pathname).toBe("/chats/new");
@@ -121,22 +128,27 @@ const original = {
   createdAt: "2026-11-13T00:00:00.000Z",
   updatedAt: "2026-11-13T00:00:00.000Z",
 };
+
 const changed = {
   ...original,
   title: "Updated title",
   markdown: "Updated body",
   updatedAt: "2026-11-13T00:00:01.000Z",
 };
+
 async function deletionPage(route = "/notes/note-1") {
   const data = ref<typeof original | undefined>({ ...original });
   const error = ref<{ statusCode: number } | null>(null);
   const status = ref("success");
+
   const refresh = vi.fn().mockImplementation(async () => {
     data.value = { ...changed };
     error.value = null;
     status.value = "success";
   });
+
   fetchNote.mockResolvedValue({ data, error, refresh, status });
+
   const wrapper = await mountSuspended(NotePage, {
     route,
     global: {
@@ -159,8 +171,10 @@ async function deletionPage(route = "/notes/note-1") {
       },
     },
   });
+
   return { wrapper, data, refresh, error, status };
 }
+
 function button(
   wrapper: Awaited<ReturnType<typeof deletionPage>>["wrapper"],
   label: string,
@@ -255,6 +269,7 @@ it.each([
   "list refresh",
 ])("reports deletion success if %s fails afterwards", async (step) => {
   const { wrapper, data } = await deletionPage();
+
   if (step === "navigation") {
     navigate.mockRejectedValueOnce(new Error("Navigation failed"));
   } else if (step === "cancelled navigation") {
@@ -264,6 +279,7 @@ it.each([
   } else {
     refreshWorkspace.mockRejectedValueOnce(new Error("List refresh failed"));
   }
+
   await button(wrapper, "Delete").trigger("click");
   await button(wrapper, "Delete note").trigger("click");
   await flushPromises();
@@ -292,6 +308,7 @@ it.each([
   async (step) => {
     const { wrapper, data, refresh, error, status } = await deletionPage();
     const savedNote = { ...changed, title: "Saved title", categoryId: "work" };
+
     if (step === "navigation") {
       navigate.mockRejectedValueOnce(new Error("Navigation failed"));
     } else if (step === "cancelled navigation") {
@@ -307,6 +324,7 @@ it.each([
     } else {
       refreshWorkspace.mockRejectedValueOnce(new Error("List refresh failed"));
     }
+
     await button(wrapper, "Edit").trigger("click");
     wrapper.getComponent({ name: "NoteEditor" }).vm.$emit("saved", savedNote);
     await flushPromises();
@@ -314,10 +332,12 @@ it.each([
       expect.objectContaining({ title: "Note saved", color: "warning" }),
     );
     expect(wrapper.findComponent({ name: "NoteEditor" }).exists()).toBe(false);
+
     if (step === "note refresh") {
       expect(data.value).toEqual(savedNote);
       expect(wrapper.get("article").text()).toContain("Saved title");
     }
+
     expect(data.value).toBeDefined();
     expect(wrapper.text()).not.toContain("Could not save");
     expect(request).not.toHaveBeenCalled();
@@ -341,6 +361,7 @@ it.each([
       },
     },
   });
+
   if (step === "navigation") {
     navigate.mockRejectedValueOnce(new Error("Navigation failed"));
   } else if (step === "cancelled navigation") {
@@ -350,6 +371,7 @@ it.each([
   } else {
     refreshWorkspace.mockRejectedValueOnce(new Error("List refresh failed"));
   }
+
   wrapper
     .getComponent({ name: "NoteEditor" })
     .vm.$emit("saved", { ...original, categoryId: "work" });
@@ -373,13 +395,17 @@ async function duplicatedNavigation() {
     history: createMemoryHistory(),
     routes: [{ path: "/notes/:id", component: {} }],
   });
+
   await router.push("/notes/note-1?category=work");
+
   return router.replace("/notes/note-1?category=work");
 }
+
 it("refreshes a saved Note without warning when its category URL is already current", async () => {
   const { wrapper, refresh } = await deletionPage(
     "/notes/note-1?category=work",
   );
+
   navigate.mockResolvedValueOnce(await duplicatedNavigation());
   await button(wrapper, "Edit").trigger("click");
   wrapper
@@ -405,6 +431,7 @@ it("refreshes lists after a duplicate navigation when opening a newly saved Note
       },
     },
   });
+
   navigate.mockResolvedValueOnce(await duplicatedNavigation());
   wrapper
     .getComponent({ name: "NoteEditor" })

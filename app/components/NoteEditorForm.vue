@@ -14,6 +14,7 @@ const props = defineProps<{
   saveBlocked?: boolean;
   categoryOptions: { label: string; value: string }[];
 }>();
+
 const saveDisabled = computed(
   () =>
     !!(
@@ -24,9 +25,11 @@ const saveDisabled = computed(
       (props.note && !props.dirty)
     ),
 );
+
 const previewHeadingTag = computed(() => {
   if (props.headingTag === "h3") return "h4";
   if (props.headingTag === "h2") return "h3";
+
   return "h2";
 });
 
@@ -46,6 +49,7 @@ const category = defineModel<string>("category", { required: true });
 const view = ref("split");
 // Match the server's split view until hydration completes.
 const mobile = useMediaQuery("(max-width: 767px)", { ssrWidth: 768 });
+
 const viewItems = computed(() => [
   { label: "Edit", value: "edit" },
   ...(!mobile.value ? [{ label: "Split view", value: "split" }] : []),

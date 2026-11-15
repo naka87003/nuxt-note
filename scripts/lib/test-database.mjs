@@ -4,6 +4,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { inspect } from "node:util";
 
 const root = new URL("../../", import.meta.url);
+
 const docker = (args, options = {}) =>
   execFileSync("docker", args, {
     encoding: "utf8",
@@ -18,7 +19,9 @@ export function readTestMigrations(
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .sort();
+
   if (!names.length) throw new Error("No test database migrations found");
+
   return names
     .map((name) =>
       readFileSync(new URL(`${name}/migration.sql`, directory), "utf8"),
@@ -36,17 +39,20 @@ export async function startTestDatabase({
   let attempted = false;
   let started = false;
   let stopped = false;
+
   const stop = () => {
     if (stopped) return;
     stopped = true;
     process.off("SIGINT", interrupt);
     process.off("SIGTERM", terminate);
     const errors = [];
+
     try {
       onStop();
     } catch (error) {
       errors.push(error);
     }
+
     if (attempted) {
       try {
         docker(["rm", "--force", "--volumes", name], {
@@ -57,10 +63,12 @@ export async function startTestDatabase({
         if (started) errors.push(error);
       }
     }
+
     if (errors.length) {
       throw new AggregateError(errors, "Test resource cleanup failed");
     }
   };
+
   const exit = (code) => {
     try {
       stop();
@@ -74,6 +82,7 @@ export async function startTestDatabase({
       process.exit(code);
     }
   };
+
   const interrupt = () => exit(130);
   const terminate = () => exit(143);
   process.once("SIGINT", interrupt);
@@ -106,6 +115,7 @@ export async function startTestDatabase({
     } catch {
       throw new Error("Database tests require Docker. Start its daemon first.");
     }
+
     attempted = true;
     docker([
       "run",
@@ -121,6 +131,7 @@ export async function startTestDatabase({
     ]);
     started = true;
     let ready = false;
+
     for (let attempt = 0; attempt < 40; attempt++) {
       try {
         docker(
@@ -133,11 +144,14 @@ export async function startTestDatabase({
         await delay(250);
       }
     }
+
     if (!ready) throw new Error("Disposable PostgreSQL did not become ready");
     executeSql(readTestMigrations());
+
     const port = publish
       ? docker(["port", name, "5432/tcp"]).trim().split(":").at(-1)
       : undefined;
+
     return {
       url: publish
         ? `postgresql://postgres@127.0.0.1:${port}/${database}`

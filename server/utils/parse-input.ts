@@ -7,11 +7,13 @@ export function parseInput<S extends z.ZodType>(
   value: unknown,
 ): z.output<S> {
   const result = schema.safeParse(value);
+
   if (!result.success) {
     throw createError({
       statusCode: 400,
       statusMessage: result.error.issues[0]?.message ?? "Invalid input",
     });
   }
+
   return result.data;
 }

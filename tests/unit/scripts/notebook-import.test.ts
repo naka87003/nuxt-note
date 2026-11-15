@@ -28,6 +28,7 @@ describe("Notebook migration", () => {
     expect(() => sourceDate("2026-02-30 00:00:00")).toThrow();
     expect(() => sourceDate("")).toThrow();
   });
+
   const note = {
     id: "1",
     user_id: "12",
@@ -40,6 +41,7 @@ describe("Notebook migration", () => {
     updated_at: "2026-01-02 00:30:00",
     image_path: "ignored.png",
   };
+
   const tag = { id: "4", user_id: "12", name: " ＡＢＣ " };
   it("filters owners, maps tags, leaves untagged notes uncategorized, and omits images", () => {
     const result = prepareNotes(
@@ -52,6 +54,7 @@ describe("Notebook migration", () => {
       "12",
       "target",
     );
+
     expect(result).toHaveLength(2);
     expect(result[0]).toMatchObject({
       title: "First line",

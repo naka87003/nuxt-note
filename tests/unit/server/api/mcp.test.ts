@@ -11,10 +11,12 @@ const reads = vi.hoisted(() => ({
   searchOwnedNotes: vi.fn(),
   readOwnedNote: vi.fn(),
 }));
+
 vi.mock("~~/server/utils/note-reads", () => reads);
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));
+
 const writes = vi.hoisted(() => ({
   $transaction: vi.fn(),
   $queryRaw: vi.fn(),
@@ -39,6 +41,7 @@ const writes = vi.hoisted(() => ({
     deleteMany: vi.fn(),
   },
 }));
+
 vi.mock("~~/server/utils/prisma", () => ({ getPrisma: () => writes }));
 const clients: Client[] = [];
 const handlers: ReturnType<typeof createMcpHandler>[] = [];
@@ -60,6 +63,7 @@ afterEach(async () => {
   for (const client of clients.splice(0)) await client.close();
   for (const handler of handlers.splice(0)) await handler.close();
 });
+
 async function connect(owner: string, siteUrl = "https://notes.example") {
   const handler = createMcpHandler(
     () => createRemoteNotesServer(owner, siteUrl),
@@ -68,6 +72,7 @@ async function connect(owner: string, siteUrl = "https://notes.example") {
       maxSubscriptions: 0,
     },
   );
+
   handlers.push(handler);
   const client = new Client({ name: "remote-test", version: "0.1.0" });
   clients.push(client);
@@ -76,6 +81,7 @@ async function connect(owner: string, siteUrl = "https://notes.example") {
       fetch: async (url, init) => handler.fetch(new Request(url, init)),
     }),
   );
+
   return client;
 }
 
@@ -152,6 +158,7 @@ describe("remote MCP tools", () => {
       writes.$queryRaw
         .mockResolvedValueOnce([{ id: "source" }, { id: "target" }])
         .mockResolvedValueOnce([{ movedCount: 1, currentChatMoved: false }]);
+
       if (stage === "move") {
         writes.$executeRaw.mockRejectedValueOnce(
           new Error("private database details"),
@@ -160,6 +167,7 @@ describe("remote MCP tools", () => {
         writes.$executeRaw.mockResolvedValueOnce(1);
         writes.category.deleteMany.mockResolvedValueOnce({ count: 0 });
       }
+
       expect(
         await client.callTool({
           name: "merge_categories",
@@ -201,9 +209,11 @@ describe("remote MCP tools", () => {
     async (sourceCategoryId, targetCategoryId, movedCount) => {
       const client = await connect("owner");
       const { tools } = await client.listTools();
+
       const definition = tools.find(
         (tool) => tool.name === "move_category_chats",
       );
+
       expect(definition?.inputSchema.required?.slice().sort()).toEqual([
         "sourceCategoryId",
         "targetCategoryId",
@@ -220,10 +230,12 @@ describe("remote MCP tools", () => {
             .map((id) => ({ id })),
         )
         .mockResolvedValueOnce([{ movedCount, currentChatMoved: false }]);
+
       const result = await client.callTool({
         name: "move_category_chats",
         arguments: { sourceCategoryId, targetCategoryId },
       });
+
       expect(result.isError).toBeFalsy();
       expect(result.structuredContent).toEqual({
         sourceCategoryId,
@@ -310,9 +322,11 @@ describe("remote MCP tools", () => {
     async (sourceCategoryId, targetCategoryId, movedCount) => {
       const client = await connect("owner");
       const { tools } = await client.listTools();
+
       const definition = tools.find(
         (tool) => tool.name === "move_category_notes",
       );
+
       expect(definition?.inputSchema.required?.slice().sort()).toEqual([
         "sourceCategoryId",
         "targetCategoryId",
@@ -328,10 +342,12 @@ describe("remote MCP tools", () => {
           .map((id) => ({ id })),
       );
       writes.$executeRaw.mockResolvedValue(movedCount);
+
       const result = await client.callTool({
         name: "move_category_notes",
         arguments: { sourceCategoryId, targetCategoryId },
       });
+
       expect(result.isError).toBeFalsy();
       expect(result.structuredContent).toEqual({
         sourceCategoryId,
@@ -402,11 +418,13 @@ describe("remote MCP tools", () => {
     ).toBe(true);
     expect(writes.$transaction).not.toHaveBeenCalled();
   });
+
   const noteTitleInput = {
     id: "note",
     title: "  New title  ",
     updatedAt: "2026-11-15T00:00:00.000Z",
   };
+
   it.each([
     ["  New title  ", "New title"],
     ["", "Untitled note"],
@@ -417,9 +435,11 @@ describe("remote MCP tools", () => {
     async (title, savedTitle) => {
       const client = await connect("owner");
       const { tools } = await client.listTools();
+
       const definition = tools.find(
         (tool) => tool.name === "update_note_title",
       );
+
       expect(definition?.inputSchema.required?.slice().sort()).toEqual([
         "id",
         "title",
@@ -436,14 +456,17 @@ describe("remote MCP tools", () => {
         categoryId: "existing",
         updatedAt: new Date("2026-11-15T00:00:00.001Z"),
       });
+
       const clock = vi
         .spyOn(Date, "now")
         .mockReturnValue(new Date(noteTitleInput.updatedAt).getTime());
+
       try {
         const result = await client.callTool({
           name: "update_note_title",
           arguments: { ...noteTitleInput, title },
         });
+
         expect(result.isError).toBeFalsy();
         expect(result.structuredContent).toEqual({
           id: "note",
@@ -573,10 +596,12 @@ describe("remote MCP tools", () => {
       openWorldHint: false,
     });
     writes.chat.deleteMany.mockResolvedValue({ count: 1 });
+
     const result = await client.callTool({
       name: "delete_chat",
       arguments: deleteChatInput,
     });
+
     expect(result.isError).toBeFalsy();
     expect(result.structuredContent).toEqual({ id: "chat", deleted: true });
     expect(result.content).toEqual([
@@ -648,12 +673,14 @@ describe("remote MCP tools", () => {
     async (stage) => {
       const client = await connect("owner");
       const error = new Error("private database details");
+
       if (stage === "delete") {
         writes.chat.deleteMany.mockRejectedValue(error);
       } else {
         writes.chat.deleteMany.mockResolvedValue({ count: 0 });
         writes.chat.findFirst.mockRejectedValue(error);
       }
+
       expect(
         await client.callTool({
           name: "delete_chat",
@@ -700,19 +727,23 @@ describe("remote MCP tools", () => {
         .sort(),
     ).toEqual(["a", "b"]);
   });
+
   const chatTitleInput = {
     id: "chat",
     title: "  New title  ",
     updatedAt: "2026-11-15T00:00:00.000Z",
   };
+
   it.each(["New title", "😀".repeat(80)])(
     "updates only the Chat title with a monotonically advancing version",
     async (title) => {
       const client = await connect("owner");
       const { tools } = await client.listTools();
+
       const definition = tools.find(
         (tool) => tool.name === "update_chat_title",
       );
+
       expect(definition?.inputSchema.required?.slice().sort()).toEqual([
         "id",
         "title",
@@ -729,9 +760,11 @@ describe("remote MCP tools", () => {
         categoryId: "existing",
         updatedAt: new Date("2026-11-15T00:00:00.001Z"),
       });
+
       const clock = vi
         .spyOn(Date, "now")
         .mockReturnValue(new Date(chatTitleInput.updatedAt).getTime());
+
       try {
         const result = await client.callTool({
           name: "update_chat_title",
@@ -740,6 +773,7 @@ describe("remote MCP tools", () => {
             title: title === "New title" ? chatTitleInput.title : title,
           },
         });
+
         expect(result.isError).toBeFalsy();
         expect(result.structuredContent).toEqual({
           id: "chat",
@@ -830,19 +864,23 @@ describe("remote MCP tools", () => {
     ).toBe(true);
     expect(writes.chat.update).not.toHaveBeenCalled();
   });
+
   const chatCategoryInput = {
     id: "chat",
     categoryId: "owned",
     updatedAt: "2026-11-15T00:00:00.000Z",
   };
+
   it.each([null, "owned"])(
     "changes only a Chat category to %j with ownership and version checks",
     async (categoryId) => {
       const client = await connect("owner");
       const { tools } = await client.listTools();
+
       const definition = tools.find(
         (tool) => tool.name === "update_chat_category",
       );
+
       expect(definition?.inputSchema.required?.slice().sort()).toEqual([
         "categoryId",
         "id",
@@ -861,14 +899,17 @@ describe("remote MCP tools", () => {
         categoryId,
         updatedAt: new Date("2026-11-15T00:00:00.001Z"),
       });
+
       const clock = vi
         .spyOn(Date, "now")
         .mockReturnValue(new Date(chatCategoryInput.updatedAt).getTime());
+
       try {
         const result = await client.callTool({
           name: "update_chat_category",
           arguments: { ...chatCategoryInput, categoryId },
         });
+
         expect(result.isError).toBeFalsy();
         expect(result.structuredContent).toEqual({
           id: "chat",
@@ -890,6 +931,7 @@ describe("remote MCP tools", () => {
           where: { id: "chat", userId: "owner" },
           select: { id: true },
         });
+
         if (categoryId) {
           expect(writes.category.findFirst).toHaveBeenCalledWith({
             where: { id: "owned", userId: "owner" },
@@ -1013,10 +1055,12 @@ describe("remote MCP tools", () => {
         messages: [{ content: "A **question**" }],
       },
     ]);
+
     const result = await client.callTool({
       name: "list_chats",
       arguments: { q: "50%_", category: "uncategorized" },
     });
+
     expect(result.isError).toBeFalsy();
     expect(result.structuredContent).toEqual({
       chats: [
@@ -1063,18 +1107,22 @@ describe("remote MCP tools", () => {
   });
   it("returns bounded Chat pages with nextOffset and an empty final page", async () => {
     const client = await connect("owner");
+
     const chats = ["a", "b", "c"].map((id) => ({
       id,
       title: id,
       messages: [],
     }));
+
     writes.chat.findMany.mockImplementation(async ({ skip, take }) =>
       chats.slice(skip, skip + take),
     );
+
     const first = await client.callTool({
       name: "list_chats",
       arguments: { limit: 2 },
     });
+
     expect(first.structuredContent).toMatchObject({
       chats: [{ id: "a", preview: "" }, { id: "b" }],
       nextOffset: 2,
@@ -1099,6 +1147,7 @@ describe("remote MCP tools", () => {
   });
   it("reads Chat messages in bounded chronological pages without recovering generation state", async () => {
     const client = await connect("owner");
+
     const messages = ["user", "assistant", "user"].map((role, index) => ({
       id: `m${index}`,
       role,
@@ -1107,6 +1156,7 @@ describe("remote MCP tools", () => {
       replyToId: null,
       createdAt: new Date("2026-11-15T00:00:00Z"),
     }));
+
     writes.chat.findFirst.mockImplementation(async ({ select }) => ({
       id: "chat",
       title: "Chat title",
@@ -1117,10 +1167,12 @@ describe("remote MCP tools", () => {
         select.messages.skip + select.messages.take,
       ),
     }));
+
     const first = await client.callTool({
       name: "get_chat",
       arguments: { id: "chat", limit: 2 },
     });
+
     expect(first.isError).toBeFalsy();
     expect(first.structuredContent).toMatchObject({
       id: "chat",
@@ -1155,18 +1207,22 @@ describe("remote MCP tools", () => {
         },
       },
     });
+
     const last = await client.callTool({
       name: "get_chat",
       arguments: { id: "chat", limit: 2, offset: 2 },
     });
+
     expect(last.structuredContent).toMatchObject({
       messages: [{ id: "m2" }],
       nextOffset: null,
     });
+
     const empty = await client.callTool({
       name: "get_chat",
       arguments: { id: "chat", offset: 3 },
     });
+
     expect(empty.structuredContent).toMatchObject({
       messages: [],
       nextOffset: null,
@@ -1253,6 +1309,7 @@ describe("remote MCP tools", () => {
     "rejects invalid pagination or ownership for both Chat tools %j",
     async (args) => {
       const client = await connect("owner");
+
       for (const name of ["list_chats", "get_chat"]) {
         expect(
           (
@@ -1266,6 +1323,7 @@ describe("remote MCP tools", () => {
           ).isError,
         ).toBe(true);
       }
+
       expect(writes.chat.findMany).not.toHaveBeenCalled();
       expect(writes.chat.findFirst).not.toHaveBeenCalled();
     },
@@ -1306,10 +1364,12 @@ describe("remote MCP tools", () => {
         expect(
           tools.find((tool) => tool.name === "get_category")?.annotations,
         ).toMatchObject({ readOnlyHint: true, openWorldHint: false });
+
         const result = await client.callTool({
           name: "get_category",
           arguments: { id: "category" },
         });
+
         expect(result.isError).toBeFalsy();
         expect(result.structuredContent).toEqual({
           id: "category",
@@ -1337,6 +1397,7 @@ describe("remote MCP tools", () => {
           },
         });
       }
+
       expect(reads.readOwnedNote).not.toHaveBeenCalled();
       expect(reads.searchOwnedNotes).not.toHaveBeenCalled();
     },
@@ -1386,6 +1447,7 @@ describe("remote MCP tools", () => {
   });
   it("renames only the token owner's Category using browser normalization", async () => {
     writes.category.updateMany.mockResolvedValue({ count: 1 });
+
     for (const owner of ["a", "b"]) {
       const client = await connect(owner);
       const { tools } = await client.listTools();
@@ -1437,6 +1499,7 @@ describe("remote MCP tools", () => {
       .mockResolvedValueOnce({ count: 0 })
       .mockRejectedValueOnce({ code: "P2002" })
       .mockRejectedValueOnce(new Error("private database details"));
+
     for (const message of [
       "Category not found.",
       "A Category with this name already exists. Use list_categories to find its ID.",
@@ -1455,6 +1518,7 @@ describe("remote MCP tools", () => {
   });
   it("deletes only the token owner's Category and declares destructive behavior", async () => {
     writes.category.deleteMany.mockResolvedValue({ count: 1 });
+
     for (const owner of ["a", "b"]) {
       const client = await connect(owner);
       const { tools } = await client.listTools();
@@ -1478,6 +1542,7 @@ describe("remote MCP tools", () => {
         where: { id: "category", userId: owner },
       });
     }
+
     expect(writes.note.deleteMany).not.toHaveBeenCalled();
   });
   it.each([
@@ -1522,12 +1587,15 @@ describe("remote MCP tools", () => {
       id: `${data.userId}-category`,
       name: data.name,
     }));
+
     for (const owner of ["a", "b"]) {
       const client = await connect(owner);
+
       const result = await client.callTool({
         name: "create_category",
         arguments: { name: "  Ｎｕｘｔ  " },
       });
+
       expect(result).toMatchObject({
         structuredContent: { id: `${owner}-category`, name: "Ｎｕｘｔ" },
       });
@@ -1624,11 +1692,13 @@ describe("remote MCP tools", () => {
       { id: `${where.userId}-category`, name: "Empty category" },
     ]);
     const [a, b] = await Promise.all([connect("a"), connect("b")]);
+
     const [first, second] = await Promise.all(
       [a, b].map((client) =>
         client.callTool({ name: "list_categories", arguments: {} }),
       ),
     );
+
     expect(first.structuredContent).toEqual({
       categories: [{ id: "a-category", name: "Empty category" }],
     });
@@ -1735,10 +1805,12 @@ describe("remote MCP tools", () => {
       categoryId: null,
       createdAt: new Date("2026-11-13T00:00:00Z"),
     });
+
     const result = await client.callTool({
       name: "create_note",
       arguments: { title: "  ", markdown: "# Saved" },
     });
+
     expect(result.isError).toBeFalsy();
     expect(result.structuredContent).toMatchObject({
       id: "new",
@@ -1778,11 +1850,13 @@ describe("remote MCP tools", () => {
   });
   it("validates category ownership before creating and hides storage errors", async () => {
     const client = await connect("owner");
+
     const call = () =>
       client.callTool({
         name: "create_note",
         arguments: { title: "New", markdown: "", categoryId: "category" },
       });
+
     writes.category.findFirst.mockResolvedValue(null);
     expect(await call()).toMatchObject({
       isError: true,
@@ -1814,12 +1888,14 @@ describe("remote MCP tools", () => {
     });
     expect(JSON.stringify(result)).not.toContain("private database details");
   });
+
   const updateInput = {
     id: "note",
     title: "  Updated  ",
     markdown: "# Changed",
     updatedAt: "2026-11-13T00:00:00.000Z",
   };
+
   it("updates only the owner and expected version and returns the saved Note URL", async () => {
     const client = await connect("owner", "https://my-notes.example/");
     writes.note.update.mockResolvedValue({
@@ -1838,10 +1914,12 @@ describe("remote MCP tools", () => {
       destructiveHint: true,
       idempotentHint: false,
     });
+
     const result = await client.callTool({
       name: "update_note",
       arguments: updateInput,
     });
+
     expect(result.isError).toBeFalsy();
     expect(result.structuredContent).toMatchObject({
       title: "Updated",
@@ -1872,6 +1950,7 @@ describe("remote MCP tools", () => {
     const expectedTime = new Date(updateInput.updatedAt).getTime();
     const clock = vi.spyOn(Date, "now").mockReturnValue(expectedTime);
     writes.note.update.mockResolvedValue({ id: "note" });
+
     try {
       await client.callTool({ name: "update_note", arguments: updateInput });
       expect(writes.note.update).toHaveBeenCalledWith(
@@ -1904,6 +1983,7 @@ describe("remote MCP tools", () => {
           data: expect.objectContaining({ categoryId }),
         }),
       );
+
       if (categoryId) {
         expect(writes.category.findFirst).toHaveBeenCalledWith({
           where: { id: "owned", userId: "owner" },
@@ -1915,10 +1995,12 @@ describe("remote MCP tools", () => {
   it("rejects missing and foreign categories before writing", async () => {
     const client = await connect("owner");
     writes.category.findFirst.mockResolvedValue(null);
+
     const result = await client.callTool({
       name: "update_note",
       arguments: { ...updateInput, categoryId: "foreign" },
     });
+
     expect(result).toMatchObject({
       isError: true,
       content: [{ text: "Note or category not found." }],
@@ -1956,10 +2038,12 @@ describe("remote MCP tools", () => {
     const client = await connect("owner");
     writes.note.update.mockRejectedValueOnce({ code: "P2025" });
     writes.note.findFirst.mockResolvedValue({ id: "note" });
+
     const result = await client.callTool({
       name: "update_note",
       arguments: updateInput,
     });
+
     expect(result).toMatchObject({
       isError: true,
       content: [{ text: expect.stringContaining("Note has changed.") }],
@@ -2005,19 +2089,23 @@ describe("remote MCP tools", () => {
       writes.note.update.mock.calls.map(([args]) => args.where.userId).sort(),
     ).toEqual(["a", "b"]);
   });
+
   const categoryInput = {
     id: "note",
     categoryId: "owned",
     updatedAt: "2026-11-13T00:00:00.000Z",
   };
+
   it.each([null, "owned"])(
     "changes only the category to %j without selecting the body",
     async (categoryId) => {
       const client = await connect("owner");
       const { tools } = await client.listTools();
+
       const definition = tools.find(
         (tool) => tool.name === "update_note_category",
       );
+
       expect(definition?.inputSchema.required?.slice().sort()).toEqual([
         "categoryId",
         "id",
@@ -2035,14 +2123,17 @@ describe("remote MCP tools", () => {
         categoryId,
         updatedAt: new Date("2026-11-13T00:00:00.001Z"),
       });
+
       const clock = vi
         .spyOn(Date, "now")
         .mockReturnValue(new Date(categoryInput.updatedAt).getTime());
+
       try {
         const result = await client.callTool({
           name: "update_note_category",
           arguments: { ...categoryInput, categoryId },
         });
+
         expect(result.isError).toBeFalsy();
         expect(result.structuredContent).toMatchObject({
           categoryId,
@@ -2064,6 +2155,7 @@ describe("remote MCP tools", () => {
             updatedAt: true,
           },
         });
+
         if (categoryId) {
           expect(writes.category.findFirst).toHaveBeenCalledWith({
             where: { id: categoryId, userId: "owner" },
@@ -2072,6 +2164,7 @@ describe("remote MCP tools", () => {
         } else {
           expect(writes.category.findFirst).not.toHaveBeenCalled();
         }
+
         expect(reads.readOwnedNote).not.toHaveBeenCalled();
         expect(writes.note.findFirst).not.toHaveBeenCalled();
       } finally {
@@ -2154,10 +2247,12 @@ describe("remote MCP tools", () => {
     ).toBe(true);
     expect(writes.note.update).not.toHaveBeenCalled();
   });
+
   const deleteInput = {
     id: "note",
     updatedAt: "2026-11-13T00:00:00.000Z",
   };
+
   it("deletes only the owner and expected version without returning content", async () => {
     const client = await connect("owner");
     const { tools } = await client.listTools();
@@ -2170,10 +2265,12 @@ describe("remote MCP tools", () => {
       openWorldHint: false,
     });
     writes.note.deleteMany.mockResolvedValue({ count: 1 });
+
     const result = await client.callTool({
       name: "delete_note",
       arguments: deleteInput,
     });
+
     expect(result.isError).toBeFalsy();
     expect(result.structuredContent).toEqual({ id: "note", deleted: true });
     expect(result.content).toEqual([
@@ -2220,10 +2317,12 @@ describe("remote MCP tools", () => {
     const client = await connect("owner");
     writes.note.deleteMany.mockResolvedValue({ count: 0 });
     writes.note.findFirst.mockResolvedValue({ id: "note" });
+
     const result = await client.callTool({
       name: "delete_note",
       arguments: deleteInput,
     });
+
     expect(result).toMatchObject({
       isError: true,
       content: [
@@ -2237,16 +2336,19 @@ describe("remote MCP tools", () => {
     async (stage) => {
       const client = await connect("owner");
       const error = new Error("private database details");
+
       if (stage === "delete") {
         writes.note.deleteMany.mockRejectedValue(error);
       } else {
         writes.note.deleteMany.mockResolvedValue({ count: 0 });
         writes.note.findFirst.mockRejectedValue(error);
       }
+
       const result = await client.callTool({
         name: "delete_note",
         arguments: deleteInput,
       });
+
       expect(result).toMatchObject({
         isError: true,
         content: [{ text: "Could not delete Note. Please try again." }],
@@ -2305,10 +2407,12 @@ describe("remote MCP tools", () => {
   });
   it("keeps concurrent owners separate and serializes dates", async () => {
     const [a, b] = await Promise.all([connect("a"), connect("b")]);
+
     const results = await Promise.all([
       a.callTool({ name: "get_note", arguments: { id: "note" } }),
       b.callTool({ name: "get_note", arguments: { id: "note" } }),
     ]);
+
     expect(reads.readOwnedNote).toHaveBeenCalledWith("a", "note");
     expect(reads.readOwnedNote).toHaveBeenCalledWith("b", "note");
     expect(results[0]?.structuredContent?.updatedAt).toBe(
@@ -2322,10 +2426,12 @@ describe("remote MCP tools", () => {
     { category: 123 },
   ])("rejects invalid search input %j", async (args) => {
     const client = await connect("owner");
+
     const result = await client.callTool({
       name: "list_notes",
       arguments: args,
     });
+
     expect(result.isError).toBe(true);
     expect(reads.searchOwnedNotes).not.toHaveBeenCalled();
   });
@@ -2341,10 +2447,12 @@ describe("remote MCP tools", () => {
     reads.readOwnedNote.mockRejectedValueOnce(
       new Error("private connection information"),
     );
+
     const result = await client.callTool({
       name: "get_note",
       arguments: { id: "note" },
     });
+
     expect(result.isError).toBe(true);
     expect(JSON.stringify(result)).not.toContain(
       "private connection information",

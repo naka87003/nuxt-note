@@ -11,16 +11,20 @@ const confirmingDiscard = ref(false);
 const keepEditingButton = useTemplateRef("keepEditingButton");
 let cancelTrigger: HTMLElement | null = null;
 const initialTitle = "Nuxt data fetching";
+
 const categoryFetchExample = `\`\`\`ts
 const selectedCategory = ref('Nuxt')
 const { data } = await useFetch('/api/notes', {
   query: { category: selectedCategory }
 })
 \`\`\``;
+
 const conversation = landingConversations.useFetch;
+
 const categoryAnswer = `Pass the selected category as a reactive query parameter. useFetch will fetch again when it changes.
 
 ${categoryFetchExample}`;
+
 const initialMarkdown = `## Overview
 
 Use useFetch for URL-based requests and useAsyncData for custom async logic.
@@ -40,10 +44,13 @@ ${categoryFetchExample}
 - Define the response type
 - Handle loading and errors
 - Refresh when filters change`;
+
 const category = ref("Nuxt");
+
 const categoryOptions = ["Uncategorized", "English", "Nuxt", "TypeScript"].map(
   (value) => ({ label: value, value }),
 );
+
 const title = ref(initialTitle);
 const displayTitle = computed(() => title.value.trim() || "Untitled note");
 const markdown = ref(initialMarkdown);
@@ -52,9 +59,11 @@ const root = useTemplateRef("root");
 const editor = useTemplateRef("editor");
 const hintId = useId();
 const dialogTitleId = useId();
+
 const editing = computed(
   () => step.value === "edit" || step.value === "saving",
 );
+
 const steps: Record<Step, { progress: number; guidance: string }> = {
   chat: {
     progress: 1,
@@ -66,22 +75,28 @@ const steps: Record<Step, { progress: number; guidance: string }> = {
   saving: { progress: 4, guidance: "Saving your note…" },
   done: { progress: 5, guidance: "Your saved note is below." },
 };
+
 const totalSteps = steps.done.progress;
 const currentStep = computed(() => steps[step.value]);
+
 const guidance = computed(() =>
   confirmingDiscard.value
     ? "Keep editing or discard your draft."
     : currentStep.value.guidance,
 );
+
 const showingChat = computed(() => !editing.value && step.value !== "done");
+
 const showingDialog = computed(
   () =>
     confirmingDiscard.value ||
     step.value === "confirm" ||
     step.value === "generating",
 );
+
 const dialogTitle = computed(() => {
   if (confirmingDiscard.value) return "Discard unsaved changes?";
+
   return step.value === "confirm"
     ? "Generate a draft from this chat?"
     : "Generating your draft…";
@@ -127,20 +142,25 @@ async function go(next: Step) {
   if (next === "done") {
     previewContent.value = await contentPreview(markdown.value);
   }
+
   clearTimeout(transitionTimer);
+
   if (next === "chat" && (step.value === "done" || step.value === "edit")) {
     category.value = "Nuxt";
     title.value = initialTitle;
     markdown.value = initialMarkdown;
   }
+
   // Generation and saving finish asynchronously. Keep focus on the page if the visitor has moved on.
   const shouldFocus =
     (step.value !== "generating" && step.value !== "saving") ||
     root.value?.contains(document.activeElement);
+
   confirmingDiscard.value = false;
   step.value = next;
   if (!shouldFocus) return;
   await nextTick();
+
   if (next === "edit") {
     editor.value?.focusTitle();
   } else {

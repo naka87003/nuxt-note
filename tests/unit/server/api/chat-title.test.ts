@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   },
   $transaction: vi.fn(),
 }));
+
 vi.mock("~~/server/utils/prisma", () => ({ getPrisma: () => mocks }));
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
@@ -34,6 +35,7 @@ const owner = "11111111-1111-4111-8111-111111111111";
 const questionId = "11111111-1111-4111-8111-111111111112";
 const attemptId = "11111111-1111-4111-8111-111111111113";
 const event = {} as Parameters<typeof summarizeTitle>[0];
+
 const question = {
   id: questionId,
   role: "user",
@@ -42,6 +44,7 @@ const question = {
   replyToId: null,
   createdAt: new Date(),
 };
+
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.session.mockResolvedValue({ user: { id: owner } });

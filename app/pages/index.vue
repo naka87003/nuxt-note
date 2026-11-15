@@ -8,6 +8,7 @@ const opening = ref<"header" | "hero" | "closing" | null>(null);
 
 async function openNotebook(event: MouseEvent, source: typeof opening.value) {
   if (!loggedIn.value) return;
+
   if (
     event.button !== 0 ||
     event.metaKey ||
@@ -17,9 +18,11 @@ async function openNotebook(event: MouseEvent, source: typeof opening.value) {
   ) {
     return;
   }
+
   event.preventDefault();
   if (opening.value) return;
   opening.value = source;
+
   try {
     const failure = await navigateTo(startTo.value);
     // Successful routing can finish before the destination's async setup.
@@ -30,6 +33,7 @@ async function openNotebook(event: MouseEvent, source: typeof opening.value) {
     throw error;
   }
 }
+
 const features = [
   {
     label: "Markdown",
@@ -56,11 +60,13 @@ const features = [
       "Search your saved notes, explore ideas with AI, and create or update notes in the conversation.",
   },
 ];
+
 const steps = [
   { title: "Capture", description: "Write a thought before it slips away." },
   { title: "Explore", description: "Ask AI to explore your saved notes." },
   { title: "Keep", description: "Save useful ideas in your own notes." },
 ];
+
 useSeoMeta({
   title: siteTitle,
   description: siteDescription,

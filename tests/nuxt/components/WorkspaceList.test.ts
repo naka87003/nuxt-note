@@ -15,12 +15,14 @@ const item = {
   categoryId: "work",
   updatedAt: "2026-11-07T00:00:00Z",
 };
+
 const baseProps = {
   items: [],
   heading: "All notes",
   loading: false,
   failed: false,
 };
+
 beforeEach(() => {
   clearNuxtState();
   useUserSession().session.value = {
@@ -41,6 +43,7 @@ const global = {
     TypewriterText: { props: ["text"], template: "<span>{{ text }}</span>" },
   },
 };
+
 function mountList(
   options: Parameters<typeof mountSuspended<typeof WorkspaceList>>[1],
 ) {
@@ -56,6 +59,7 @@ describe("WorkspaceList", () => {
       props: { ...baseProps, items: [item] },
       route: `/${from}`,
     });
+
     expect(wrapper.findAll(".content-list-item")).toHaveLength(1);
 
     await wrapper.setProps({ loading: true });
@@ -86,7 +90,9 @@ describe("WorkspaceList", () => {
       props: { ...baseProps, ...props },
       route: "/notes",
     });
+
     expect(wrapper.text()).toContain(text);
+
     if ("failed" in props && props.failed) {
       await wrapper
         .findAll("button")
@@ -110,6 +116,7 @@ describe("WorkspaceList", () => {
         props: { ...baseProps, items: [item] },
         route: `/${mode}?category=all`,
       });
+
       const links = wrapper.findAll("a");
       expect(links.map((link) => link.attributes("href"))).toContain(
         `/${mode}/item-1?category=${mode === "notes" ? "all" : "work"}`,

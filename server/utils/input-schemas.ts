@@ -8,6 +8,7 @@ import {
 // Keep max for the published JSON Schema and enforce the app's limit at runtime.
 function limitedText(maximum: number, label: string) {
   const error = `${label} must be at most ${maximum} characters`;
+
   return z
     .string({
       error: (issue) =>

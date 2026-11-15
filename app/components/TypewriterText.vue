@@ -9,6 +9,7 @@ watch(
     animation?.cancel();
     const element = textElement.value;
     const characters = Array.from(text).length;
+
     if (
       !element?.animate ||
       !characters ||

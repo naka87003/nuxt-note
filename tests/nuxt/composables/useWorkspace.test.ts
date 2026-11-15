@@ -40,6 +40,7 @@ it.each(["notes", "chats"])(
       () => useWorkspace(),
       `/${mode}/new?category=nuxt`,
     );
+
     expect(workspace.createLocation()).toEqual({
       path: `/${mode}/new`,
       query: { category: "uncategorized" },
@@ -61,6 +62,7 @@ it.each(
       () => useWorkspace(),
       `/${mode}?category=${category}`,
     );
+
     expect(workspace.createLocation(workspace.filter.value)).toEqual({
       path: `/${mode}/new`,
       query: { category: category === "all" ? "uncategorized" : category },
@@ -76,6 +78,7 @@ it("updates the destination and category label when switching filters without re
     () => useWorkspace(),
     "/chats?category=nuxt",
   );
+
   expect(workspace.selectedCategoryName.value).toBe("Nuxt");
   // Nuxt async data is shallow: refreshes replace the response snapshot.
   categories.value = {
@@ -102,6 +105,7 @@ it("shares workspace state between consumers and uses the confirmation plugin", 
     () => useWorkspace(),
     "/chats",
   );
+
   const { result: second } = await mountComposable(() => useWorkspace());
   first.current.value.search = "Shared search";
   expect(second.current.value.search).toBe("Shared search");

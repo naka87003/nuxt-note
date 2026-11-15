@@ -8,6 +8,7 @@ describe("Chat Markdown", () => {
     const html = await renderMarkdown(
       "## Example\n\n- item\n\n```js\nconst a = 1;\n```\n\n[Nuxt](https://nuxt.com)\n\n| A | B |\n| - | - |\n| 1 | 2 |",
     );
+
     expect(html).toContain("<h2>Example</h2>");
     expect(html).toContain('<code class="language-js">');
     expect(html).toContain('<a href="https://nuxt.com">');
@@ -35,6 +36,7 @@ describe("Chat Markdown", () => {
 
   it("removes FTP links and reports the unsafe attribute", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
     try {
       const html = await renderMarkdown("[x](ftp://example.com/file)");
       expect(html).not.toContain('href="ftp:');
@@ -49,12 +51,14 @@ describe("Chat Markdown", () => {
 
 it("keeps completed and open blocks consistent while streaming", async () => {
   const parse = createNoteMarkdownParser();
+
   const sources = [
     "## Heading\n\nFirst paragraph.\n\n```css\na {",
     "## Heading\n\nFirst paragraph.\n\n```css\na { color: red; }\n```\n\nNext",
     "## Heading\n\nFirst paragraph.\n\n```css\na { color: red; }\n```\n\nNext paragraph.\n\n- Item\n- Other",
     "Replacement\n\n```js\nconst x = 1;",
   ];
+
   for (const source of sources) {
     const streamed = await parse(source, { streaming: true });
     const complete = await createNoteMarkdownParser()(source);
@@ -80,6 +84,7 @@ it("renders code as escaped text, including HTML and component-like tags", async
   const html = await renderMarkdown(
     "```html\n<script>alert(1)</script>\n<NoteEditor />\n```",
   );
+
   expect(html.replace(/<\/?span[^>]*>/g, "")).toContain("&lt;script&gt;");
   expect(html).not.toContain("<script>");
   expect(html).not.toContain("<NoteEditor");

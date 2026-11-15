@@ -77,6 +77,7 @@ const groups = [
     ],
   },
 ];
+
 const toolCount = groups.reduce(
   (total, group) => total + group.tools.length,
   0,

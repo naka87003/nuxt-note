@@ -7,14 +7,17 @@ export async function mountComposable<T>(
   route: string | false = false,
 ) {
   let result!: T;
+
   const wrapper = await mountSuspended(
     defineComponent({
       setup() {
         result = factory();
+
         return () => null;
       },
     }),
     { route },
   );
+
   return { result, unmount: () => wrapper.unmount() };
 }

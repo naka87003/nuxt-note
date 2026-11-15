@@ -85,9 +85,11 @@ it.each([undefined, "Saved title"])(
       ),
     );
     const refresh = vi.fn().mockResolvedValue(undefined);
+
     const { result: generation } = await mountComposable(() =>
       useChatGeneration(chat, refresh),
     );
+
     await generation.generate();
     expect(chat.value.title).toBe(title ?? "Old title");
     expect(chat.value.messages.at(-1)?.content).toBe("Answer");
@@ -124,9 +126,11 @@ it.each([undefined, null, "target"])(
       ),
     );
     const refresh = vi.fn().mockResolvedValue(undefined);
+
     const { result: generation } = await mountComposable(() =>
       useChatGeneration(chat, refresh),
     );
+
     await generation.generate();
     expect(chat.value.categoryId).toBe(
       categoryId === undefined ? "source" : categoryId,
@@ -142,15 +146,19 @@ it.each([undefined, null, "target"])(
 
 it("allows the next message while a title is pending and updates the refreshed chat", async () => {
   const chat = conversation();
+
   const { promise: pendingTitle, resolve: resolveTitle } =
     Promise.withResolvers<{ title: string }>();
+
   titleRequest.mockImplementation((url: string) =>
     url.endsWith("/title") ? pendingTitle : Promise.resolve({}),
   );
   const refresh = vi.fn().mockResolvedValue(undefined);
+
   const { result: generation } = await mountComposable(() =>
     useChatGeneration(chat, refresh),
   );
+
   await generation.generate();
   expect(titleRequest).toHaveBeenCalledWith("/api/chats/chat/title", {
     method: "POST",
@@ -177,9 +185,11 @@ it("allows the next message while a title is pending and updates the refreshed c
 it("keeps title failures separate from answer failures", async () => {
   titleRequest.mockRejectedValue(new Error("Title unavailable"));
   const chat = conversation();
+
   const { result: generation } = await mountComposable(() =>
     useChatGeneration(chat, vi.fn().mockResolvedValue(undefined)),
   );
+
   await generation.generate();
   expect(chat.value.title).toBeNull();
   expect(generation.failure.value).toBe("");
@@ -196,9 +206,11 @@ it("does not regenerate the title after subsequent questions", async () => {
       replyToId: "second-question",
     },
   );
+
   const { result: generation } = await mountComposable(() =>
     useChatGeneration(chat, vi.fn().mockResolvedValue(undefined)),
   );
+
   await generation.generate();
   expect(titleRequest).not.toHaveBeenCalled();
 });

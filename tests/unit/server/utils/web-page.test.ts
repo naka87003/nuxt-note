@@ -23,6 +23,7 @@ function respond(
       headers,
       destroy: vi.fn(),
     });
+
     return Object.assign(new EventEmitter(), {
       end: () =>
         queueMicrotask(() => {
@@ -33,6 +34,7 @@ function respond(
     });
   });
 }
+
 beforeEach(() => vi.resetAllMocks());
 
 it.each([
@@ -215,9 +217,11 @@ it.each(["user cancellation", "deadline"])(
   async (reason) => {
     const user = new AbortController();
     const deadline = new AbortController();
+
     const timeout = vi
       .spyOn(AbortSignal, "timeout")
       .mockReturnValue(deadline.signal);
+
     try {
       mocks.request.mockImplementation((_url, options) => {
         const request = Object.assign(new EventEmitter(), { end: vi.fn() });
@@ -226,6 +230,7 @@ it.each(["user cancellation", "deadline"])(
           () => request.emit("error", new Error("aborted")),
           { once: true },
         );
+
         return request;
       });
       const reading = readWebpage("https://example.com", user.signal);

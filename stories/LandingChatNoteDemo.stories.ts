@@ -8,10 +8,13 @@ async function confirmGeneration(canvasElement: HTMLElement) {
   await userEvent.click(
     await canvas.findByRole("button", { name: "Generate draft" }),
   );
+
   const dialog = await canvas.findByRole("dialog", {
     name: "Generate a draft from this chat?",
   });
+
   await expect(dialog).toBeVisible();
+
   return within(dialog);
 }
 

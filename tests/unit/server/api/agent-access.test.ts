@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   body: vi.fn(),
   status: vi.fn(),
 }));
+
 vi.mock("~~/server/utils/prisma", () => ({ getPrisma: () => mocks }));
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),

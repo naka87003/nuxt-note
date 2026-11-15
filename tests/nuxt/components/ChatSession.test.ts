@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
   request: vi.fn().mockResolvedValue(null),
 }));
+
 mockNuxtImport("$fetch", () => mocks.request);
 mockNuxtImport("useChatGeneration", () => mocks.generation);
 mockNuxtImport("useChatRefresh", () => mocks.refresh);
@@ -34,7 +35,9 @@ const reply: ChatMessage = {
   replyToId: "question",
   createdAt: "2026-11-07T00:00:00Z",
 };
+
 let conversation: Conversation;
+
 let flow: {
   draft: ReturnType<typeof ref<string>>;
   persisted: ReturnType<typeof ref<boolean>>;
@@ -47,7 +50,9 @@ let flow: {
   send: ReturnType<typeof vi.fn>;
   generate: ReturnType<typeof vi.fn>;
 };
+
 const request = mocks.request;
+
 const modal = {
   name: "UModal",
   props: ["open", "title", "dismissible"],
@@ -83,6 +88,7 @@ beforeEach(() => {
   mocks.generation.mockReset().mockImplementation(() => flow);
   mocks.refresh.mockReset().mockImplementation((chat) => async () => {
     chat.value = conversation;
+
     return conversation;
   });
 });
@@ -119,13 +125,16 @@ describe("ChatSession", () => {
 
   it("keeps the conversation and draft mounted during a background refresh", async () => {
     const { promise, resolve } = Promise.withResolvers<Conversation>();
+
     const load = vi
       .fn()
       .mockImplementationOnce(async () => conversation)
       .mockReturnValue(promise);
+
     mocks.refresh.mockImplementation((chat) => async () => {
       const result = await load();
       chat.value = result;
+
       return result;
     });
     const wrapper = await mountSession();
@@ -146,6 +155,7 @@ describe("ChatSession", () => {
     mocks.refresh.mockImplementation((chat) => async () => {
       const result = await promise;
       chat.value = result;
+
       return result;
     });
     const wrapper = await mountSession();
@@ -164,9 +174,11 @@ describe("ChatSession", () => {
     flow.persisted.value = false;
     mocks.refresh.mockImplementation(() => async () => null);
     const link = "https://example.com/notes/note-1\n\n";
+
     const wrapper = await mountSuspended(ChatSession, {
       props: { chatId: "", initialDraft: link },
     });
+
     expect(wrapper.get("textarea").element.value).toBe(link);
     expect(flow.send).not.toHaveBeenCalled();
     expect(request).not.toHaveBeenCalled();
@@ -181,6 +193,7 @@ describe("ChatSession", () => {
     const wrapper = await mountSuspended(ChatSession, {
       props: { chatId: "chat", initialDraft: "/notes/note-1\n\n" },
     });
+
     expect(wrapper.get("textarea").element.value).toBe("");
     expect(flow.send).not.toHaveBeenCalled();
   });
@@ -188,15 +201,18 @@ describe("ChatSession", () => {
   it("keeps following when asynchronous Markdown grows after the stream update", async () => {
     let notify!: ResizeObserverCallback;
     const observed = new Set<Element>();
+
     const observer = {
       observe: (element: Element) => observed.add(element),
       disconnect: () => observed.clear(),
       unobserve: (element: Element) => observed.delete(element),
     };
+
     vi.stubGlobal(
       "ResizeObserver",
       vi.fn(function (callback: ResizeObserverCallback) {
         notify = callback;
+
         return observer;
       }),
     );
@@ -268,6 +284,7 @@ describe("ChatSession", () => {
     const wrapper = await mountSession();
     expect(wrapper.getComponent(ChatComposer).props("busy")).toBe(true);
     expect(wrapper.get("textarea").attributes("disabled")).toBeDefined();
+
     for (const label of ["Generate draft", "Delete"]) {
       expect(
         wrapper
@@ -276,6 +293,7 @@ describe("ChatSession", () => {
           .attributes("disabled"),
       ).toBeDefined();
     }
+
     expect(wrapper.findComponent({ name: "ChatResponseCursor" }).exists()).toBe(
       true,
     );
@@ -352,15 +370,18 @@ async function categorySession() {
       avatarUrl: "",
     },
   };
+
   const categories = useNuxtData<CategoriesResponse>(
     "workspace-categories",
   ).data;
+
   categories.value = {
     items: [{ id: "work", name: "Work", _count: { notes: 0, chats: 1 } }],
     totals: { notes: 0, chats: 1 },
     uncategorized: { notes: 0, chats: 0 },
   };
   conversation.categoryId = "work";
+
   const load = vi
     .fn()
     .mockResolvedValueOnce(conversation)
@@ -369,19 +390,24 @@ async function categorySession() {
       categoryId: null,
       messages: [{ ...reply }],
     });
+
   let chat!: Ref<Conversation | null>;
   mocks.refresh.mockImplementation((current) => {
     chat = current;
+
     return async () => {
       const snapshot = await load();
       current.value = snapshot;
+
       return snapshot;
     };
   });
   const wrapper = await mountSession("/chats/chat?category=work");
   await flushPromises();
+
   return { wrapper, categories, load, chat };
 }
+
 function withoutWorkCategory(categories: Ref<CategoriesResponse | undefined>) {
   categories.value = {
     ...categories.value!,
@@ -389,14 +415,17 @@ function withoutWorkCategory(categories: Ref<CategoriesResponse | undefined>) {
     uncategorized: { notes: 0, chats: 1 },
   };
 }
+
 describe("Chat category synchronization", () => {
   it.each([null, "target"])(
     "reflects a streamed Category change in the label and URL without reloading messages: %s",
     async (categoryId) => {
       const { wrapper, categories, load, chat } = await categorySession();
+
       if (!categories.value || !chat.value) {
         throw new Error("Missing fixture data");
       }
+
       categories.value = {
         ...categories.value,
         items: [

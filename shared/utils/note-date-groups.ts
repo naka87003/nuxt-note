@@ -12,13 +12,16 @@ export function getNoteDateGroup(
   now = new Date(),
 ): NoteDateGroup {
   const timestamp = new Date(updatedAt).getTime();
+
   if (!Number.isFinite(timestamp) || !Number.isFinite(now.getTime())) {
     throw new RangeError("A valid updatedAt and reference date are required.");
   }
+
   const age = now.getTime() - timestamp;
   if (age <= DAY) return "Today";
   if (age <= 7 * DAY) return "Last 7 Days";
   if (age <= 30 * DAY) return "Last Month";
+
   return "Older";
 }
 
@@ -31,9 +34,11 @@ export function groupNotesByUpdatedAt<
     "Last Month": [],
     Older: [],
   };
+
   for (const note of notes) {
     grouped[getNoteDateGroup(note.updatedAt, now)].push(note);
   }
+
   return NOTE_DATE_GROUPS.map((label) => ({
     label,
     notes: grouped[label].sort(

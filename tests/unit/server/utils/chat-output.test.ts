@@ -6,11 +6,13 @@ afterEach(() => vi.useRealTimers());
 it("does no database work while idle and stops its timer after flushing", async () => {
   vi.useFakeTimers();
   const save = vi.fn().mockResolvedValue(true);
+
   const output = createChatOutput({
     controller: new AbortController(),
     save,
     publish: vi.fn().mockResolvedValue(undefined),
   });
+
   await vi.advanceTimersByTimeAsync(500);
   expect(save).not.toHaveBeenCalled();
   await output.append("First");
@@ -26,11 +28,13 @@ it("publishes each delta immediately without waiting for a checkpoint tick", asy
   vi.useFakeTimers({ now: 1000 });
   const save = vi.fn().mockResolvedValue(true);
   const publish = vi.fn().mockResolvedValue(undefined);
+
   const output = createChatOutput({
     controller: new AbortController(),
     save,
     publish,
   });
+
   await output.append("First");
   await vi.advanceTimersByTimeAsync(20);
   await output.append(" second");
@@ -44,16 +48,21 @@ it("publishes each delta immediately without waiting for a checkpoint tick", asy
 
 it("batches output received during a write instead of continuously writing to the database", async () => {
   vi.useFakeTimers({ now: 1000 });
+
   const save = vi.fn(async () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
+
     return true;
   });
+
   const publish = vi.fn().mockResolvedValue(undefined);
+
   const output = createChatOutput({
     controller: new AbortController(),
     save,
     publish,
   });
+
   await output.append("First");
   await vi.advanceTimersByTimeAsync(5);
   await output.append(" second");
@@ -71,11 +80,13 @@ it("saves the remaining text on flush and cancels its scheduled checkpoint", asy
   vi.useFakeTimers({ now: 1000 });
   const save = vi.fn().mockResolvedValue(true);
   const publish = vi.fn().mockResolvedValue(undefined);
+
   const output = createChatOutput({
     controller: new AbortController(),
     save,
     publish,
   });
+
   await output.append("First");
   await vi.advanceTimersByTimeAsync(20);
   await output.append(" second");
@@ -111,11 +122,13 @@ it("delivers text while a checkpoint is blocked and serializes later saves", asy
   const { promise, resolve } = Promise.withResolvers<boolean>();
   const save = vi.fn().mockReturnValueOnce(promise).mockResolvedValue(true);
   const publish = vi.fn().mockResolvedValue(undefined);
+
   const output = createChatOutput({
     controller: new AbortController(),
     save,
     publish,
   });
+
   await output.append("First");
   await output.append(" second");
   await vi.advanceTimersByTimeAsync(500);
@@ -125,9 +138,11 @@ it("delivers text while a checkpoint is blocked and serializes later saves", asy
   ]);
   expect(save).toHaveBeenCalledTimes(1);
   let flushed = false;
+
   const flushing = output.flush().then(() => {
     flushed = true;
   });
+
   await Promise.resolve();
   expect(flushed).toBe(false);
   resolve(true);
@@ -142,11 +157,13 @@ it("delivers text while a checkpoint is blocked and serializes later saves", asy
 it("aborts on delivery failure and retains accumulated text for terminal persistence", async () => {
   const controller = new AbortController();
   const publish = vi.fn().mockRejectedValue(new Error("Disconnected"));
+
   const output = createChatOutput({
     controller,
     save: vi.fn().mockResolvedValue(true),
     publish,
   });
+
   await output.append("Partial");
   expect(controller.signal.aborted).toBe(true);
   expect(output.failed).toBe(true);

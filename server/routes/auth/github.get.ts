@@ -9,11 +9,13 @@ export default defineOAuthGitHubEventHandler({
       name: user.name || user.login,
       avatarUrl: user.avatar_url,
     };
+
     const account = await getPrisma().user.upsert({
       where: { githubId: String(user.id) },
       create: { githubId: String(user.id), ...data },
       update: data,
     });
+
     await replaceUserSession(event, {
       user: {
         id: account.id,
@@ -22,10 +24,12 @@ export default defineOAuthGitHubEventHandler({
         avatarUrl: account.avatarUrl ?? "",
       },
     });
+
     return sendRedirect(event, "/notes");
   },
   onError(event) {
     console.warn("GitHub sign-in could not be completed.");
+
     return sendRedirect(event, "/login?error=github");
   },
 });

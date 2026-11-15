@@ -7,9 +7,11 @@ import { parseInput } from "~~/server/utils/parse-input";
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);
   const id = getRouterParam(event, "id");
+
   if (!id) {
     throw createError({ statusCode: 404, statusMessage: "Note not found" });
   }
+
   const input = parseInput(deleteNoteBodySchema, await readBody(event));
   await deleteOwnedNote(userId, { ...input, id });
   setResponseStatus(event, 204);

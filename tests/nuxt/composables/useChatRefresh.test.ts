@@ -16,13 +16,16 @@ async function setup(id = "chat") {
     generationId: null,
     messages: [],
   });
+
   const activeId = ref(id);
   const sending = ref(false);
+
   const { result: refresh } = await mountComposable(() =>
     useChatRefresh(chat, activeId, sending, (id) =>
       fetchChat(`/api/chats/${id}`),
     ),
   );
+
   return { chat, sending, refresh };
 }
 
@@ -65,12 +68,14 @@ it("discards a stale snapshot if sending begins while the request is pending", a
 it("reloads the persisted partial state explicitly while failure recovery is busy", async () => {
   const { chat, sending, refresh } = await setup();
   sending.value = true;
+
   const snapshot = {
     id: "chat",
     title: "Saved",
     generationId: null,
     messages: [],
   };
+
   fetchChat.mockResolvedValue(snapshot);
   await refresh(true);
   expect(fetchChat).toHaveBeenCalledWith("/api/chats/chat");
@@ -92,6 +97,7 @@ it("discards an older snapshot even if the new response finishes before it arriv
 
 it("updates an idle conversation after a shared category refresh", async () => {
   const { chat, refresh } = await setup();
+
   const snapshot = {
     id: "chat",
     title: null,
@@ -99,6 +105,7 @@ it("updates an idle conversation after a shared category refresh", async () => {
     generationId: null,
     messages: [],
   };
+
   fetchChat.mockResolvedValue(snapshot);
   await refresh();
   expect(chat.value).toEqual(snapshot);
@@ -120,12 +127,14 @@ it.each([
     const { chat, refresh } = await setup();
     const older = refresh(firstForce);
     const newer = refresh(secondForce);
+
     const latest: Conversation = {
       id: "chat",
       title: "Latest",
       generationId: null,
       messages: [],
     };
+
     second.resolve(latest);
     await newer;
     expect(chat.value).toEqual(latest);
@@ -146,12 +155,14 @@ it("ignores an older snapshot while the latest request is still pending", async 
   const initial = chat.value;
   const older = refresh();
   const newer = refresh();
+
   const latest: Conversation = {
     id: "chat",
     title: "Latest",
     generationId: null,
     messages: [],
   };
+
   first.resolve({ ...latest, title: "Stale" });
   await older;
   expect(chat.value).toBe(initial);

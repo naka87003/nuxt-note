@@ -2,6 +2,7 @@
 import { neutralColors, primaryColors } from "~/utils/theme";
 
 const appConfig = useAppConfig();
+
 const groups = [
   { key: "primary", label: "Accent color", colors: primaryColors },
   { key: "neutral", label: "Neutral color", colors: neutralColors },

@@ -15,6 +15,7 @@ export function hashAgentToken(token: string) {
 
 export function newAgentToken() {
   const token = `nnr_${randomBytes(32).toString("base64url")}`;
+
   return {
     token,
     tokenHash: hashAgentToken(token),
@@ -28,9 +29,11 @@ export function privateAgentResponse(event: H3Event) {
 // Bearer tokens authorize MCP Note operations, never browser sessions.
 export async function getAgentUserId(event: H3Event) {
   privateAgentResponse(event);
+
   const token = /^Bearer (nnr_[A-Za-z0-9_-]{43})$/i.exec(
     getHeader(event, "authorization") ?? "",
   )?.[1];
+
   const record = token
     ? await getPrisma().agentToken.findUnique({
         where: { tokenHash: hashAgentToken(token) },
@@ -39,6 +42,7 @@ export async function getAgentUserId(event: H3Event) {
         },
       })
     : null;
+
   if (!record) {
     setHeader(event, "WWW-Authenticate", 'Bearer realm="nuxt-note"');
     throw createError({
@@ -46,5 +50,6 @@ export async function getAgentUserId(event: H3Event) {
       statusMessage: "Invalid token",
     });
   }
+
   return record.userId;
 }

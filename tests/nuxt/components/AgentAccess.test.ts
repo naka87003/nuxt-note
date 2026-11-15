@@ -7,9 +7,11 @@ import AgentAccess from "~/pages/settings/agent-access.vue";
 
 const { request, refresh, tokens } = vi.hoisted(() => {
   const tokens: { id: string; name: string; createdAt: string }[] = [];
+
   // The auth plugin fetches the session before beforeEach configures API results.
   return { request: vi.fn().mockResolvedValue(null), refresh: vi.fn(), tokens };
 });
+
 mockNuxtImport("$fetch", () => request);
 mockNuxtImport("useFetch", () => () => ({
   data: ref(tokens),
@@ -33,6 +35,7 @@ describe("Agent access token display", () => {
       name: "Codex",
       createdAt: "2026-11-13T00:00:00Z",
     });
+
     const wrapper = await mountSuspended(AgentAccess, {
       global: {
         stubs: {
@@ -44,17 +47,20 @@ describe("Agent access token display", () => {
         },
       },
     });
+
     await wrapper.get('button[aria-label="Delete Codex"]').trigger("click");
     expect(wrapper.get('[role="dialog"] h2').text()).toBe(
       "Delete token “Codex”?",
     );
     const { promise, reject: rejectDelete } = Promise.withResolvers<never>();
     request.mockReturnValueOnce(promise);
+
     const confirm = () =>
       wrapper
         .get('[role="dialog"]')
         .findAll("button")
         .find((button) => button.text() === "Delete token")!;
+
     await confirm().trigger("click");
     const createButton = wrapper.get('button[type="submit"]');
     expect(createButton.attributes("disabled")).toBeDefined();
@@ -106,17 +112,21 @@ describe("Agent access token display", () => {
     );
     const copy = wrapper.get('button[aria-label="Copy token"]');
     expect(copy.classes()).toContain("value-copy");
+
     for (let i = 0; i < 2; i++) {
       await copy.trigger("click");
       await flushPromises();
       expect(copy.attributes("data-state")).toBe("copied");
     }
+
     expect(writeText).toHaveBeenCalledTimes(2);
     expect(writeText).toHaveBeenLastCalledWith(token);
     expect(wrapper.text()).toContain("Token copied to clipboard.");
+
     const hide = wrapper
       .findAll("button")
       .find((button) => button.text() === "Hide token")!;
+
     await hide.trigger("click");
     expect(wrapper.find('button[aria-label="Copy token"]').exists()).toBe(
       false,

@@ -13,6 +13,7 @@ const baseProps = {
   ],
   dirty: true,
 };
+
 let media: MediaQueryList;
 beforeEach(() => {
   media = Object.assign(new EventTarget(), {
@@ -33,6 +34,7 @@ describe("NoteEditorForm", () => {
   it("preserves the server's initial tabs before applying the mobile viewport", async () => {
     Object.assign(media, { matches: true });
     let initialTabs: string[] = [];
+
     const wrapper = await mountSuspended(NoteEditorForm, {
       props: baseProps,
       global: {
@@ -41,12 +43,14 @@ describe("NoteEditorForm", () => {
             props: ["items"],
             setup(props) {
               initialTabs = props.items.map((item) => item.label);
+
               return () => h("div");
             },
           }),
         },
       },
     });
+
     expect(initialTabs).toEqual(["Edit", "Split view", "Preview"]);
     expect(wrapper.get(".note-editor-panes").attributes("data-view")).toBe(
       "edit",
@@ -63,6 +67,7 @@ describe("NoteEditorForm", () => {
     const wrapper = await mountSuspended(NoteEditorForm, {
       props: { ...baseProps, ...props },
     });
+
     expect(
       wrapper.get('button[type="submit"]').attributes("disabled"),
     ).toBeDefined();
@@ -118,9 +123,11 @@ describe("NoteEditorForm", () => {
     );
     await nextTick();
     expect(pane.attributes("data-view")).toBe("split");
+
     const preview = wrapper
       .findAll('[role="tab"]')
       .find((tab) => tab.text() === "Preview")!;
+
     await preview.trigger("mousedown", { button: 0, ctrlKey: false });
     expect(pane.attributes("data-view")).toBe("preview");
     expect(wrapper.get("textarea").element.value).toBe("Body");
@@ -131,6 +138,7 @@ describe("NoteEditorForm", () => {
     const wrapper = await mountSuspended(NoteEditorForm, {
       props: { ...baseProps, failure: "Try again", overLimit: true },
     });
+
     expect(wrapper.text()).toContain("Try again");
     expect(wrapper.text()).toContain("This note exceeds the character limit");
     expect(wrapper.get("textarea").element.value).toBe("Body");

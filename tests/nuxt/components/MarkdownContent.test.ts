@@ -9,6 +9,7 @@ async function mountMarkdown(options: {
 }) {
   const wrapper = await mountSuspended(MarkdownContent, options);
   await flushPromises();
+
   return wrapper;
 }
 
@@ -20,6 +21,7 @@ describe("Markdown code copying", () => {
           "First\nSecond  \nThird\n\n<script>alert(1)</script>\n<UButton>Unsafe</UButton>\n\n::alert\nText\n::\n\n![image](https://example.com/image.png)\n[x](javascript:alert(1))",
       },
     });
+
     expect(wrapper.findAll("br")).toHaveLength(1);
     expect(wrapper.find("script, img, button, alert").exists()).toBe(false);
     expect(wrapper.html()).not.toContain('href="javascript:');
@@ -33,6 +35,7 @@ describe("Markdown code copying", () => {
           '```css [example.css] {copyable="true" onmouseover="alert(1)"}\na { color: red; }\n```',
       },
     });
+
     await flushPromises();
     expect(wrapper.find("pre code span").exists()).toBe(true);
     expect(
@@ -44,9 +47,11 @@ describe("Markdown code copying", () => {
     vi.stubGlobal("navigator", {
       clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
     });
+
     const wrapper = await mountMarkdown({
       props: { content: "```js\nconst a = 1;", streaming: true },
     });
+
     await wrapper.get("button").trigger("click");
     await flushPromises();
     expect(wrapper.get("button").attributes("data-state")).toBe("copied");
@@ -64,9 +69,11 @@ describe("Markdown code copying", () => {
   it("reveals the selected block on tap without copying or rendering a header", async () => {
     const writeText = vi.fn();
     vi.stubGlobal("navigator", { clipboard: { writeText } });
+
     const wrapper = await mountMarkdown({
       props: { content: "```css\na {}\n```\n\n```html\n<p>Hello</p>\n```" },
     });
+
     expect(wrapper.find(".code-block-toolbar").exists()).toBe(false);
     expect(wrapper.find(".code-language").exists()).toBe(false);
     const blocks = wrapper.findAll(".code-block");
@@ -80,13 +87,16 @@ describe("Markdown code copying", () => {
   it("copies the parsed code, including internal whitespace and HTML, from the selected block", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal("navigator", { clipboard: { writeText } });
+
     const source =
       '<button title="test">& Hello &copy; &lt;script&gt;</button>\n  second line\n\n';
+
     const wrapper = await mountMarkdown({
       props: {
         content: `Inline \`code\`\n\n\`\`\`html\n${source}\`\`\`\n\n\`\`\`unknown\nother\n\`\`\``,
       },
     });
+
     expect(wrapper.findAll("button.code-copy")).toHaveLength(2);
     expect(wrapper.find("pre button").exists()).toBe(false);
     expect(wrapper.get("pre code").element.textContent).toBe(
@@ -116,9 +126,11 @@ describe("Markdown code copying", () => {
         "navigator",
         mode === "rejected" ? { clipboard: { writeText } } : {},
       );
+
       const wrapper = await mountMarkdown({
         props: { content: "    indented code\n" },
       });
+
       await wrapper.get("button").trigger("click");
       await flushPromises();
       expect(wrapper.get("button").attributes("data-state")).toBe("failed");
@@ -138,11 +150,14 @@ describe("Markdown code copying", () => {
   it("ignores completion for a block replaced during streaming", async () => {
     const { promise, resolve: finish }: PromiseWithResolvers<void> =
       Promise.withResolvers();
+
     const writeText = vi.fn(() => promise);
     vi.stubGlobal("navigator", { clipboard: { writeText } });
+
     const wrapper = await mountMarkdown({
       props: { content: "```js\nfirst" },
     });
+
     await wrapper.get("button").trigger("click");
     await wrapper.setProps({ content: "```js\nfirst + second\n```" });
     await flushPromises();

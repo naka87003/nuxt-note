@@ -46,10 +46,13 @@ async function setup(generationId: string | null) {
       },
     ],
   });
+
   const refresh = vi.fn().mockResolvedValue(undefined);
+
   const { result: generation } = await mountComposable(() =>
     useChatGeneration(chat, refresh),
   );
+
   return { chat, refresh, generation };
 }
 

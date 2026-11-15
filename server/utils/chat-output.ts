@@ -23,12 +23,16 @@ export function createChatOutput({
     if (pending || controller.signal.aborted || content.length === saved) {
       return;
     }
+
     pending = (async () => {
       const snapshot = content;
+
       if (!(await save(snapshot))) {
         controller.abort();
+
         return;
       }
+
       saved = snapshot.length;
     })()
       .catch(() => {
@@ -51,6 +55,7 @@ export function createChatOutput({
       if (controller.signal.aborted) return;
       content += text;
       if (saved === 0) startCheckpoint();
+
       try {
         // The caller awaits delivery to preserve ordering and backpressure,
         // independently of any checkpoint currently in flight.

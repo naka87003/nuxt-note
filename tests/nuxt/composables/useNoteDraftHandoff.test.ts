@@ -11,9 +11,11 @@ import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 
 const navigate = vi.hoisted(() => vi.fn());
 mockNuxtImport("navigateTo", () => navigate);
+
 async function createHandoff() {
   return await useNuxtApp().runWithContext(() => useNoteDraftHandoff());
 }
+
 const transfer = {
   draft: { title: "AI draft", markdown: "# Summary", categoryId: "nuxt" },
   returnTo: { path: "/chats/source", query: { category: "nuxt" } },
@@ -87,20 +89,24 @@ it("clears pending content if authentication redirects away from the editor", as
 it("does not remove a newer draft when an older navigation fails late", async () => {
   const { promise: firstNavigation, reject: failFirst } =
     Promise.withResolvers<never>();
+
   const {
     promise: secondNavigation,
     resolve: finishSecond,
   }: PromiseWithResolvers<void> = Promise.withResolvers();
+
   navigate
     .mockReturnValueOnce(firstNavigation)
     .mockReturnValueOnce(secondNavigation);
   const handoff = await createHandoff();
   const first = handoff.open(transfer);
   const check = expect(first).rejects.toThrow("old failure");
+
   const newer = {
     ...transfer,
     draft: { ...transfer.draft, title: "Newer draft" },
   };
+
   const second = handoff.open(newer);
   failFirst(new Error("old failure"));
   await check;

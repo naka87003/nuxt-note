@@ -5,6 +5,7 @@ import type { CategoriesResponse } from "#shared/types/workspace";
 import { sortCategoriesByCount } from "#shared/utils/categories";
 
 const props = defineProps<{ note?: SavedNote; initialDraft?: NoteDraft }>();
+
 const emit = defineEmits<{
   saved: [note: SavedNote];
   cancel: [];
@@ -46,8 +47,10 @@ const categoryOptions = computed(() => [
     value: item.id,
   })),
 ]);
+
 async function canLeave() {
   if (!loggedIn.value) return true;
+
   return await confirmEdits();
 }
 

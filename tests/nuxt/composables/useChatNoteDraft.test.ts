@@ -14,9 +14,11 @@ beforeEach(() => {
 
 it("waits for confirmation and can dismiss before starting AI", async () => {
   const openDraft = vi.fn();
+
   const { result: flow } = await mountComposable(() =>
     useChatNoteDraft(() => "chat", openDraft),
   );
+
   flow.confirm();
   expect(flow.phase.value).toBe("confirm");
   expect(request).not.toHaveBeenCalled();
@@ -29,9 +31,11 @@ it("blocks dismissal and duplicate submissions during generation, then opens the
   const { promise, resolve } = Promise.withResolvers<typeof draft>();
   request.mockReturnValue(promise);
   const openDraft = vi.fn().mockResolvedValue(undefined);
+
   const { result: flow } = await mountComposable(() =>
     useChatNoteDraft(() => "chat", openDraft),
   );
+
   flow.confirm();
   const pending = flow.create();
   flow.open.value = false;
@@ -49,9 +53,11 @@ it("blocks dismissal and duplicate submissions during generation, then opens the
 it("allows manual retry after an error without creating a blank draft", async () => {
   request.mockRejectedValueOnce({ statusCode: 413 });
   const openDraft = vi.fn().mockResolvedValue(undefined);
+
   const { result: flow } = await mountComposable(() =>
     useChatNoteDraft(() => "chat", openDraft),
   );
+
   flow.confirm();
   await flow.create();
   expect(flow.phase.value).toBe("failed");
@@ -66,9 +72,11 @@ it("ignores late responses after leaving and aborts the local request", async ()
   const { promise, resolve } = Promise.withResolvers<typeof draft>();
   request.mockReturnValue(promise);
   const openDraft = vi.fn();
+
   const { result: flow, unmount: dispose } = await mountComposable(() =>
     useChatNoteDraft(() => "chat", openDraft),
   );
+
   flow.confirm();
   const pending = flow.create();
   dispose();
@@ -83,9 +91,11 @@ it("does not regenerate paid output if opening the editor fails", async () => {
     .fn()
     .mockRejectedValueOnce(new Error("Could not open the note draft"))
     .mockResolvedValue(undefined);
+
   const { result: flow } = await mountComposable(() =>
     useChatNoteDraft(() => "chat", openDraft),
   );
+
   flow.confirm();
   await flow.create();
   expect(flow.phase.value).toBe("failed");

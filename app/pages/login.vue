@@ -11,6 +11,7 @@ const signingIn = ref(false);
 async function signIn() {
   if (signingIn.value) return;
   signingIn.value = true;
+
   try {
     await navigateTo("/auth/github", { external: true });
   } catch (error) {
@@ -23,6 +24,7 @@ async function signIn() {
 function resetSignIn() {
   signingIn.value = false;
 }
+
 useEventListener("pageshow", resetSignIn);
 </script>
 

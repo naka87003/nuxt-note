@@ -19,6 +19,7 @@ function setup(initialSearch = "") {
   const category = ref("all");
   const search = ref(initialSearch);
   const query = scope.run(() => useWorkspaceListQuery(mode, category, search))!;
+
   return { mode, category, search, query };
 }
 

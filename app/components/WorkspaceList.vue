@@ -12,9 +12,11 @@ const props = defineProps<{
   loading: boolean;
   failed: boolean;
 }>();
+
 const emit = defineEmits<{ retry: [] }>();
 
 const { mode, current, location, filter, createLocation } = useWorkspace();
+
 const { data: categories } = useNuxtData<CategoriesResponse>(
   "workspace-categories",
 );
@@ -26,22 +28,27 @@ const now = useState("workspace-list-now", () => new Date().toISOString());
 
 const itemCountLabel = computed(() => `${props.items.length} ${mode.value}`);
 const searchLabel = computed(() => `Search ${mode.value}`);
+
 const searchPlaceholder = computed(() =>
   filter.value === "all"
     ? `${searchLabel.value}…`
     : `Search in ${props.heading}…`,
 );
+
 const searchAriaLabel = computed(
   () => `${searchLabel.value}: ${props.heading}`,
 );
+
 const listDescription = computed(() =>
   current.value.search
     ? `Searching ${props.heading}`
     : "Grouped by last updated",
 );
+
 const emptyMessage = computed(() =>
   current.value.search ? "No results found." : `No ${mode.value} here yet.`,
 );
+
 const untitledLabel = computed(() =>
   mode.value === "notes" ? "Untitled note" : "Untitled chat",
 );
@@ -74,6 +81,7 @@ function itemLocation(item: WorkspaceItem) {
     mode.value === "chats"
       ? (item.categoryId ?? "uncategorized")
       : filter.value;
+
   return location(`/${mode.value}/${item.id}`, category);
 }
 
@@ -83,6 +91,7 @@ function itemTitle(item: WorkspaceItem) {
 
 function itemCategory(item: WorkspaceItem) {
   if (!item.categoryId) return "Uncategorized";
+
   return (
     categories.value?.items.find((category) => category.id === item.categoryId)
       ?.name ?? "Category"

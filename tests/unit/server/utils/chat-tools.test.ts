@@ -11,18 +11,23 @@ const reads = vi.hoisted(() => ({
   searchOwnedNotes: vi.fn(),
   readOwnedNote: vi.fn(),
 }));
+
 const chatReads = vi.hoisted(() => ({
   searchOwnedChats: vi.fn(),
   readOwnedChatPage: vi.fn(),
 }));
+
 vi.mock("~~/server/utils/chat-reads", () => chatReads);
+
 const chatWrites = vi.hoisted(() => ({
   updateOwnedChatCategory: vi.fn(),
   updateOwnedChatTitle: vi.fn(),
   deleteOwnedChat: vi.fn(),
   moveOwnedCategoryChats: vi.fn(),
 }));
+
 vi.mock("~~/server/utils/chat-writes", () => chatWrites);
+
 const writes = vi.hoisted(() => ({
   createOwnedNote: vi.fn(),
   updateOwnedNote: vi.fn(),
@@ -31,20 +36,24 @@ const writes = vi.hoisted(() => ({
   moveOwnedCategoryNotes: vi.fn(),
   deleteOwnedNote: vi.fn(),
 }));
+
 vi.mock("~~/server/utils/note-reads", () => reads);
 vi.mock("~~/server/utils/note-writes", () => writes);
 const merges = vi.hoisted(() => ({ mergeOwnedCategories: vi.fn() }));
 vi.mock("~~/server/utils/category-merges", () => merges);
 const version = "2026-11-13T00:00:00.000Z";
+
 const note = {
   id: "note",
   title: "Title",
   markdown: "# Note",
   updatedAt: new Date(version),
 };
+
 const input = { id: "note", updatedAt: version };
 const update = { ...input, title: "Updated", markdown: "# Changed" };
 const context = { toolCallId: "call", messages: [] };
+
 const categories = vi.hoisted(() => ({
   findFirst: vi.fn(),
   findMany: vi.fn(),
@@ -52,9 +61,11 @@ const categories = vi.hoisted(() => ({
   updateMany: vi.fn(),
   deleteMany: vi.fn(),
 }));
+
 vi.mock("~~/server/utils/prisma", () => ({
   getPrisma: () => ({ category: categories }),
 }));
+
 function setup(
   owner = "owner",
   allowMutations = true,
@@ -63,6 +74,7 @@ function setup(
 ) {
   const controller = new AbortController();
   const assertActive = vi.fn().mockResolvedValue(undefined);
+
   const tools = createChatNoteTools(owner, "https://notes.example", {
     signal: controller.signal,
     assertActive,
@@ -70,8 +82,10 @@ function setup(
     categoryId,
     chatId,
   });
+
   return { tools, controller, assertActive };
 }
+
 beforeEach(() => {
   vi.resetAllMocks();
   writes.updateOwnedNoteTitle.mockResolvedValue({
@@ -128,13 +142,16 @@ describe("in-app Note tools", () => {
         chats: [item],
         nextOffset: 20,
       });
+
       const definitions = createWorkspaceTools(
         "owner",
         "https://notes.example",
       );
+
       const expected: unknown = JSON.parse(
         JSON.stringify(await definitions[name].execute({})),
       );
+
       const { tools } = setup();
       expect(await tools[name].execute({}, context)).toEqual(expected);
     },
@@ -152,15 +169,19 @@ describe("in-app Note tools", () => {
         nextOffset: 20,
         metadata: { flag: true },
       };
+
       reads.readOwnedNote.mockResolvedValue(item);
       chatReads.readOwnedChatPage.mockResolvedValue(item);
+
       const definitions = createWorkspaceTools(
         "owner",
         "https://notes.example",
       );
+
       const expected: unknown = JSON.parse(
         JSON.stringify(await definitions[name].execute({ id: "note" })),
       );
+
       const { tools } = setup();
       expect(await tools[name].execute({ id: "note" }, context)).toEqual(
         expected,
@@ -173,10 +194,12 @@ describe("in-app Note tools", () => {
     async (name) => {
       reads.readOwnedNote.mockRejectedValue({ statusCode: 404 });
       chatReads.readOwnedChatPage.mockRejectedValue({ statusCode: 404 });
+
       const definitions = createWorkspaceTools(
         "owner",
         "https://notes.example",
       );
+
       const expected = await definitions[name].execute({ id: "note" });
       const { tools } = setup();
       expect(expected.isError).toBe(true);
@@ -266,6 +289,7 @@ describe("in-app Note tools", () => {
     "reflects the current Chat only after it was actually merged (%s)",
     async (currentChatMoved) => {
       const onChatCategoryUpdated = vi.fn();
+
       const tools = createChatNoteTools("owner", "https://notes.example", {
         signal: new AbortController().signal,
         assertActive: async () => {},
@@ -274,6 +298,7 @@ describe("in-app Note tools", () => {
         chatId: "current",
         onChatCategoryUpdated,
       });
+
       const args = { sourceCategoryId: "source", targetCategoryId: "target" };
       merges.mergeOwnedCategories.mockResolvedValueOnce({
         ...args,
@@ -300,11 +325,13 @@ describe("in-app Note tools", () => {
         markdown: "Body",
         categoryId: currentChatMoved ? "target" : "source",
       });
+
       if (currentChatMoved) {
         expect(onChatCategoryUpdated).toHaveBeenCalledExactlyOnceWith("target");
       } else {
         expect(onChatCategoryUpdated).not.toHaveBeenCalled();
       }
+
       expect(chatReads.readOwnedChatPage).not.toHaveBeenCalled();
     },
   );
@@ -321,6 +348,7 @@ describe("in-app Note tools", () => {
       await tools.get_note.execute({ id: "note" }, context);
       await tools.get_chat.execute({ id: "chat" }, context);
       const args = { sourceCategoryId: "source", targetCategoryId: "target" };
+
       if (succeeds) {
         merges.mergeOwnedCategories.mockResolvedValueOnce({
           ...args,
@@ -333,6 +361,7 @@ describe("in-app Note tools", () => {
           new Error("storage failed"),
         );
       }
+
       await tools.merge_categories!.execute(args, context);
       expect(await tools.update_note!.execute(update, context)).toHaveProperty(
         succeeds && movedNoteCount ? "error" : "structuredContent",
@@ -401,6 +430,7 @@ describe("in-app Note tools", () => {
     "updates the current Category only if that Chat was actually moved: %s",
     async (currentChatMoved) => {
       const onChatCategoryUpdated = vi.fn();
+
       const tools = createChatNoteTools("owner", "https://notes.example", {
         signal: new AbortController().signal,
         assertActive: async () => {},
@@ -409,6 +439,7 @@ describe("in-app Note tools", () => {
         categoryId: "source",
         onChatCategoryUpdated,
       });
+
       const args = { sourceCategoryId: "source", targetCategoryId: null };
       chatWrites.moveOwnedCategoryChats.mockResolvedValueOnce({
         ...args,
@@ -432,11 +463,13 @@ describe("in-app Note tools", () => {
         markdown: "Body",
         ...(currentChatMoved ? {} : { categoryId: "source" }),
       });
+
       if (currentChatMoved) {
         expect(onChatCategoryUpdated).toHaveBeenCalledExactlyOnceWith(null);
       } else {
         expect(onChatCategoryUpdated).not.toHaveBeenCalled();
       }
+
       expect(chatReads.readOwnedChatPage).not.toHaveBeenCalled();
     },
   );
@@ -538,11 +571,14 @@ describe("in-app Note tools", () => {
         "owner",
         args,
       );
+
       const result = await tools.update_note_title!.execute(
         { ...input, title: "New title" },
         context,
       );
+
       expect(result).toHaveProperty(movedCount ? "error" : "structuredContent");
+
       if (movedCount) {
         expect(
           await tools.update_note!.execute(update, context),
@@ -557,6 +593,7 @@ describe("in-app Note tools", () => {
           "error",
         );
       }
+
       expect(reads.readOwnedNote).toHaveBeenCalledOnce();
     },
   );
@@ -894,6 +931,7 @@ describe("in-app Note tools", () => {
     "notifies only a successful rename of the current Chat (%s, success: %s)",
     async (id, succeeds) => {
       const onChatTitleUpdated = vi.fn();
+
       const tools = createChatNoteTools("owner", "https://notes.example", {
         signal: new AbortController().signal,
         assertActive: async () => {},
@@ -901,6 +939,7 @@ describe("in-app Note tools", () => {
         chatId: "chat",
         onChatTitleUpdated,
       });
+
       chatReads.readOwnedChatPage.mockResolvedValueOnce({
         id,
         updatedAt: new Date(version),
@@ -908,6 +947,7 @@ describe("in-app Note tools", () => {
         nextOffset: null,
       });
       await tools.get_chat.execute({ id }, context);
+
       if (succeeds) {
         chatWrites.updateOwnedChatTitle.mockResolvedValueOnce({
           id,
@@ -919,10 +959,12 @@ describe("in-app Note tools", () => {
           statusCode: 409,
         });
       }
+
       await tools.update_chat_title!.execute(
         { id, title: "Requested title", updatedAt: version },
         context,
       );
+
       if (succeeds && id === "chat") {
         expect(onChatTitleUpdated).toHaveBeenCalledExactlyOnceWith(
           "Saved title",
@@ -1141,11 +1183,13 @@ describe("in-app Note tools", () => {
         nextOffset: null,
       });
       await tools.get_chat.execute({ id }, context);
+
       if (!succeeds) {
         chatWrites.updateOwnedChatCategory.mockRejectedValueOnce({
           statusCode: 409,
         });
       }
+
       await tools.update_chat_category!.execute(
         { id, categoryId, updatedAt: version },
         context,
@@ -1334,6 +1378,7 @@ describe("in-app Note tools", () => {
       if (input.categoryId === "chat-category") {
         throw Object.assign(new Error(), { statusCode: 404 });
       }
+
       return { ...note, categoryId: input.categoryId ?? null };
     });
     const { tools } = setup("owner", true, "chat-category");
@@ -1656,9 +1701,11 @@ describe("in-app Note tools", () => {
       });
     const firstPage = await tools.list_notes.execute({ limit: 1 }, context);
     const nextOffset = firstPage.structuredContent?.nextOffset;
+
     if (typeof nextOffset !== "number") {
       throw new Error("Expected another page of Notes.");
     }
+
     await tools.list_notes.execute({ limit: 1, offset: nextOffset }, context);
     const args = { ...input, categoryId: null };
     expect(
@@ -1798,10 +1845,12 @@ describe("in-app Note tools", () => {
     writes.createOwnedNote.mockRejectedValue(
       new Error("private database detail"),
     );
+
     const result = await tools.create_note!.execute(
       { title: "Title", markdown: "" },
       context,
     );
+
     expect(result).toMatchObject({ isError: true });
     expect(JSON.stringify(result)).not.toContain("private database detail");
     await expect(
@@ -1855,16 +1904,19 @@ it.each([
         context,
       );
     }
+
     // Every new chat message receives a fresh tool instance and must read again.
     const { tools } = setup();
     reads.searchOwnedNotes.mockResolvedValue({
       notes: [{ id: "note", title: "Title", updatedAt: new Date(version) }],
       nextOffset: null,
     });
+
     const usage = {
       inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
       outputTokens: { total: 1, text: 1, reasoning: 0 },
     };
+
     function toolStep(toolName: string, args: object, index: number) {
       return {
         stream: simulateReadableStream({
@@ -1886,6 +1938,7 @@ it.each([
         }),
       };
     }
+
     const model = new MockLanguageModelV4({
       doStream: [
         ...(knownLink ? [] : [toolStep("list_notes", { q: "Title" }, 1)]),
@@ -1925,6 +1978,7 @@ it.each([
         },
       ],
     });
+
     const result = streamText({
       model,
       tools,
@@ -1950,6 +2004,7 @@ it.each([
       stopWhen: stepCountIs(8),
       maxRetries: 0,
     });
+
     const parts = [];
     for await (const part of result.fullStream) parts.push(part);
     expect(parts.filter((part) => part.type === "tool-result")).toHaveLength(
@@ -1963,6 +2018,7 @@ it.each([
     expect(await result.text).toBe(
       "Updated [Title](https://notes.example/notes/note).",
     );
+
     if (categoryOnly) {
       expect(writes.updateOwnedNoteCategory).toHaveBeenCalledExactlyOnceWith(
         "owner",
@@ -1976,6 +2032,7 @@ it.each([
         update,
       );
     }
+
     expect(model.doStreamCalls).toHaveLength(knownLink || categoryOnly ? 3 : 4);
     if (knownLink) expect(reads.searchOwnedNotes).not.toHaveBeenCalled();
     expect(JSON.stringify(model.doStreamCalls.at(-1)!.prompt)).toContain(

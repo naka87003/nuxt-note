@@ -12,10 +12,12 @@ export default defineEventHandler(async (event) => {
   const message = { id: input.messageId, content: input.content };
   const id = input.chatId;
   const prisma = getPrisma();
+
   const existing = await prisma.chat.findFirst({
     where: { id, userId },
     include: { messages: { where: { id: message.id } } },
   });
+
   if (existing) {
     if (existing.messages[0]?.content !== message.content) {
       throw createError({
@@ -23,9 +25,12 @@ export default defineEventHandler(async (event) => {
         statusMessage: "Request already used",
       });
     }
+
     return { id, messageId: message.id };
   }
+
   const categoryId = await ownedCategory(userId, input.categoryId);
+
   try {
     await prisma.chat.create({
       data: {
@@ -49,8 +54,11 @@ export default defineEventHandler(async (event) => {
         statusMessage: "Request already received. Please try again.",
       });
     }
+
     throw error;
   }
+
   setResponseStatus(event, 201);
+
   return { id, messageId: message.id };
 });

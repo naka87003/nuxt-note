@@ -1,6 +1,7 @@
 import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import type { ChatMessage, ChatStatus, Conversation } from "#shared/types/chat";
 import { readChatStream } from "~/utils/chat-stream";
+
 export function useChatGeneration(
   chat: Ref<Conversation | null | undefined>,
   refresh: () => Promise<unknown>,
@@ -35,6 +36,7 @@ export function useChatGeneration(
       (!lastReply.value ||
         ["failed", "stopped"].includes(lastReply.value.status)),
   );
+
   let pending:
     | {
         messageId: string;
@@ -43,6 +45,7 @@ export function useChatGeneration(
         categoryId?: string | null;
       }
     | undefined;
+
   let disposed = false;
 
   async function summarizeTitle(chatId: string) {
@@ -50,9 +53,11 @@ export function useChatGeneration(
       const result = await $fetch(`/api/chats/${chatId}/title`, {
         method: "POST",
       });
+
       if (!disposed && chat.value?.id === chatId && result.title) {
         chat.value.title = result.title;
       }
+
       await refreshNuxtData("workspace-list");
     } catch {
       // Keep the existing title; this must not interrupt the conversation.
@@ -68,10 +73,12 @@ export function useChatGeneration(
     const questionId = lastQuestion.value.id;
     sending.value = true;
     failure.value = "";
+
     const attempt = {
       id: crypto.randomUUID(),
       controller: new AbortController(),
     };
+
     activeController = attempt.controller;
     let terminalStatus: ChatStatus | undefined;
 
@@ -89,17 +96,22 @@ export function useChatGeneration(
             "Response generation is currently unavailable. Please try again later.",
           );
         }
+
         if (response.status === 409) {
           throw new Error("This conversation has changed. Please try again.");
         }
+
         throw new Error("Could not generate a response. Please try again.");
       }
 
       let reply: ChatMessage | undefined;
+
       for await (const data of readChatStream(response.body)) {
         if (disposed) continue;
+
         if (data.type === "start") {
           reply = target.messages.find((m) => m.id === data.messageId);
+
           if (reply) {
             reply.content = "";
             reply.status = "generating";
@@ -120,6 +132,7 @@ export function useChatGeneration(
           terminalStatus = data.status;
           if (reply) reply.status = data.status;
           if (data.title !== undefined) target.title = data.title;
+
           if (data.categoryId !== undefined) {
             target.categoryId = data.categoryId;
           }
@@ -138,6 +151,7 @@ export function useChatGeneration(
       }
     } finally {
       activeController = undefined;
+
       if (!disposed) {
         // A completed stream already contains the saved answer. Only failures
         // and interruptions need to reload the server's partial state.
@@ -149,11 +163,14 @@ export function useChatGeneration(
               "Could not reload this chat. Please reload the page.";
           });
         }
+
         void refreshNuxtData(["workspace-list", "workspace-categories"]).catch(
           () => {},
         );
       }
+
       sending.value = false;
+
       if (
         terminalStatus === "completed" &&
         questionId === target.messages.find((m) => m.role === "user")?.id
@@ -165,8 +182,10 @@ export function useChatGeneration(
 
   async function send() {
     if (busy.value || !draft.value.trim() || (!chat.value && !creation)) return;
+
     if (draft.value.length > INPUT_LIMITS.chatMessage) {
       failure.value = `Use at most ${INPUT_LIMITS.chatMessage.toLocaleString("en-US")} characters for the message.`;
+
       return;
     }
 
@@ -227,6 +246,7 @@ export function useChatGeneration(
       failure.value = isNew
         ? "Could not create your chat. Please try again."
         : "Could not save your message. Please try again.";
+
       return;
     } finally {
       sending.value = false;
@@ -239,6 +259,7 @@ export function useChatGeneration(
           () => {},
         );
       }
+
       await generate();
     }
   }

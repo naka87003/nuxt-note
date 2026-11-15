@@ -8,6 +8,7 @@ import { getPrisma } from "~~/server/utils/prisma";
 export default defineEventHandler(async (event) => {
   privateAgentResponse(event);
   const userId = await getAuthenticatedUserId(event);
+
   return getPrisma().agentToken.findMany({
     where: { userId },
     select: agentTokenSelect,

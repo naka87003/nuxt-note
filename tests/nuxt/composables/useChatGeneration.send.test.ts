@@ -36,10 +36,13 @@ async function setup(messages: ChatMessage[] = []) {
     generationId: null,
     messages,
   });
+
   const refresh = vi.fn().mockResolvedValue(undefined);
+
   const { result: generation, unmount } = await mountComposable(() =>
     useChatGeneration(chat, refresh),
   );
+
   return { chat, refresh, generation, unmount };
 }
 
@@ -83,6 +86,7 @@ it.each([
 it("shows the question immediately and starts AI after saving without reloading history", async () => {
   const { promise, resolve: saved }: PromiseWithResolvers<void> =
     Promise.withResolvers();
+
   save.mockReturnValueOnce(promise);
   const { chat, refresh, generation } = await setup();
   generation.draft.value = " Question ";
@@ -97,6 +101,7 @@ it("shows the question immediately and starts AI after saving without reloading 
   generate.mockImplementationOnce(async (_url, options) => {
     expect(refresh).not.toHaveBeenCalled();
     expect(JSON.parse(options.body).messageId).toBe(chat.value.messages[0]?.id);
+
     return new Response('data: {"type":"done","status":"failed"}\n\n');
   });
   saved();
@@ -126,6 +131,7 @@ it("restores a failed send and reuses its request ID on retry", async () => {
 it("does not start AI when the user leaves during message persistence", async () => {
   const { promise, resolve: saved }: PromiseWithResolvers<void> =
     Promise.withResolvers();
+
   save.mockReturnValueOnce(promise);
   const { generation, unmount } = await setup();
   generation.draft.value = "Question";
@@ -151,12 +157,16 @@ it("makes the next send available after completion while sidebar updates are pen
 
 it("keeps sending disabled while reloading after generation has failed", async () => {
   save.mockResolvedValue(undefined);
+
   const { promise: response, resolve: respond } =
     Promise.withResolvers<Response>();
+
   generate.mockReturnValueOnce(response);
   const { refresh, generation } = await setup();
+
   const { promise: reload, resolve: reloaded }: PromiseWithResolvers<void> =
     Promise.withResolvers();
+
   refresh.mockReturnValueOnce(reload);
   generation.draft.value = "Question";
   const sending = generation.send();
@@ -209,6 +219,7 @@ it("aborts its own stream on navigation and preserves the displayed partial answ
   save.mockResolvedValue(undefined);
   generate.mockImplementationOnce(async (_url, options) => {
     const encoder = new TextEncoder();
+
     return new Response(
       new ReadableStream({
         start(controller) {
@@ -220,6 +231,7 @@ it("aborts its own stream on navigation and preserves the displayed partial answ
               encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
             );
           }
+
           options.signal.addEventListener(
             "abort",
             () => controller.error(new DOMException("Stopped", "AbortError")),
@@ -259,6 +271,7 @@ it("preserves an oversized draft without saving or starting AI", async () => {
 
 it("starts an unanswered saved question when mounted", async () => {
   save.mockResolvedValue({ title: "Summary" });
+
   const { chat, generation } = await setup([
     {
       id: "question",
@@ -269,6 +282,7 @@ it("starts an unanswered saved question when mounted", async () => {
       createdAt: new Date().toISOString(),
     },
   ]);
+
   await vi.waitFor(() => {
     expect(generation.sending.value).toBe(false);
     expect(chat.value.messages.at(-1)?.content).toBe("Answer");
@@ -281,6 +295,7 @@ it("starts an unanswered question loaded after mounting only once", async () => 
   const chat = ref<Conversation | null>(null);
   await mountComposable(() => useChatGeneration(chat, vi.fn()));
   expect(generate).not.toHaveBeenCalled();
+
   const saved: Conversation = {
     id: "delayed-chat",
     title: "Loaded chat",
@@ -296,6 +311,7 @@ it("starts an unanswered question loaded after mounting only once", async () => 
       },
     ],
   };
+
   chat.value = structuredClone(saved);
   await vi.waitFor(() => {
     expect(chat.value?.messages.at(-1)?.content).toBe("Answer");

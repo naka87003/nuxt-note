@@ -3,6 +3,7 @@ const props = withDefaults(
   defineProps<{ value: string; copyLabel?: string; copiedMessage?: string }>(),
   { copyLabel: "Copy value", copiedMessage: "Copied to clipboard." },
 );
+
 const { state, pending, feedback, copy } = useCopyFeedback(
   computed(() => props.value),
   () => props.copiedMessage,

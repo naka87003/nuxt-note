@@ -11,17 +11,22 @@ import {
 export default defineEventHandler(async (event) => {
   const userId = await getAuthenticatedUserId(event);
   const id = getRouterParam(event, "id");
+
   if (!id) {
     throw createError({ statusCode: 404, statusMessage: "Chat not found" });
   }
+
   await requireChat(userId, id);
   const message = messageInput(await readBody(event));
   await recoverGeneration(userId, id);
+
   return getPrisma().$transaction(async (tx) => {
     await lockIdleChat(tx, userId, id);
+
     const existing = await tx.message.findFirst({
       where: { id: message.id, chatId: id, role: "user" },
     });
+
     if (existing) {
       if (existing.content !== message.content) {
         throw createError({
@@ -29,18 +34,22 @@ export default defineEventHandler(async (event) => {
           statusMessage: "Request already used",
         });
       }
+
       return { messageId: existing.id };
     }
+
     const last = await tx.message.findFirst({
       where: { chatId: id },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     });
+
     if (last?.role === "user") {
       throw createError({
         statusCode: 409,
         statusMessage: "Retry the unanswered message first",
       });
     }
+
     await tx.message.create({
       data: {
         ...message,
@@ -51,6 +60,7 @@ export default defineEventHandler(async (event) => {
         ),
       },
     });
+
     return { messageId: message.id };
   });
 });
