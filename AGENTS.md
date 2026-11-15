@@ -8,11 +8,9 @@ Choose a prefix that matches the change, such as `feat:`, `fix:`, `refactor:`,
 
 ## Implementation Guidelines
 
-- In TypeScript, prefer type inference and type narrowing, and avoid type
-  assertions used solely to bypass type errors whenever possible.
-- Prioritize maintainability and readability, and keep implementations simple
-  while meeting requirements. Avoid unnecessary complexity and excessive
+- Prefer type inference and type narrowing in TypeScript.
+- Prioritize maintainability and readability. Keep implementations simple
+  while meeting requirements; avoid unnecessary complexity and excessive
   abstraction.
-- Use braces for `if` statements by default. Braces may be omitted for short,
-  readable single-line statements. If an `else` or `else if` follows, use braces
+- When an `if` statement has `else` or `else if` branches, use braces
   for all branches.
