@@ -324,6 +324,7 @@ describe("Chat generation", () => {
       "list_notes",
       "read_webpage",
       "update_category",
+      "update_chat_category",
       "update_note",
       "update_note_category",
       "web_search",

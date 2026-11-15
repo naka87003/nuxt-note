@@ -145,15 +145,31 @@ export const generateChatInputSchema = z.object(
   { error: "Invalid generation request" },
 );
 
+const chatUpdatedAtSchema = z.iso
+  .datetime({ precision: 3 })
+  .describe("Exact updatedAt returned by list_chats or get_chat");
+
 export const updateChatCategorySchema = z.object(
   {
     categoryId: z
       .string({ error: "Invalid category" })
       .min(1, { error: "Invalid category" })
       .nullable(),
+    updatedAt: chatUpdatedAtSchema.optional(),
   },
   { error: "Invalid category" },
 );
+
+export const updateChatCategoryInputSchema = updateChatCategorySchema
+  .extend({
+    id: z.string().min(1).max(100),
+    categoryId: updateChatCategorySchema.shape.categoryId
+      .unwrap()
+      .max(100)
+      .nullable(),
+    updatedAt: chatUpdatedAtSchema,
+  })
+  .strict();
 
 export const agentTokenInputSchema = z.object({
   name: limitedText(50, "Token name").trim().min(1),

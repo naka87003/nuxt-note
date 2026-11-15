@@ -16,7 +16,7 @@ vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));
 const writes = vi.hoisted(() => ({
-  chat: { findMany: vi.fn(), findFirst: vi.fn() },
+  chat: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
   note: {
     create: vi.fn(),
     update: vi.fn(),
@@ -69,6 +69,176 @@ async function connect(owner: string, siteUrl = "https://notes.example") {
 }
 
 describe("remote MCP tools", () => {
+  const chatCategoryInput = {
+    id: "chat",
+    categoryId: "owned",
+    updatedAt: "2026-11-15T00:00:00.000Z",
+  };
+  it.each([null, "owned"])(
+    "changes only a Chat category to %j with ownership and version checks",
+    async (categoryId) => {
+      const client = await connect("owner");
+      const { tools } = await client.listTools();
+      const definition = tools.find(
+        (tool) => tool.name === "update_chat_category",
+      );
+      expect(definition?.inputSchema.required?.slice().sort()).toEqual([
+        "categoryId",
+        "id",
+        "updatedAt",
+      ]);
+      expect(definition?.annotations).toMatchObject({
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+      });
+      writes.chat.findFirst.mockResolvedValue({ id: "chat" });
+      writes.category.findFirst.mockResolvedValue({ id: "owned" });
+      writes.chat.update.mockResolvedValue({
+        id: "chat",
+        title: null,
+        categoryId,
+        updatedAt: new Date("2026-11-15T00:00:00.001Z"),
+      });
+      const clock = vi
+        .spyOn(Date, "now")
+        .mockReturnValue(new Date(chatCategoryInput.updatedAt).getTime());
+      try {
+        const result = await client.callTool({
+          name: "update_chat_category",
+          arguments: { ...chatCategoryInput, categoryId },
+        });
+        expect(result.isError).toBeFalsy();
+        expect(result.structuredContent).toEqual({
+          id: "chat",
+          title: null,
+          categoryId,
+          updatedAt: "2026-11-15T00:00:00.001Z",
+          url: "https://notes.example/chats/chat",
+        });
+        expect(writes.chat.update).toHaveBeenCalledExactlyOnceWith({
+          where: {
+            id: "chat",
+            userId: "owner",
+            updatedAt: new Date(chatCategoryInput.updatedAt),
+          },
+          data: { categoryId, updatedAt: new Date("2026-11-15T00:00:00.001Z") },
+          select: { id: true, title: true, categoryId: true, updatedAt: true },
+        });
+        expect(writes.chat.findFirst).toHaveBeenCalledExactlyOnceWith({
+          where: { id: "chat", userId: "owner" },
+          select: { id: true },
+        });
+        if (categoryId)
+          expect(writes.category.findFirst).toHaveBeenCalledWith({
+            where: { id: "owned", userId: "owner" },
+            select: { id: true },
+          });
+        else expect(writes.category.findFirst).not.toHaveBeenCalled();
+      } finally {
+        clock.mockRestore();
+      }
+    },
+  );
+  it.each(["missing", "foreign"])(
+    "hides a %s Chat before resolving its destination category",
+    async (id) => {
+      const client = await connect("owner");
+      writes.chat.findFirst.mockResolvedValue(null);
+      expect(
+        await client.callTool({
+          name: "update_chat_category",
+          arguments: { ...chatCategoryInput, id },
+        }),
+      ).toMatchObject({
+        isError: true,
+        content: [{ text: "Chat or category not found." }],
+      });
+      expect(writes.category.findFirst).not.toHaveBeenCalled();
+      expect(writes.chat.update).not.toHaveBeenCalled();
+    },
+  );
+  it("rejects a missing or foreign destination category", async () => {
+    const client = await connect("owner");
+    writes.chat.findFirst.mockResolvedValue({ id: "chat" });
+    writes.category.findFirst.mockResolvedValue(null);
+    expect(
+      await client.callTool({
+        name: "update_chat_category",
+        arguments: chatCategoryInput,
+      }),
+    ).toMatchObject({
+      isError: true,
+      content: [{ text: "Chat or category not found." }],
+    });
+    expect(writes.chat.update).not.toHaveBeenCalled();
+  });
+  it.each([null, { id: "chat" }])(
+    "distinguishes a deleted Chat from a concurrent update: %j",
+    async (existing) => {
+      const client = await connect("owner");
+      writes.chat.findFirst
+        .mockResolvedValueOnce({ id: "chat" })
+        .mockResolvedValueOnce(existing);
+      writes.chat.update.mockRejectedValue({ code: "P2025" });
+      expect(
+        await client.callTool({
+          name: "update_chat_category",
+          arguments: { ...chatCategoryInput, categoryId: null },
+        }),
+      ).toMatchObject({
+        isError: true,
+        content: [
+          {
+            text: existing
+              ? expect.stringContaining("Chat has changed.")
+              : "Chat or category not found.",
+          },
+        ],
+      });
+      expect(writes.chat.update).toHaveBeenCalledTimes(1);
+      expect(writes.chat.findFirst).toHaveBeenLastCalledWith({
+        where: { id: "chat", userId: "owner" },
+        select: { id: true },
+      });
+    },
+  );
+  it("hides storage errors during Chat category updates", async () => {
+    const client = await connect("owner");
+    writes.chat.findFirst.mockResolvedValue({ id: "chat" });
+    writes.chat.update.mockRejectedValue(new Error("private database details"));
+    expect(
+      await client.callTool({
+        name: "update_chat_category",
+        arguments: { ...chatCategoryInput, categoryId: null },
+      }),
+    ).toMatchObject({
+      isError: true,
+      content: [{ text: "Could not update Chat category. Please try again." }],
+    });
+  });
+  it.each([
+    {},
+    { ...chatCategoryInput, id: "" },
+    { ...chatCategoryInput, id: "x".repeat(101) },
+    { ...chatCategoryInput, categoryId: undefined },
+    { ...chatCategoryInput, categoryId: "" },
+    { ...chatCategoryInput, categoryId: "x".repeat(101) },
+    { ...chatCategoryInput, updatedAt: undefined },
+    { ...chatCategoryInput, updatedAt: "2026-02-30T00:00:00.000Z" },
+    { ...chatCategoryInput, updatedAt: "2026-11-15T00:00:00Z" },
+    { ...chatCategoryInput, userId: "other" },
+    { ...chatCategoryInput, title: "Changed" },
+    { ...chatCategoryInput, messages: [] },
+  ])("rejects invalid Chat category input %j", async (args) => {
+    const client = await connect("owner");
+    expect(
+      (await client.callTool({ name: "update_chat_category", arguments: args }))
+        .isError,
+    ).toBe(true);
+    expect(writes.chat.findFirst).not.toHaveBeenCalled();
+    expect(writes.chat.update).not.toHaveBeenCalled();
+  });
   it("searches saved Chats with bounded defaults, owner filters, previews, and URLs", async () => {
     const client = await connect("owner");
     writes.chat.findMany.mockResolvedValue([
@@ -754,6 +924,7 @@ describe("remote MCP tools", () => {
       "list_chats",
       "list_notes",
       "update_category",
+      "update_chat_category",
       "update_note",
       "update_note_category",
     ]);

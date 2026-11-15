@@ -7,6 +7,7 @@ import {
 } from "./note-writes";
 import { readOwnedNote, searchOwnedNotes } from "./note-reads";
 import { readOwnedChatPage, searchOwnedChats } from "./chat-reads";
+import { updateOwnedChatCategory } from "./chat-writes";
 import { listOwnedCategories, readOwnedCategory } from "./category-reads";
 import {
   createOwnedCategory,
@@ -27,6 +28,7 @@ import {
   noteToolCategoryIdSchema,
   updateNoteInputSchema,
   updateNoteCategoryInputSchema,
+  updateChatCategoryInputSchema,
 } from "./input-schemas";
 
 interface WorkspaceToolConfig<S extends z.ZodObject> {
@@ -249,6 +251,35 @@ export function createWorkspaceTools(userId: string, siteUrl: string) {
           {
             missing: "Chat not found.",
             failure: "Could not read Chat. Please try again.",
+          },
+        ),
+    ),
+    update_chat_category: workspaceTool(
+      {
+        description:
+          "Change only an existing Chat's category, preserving its title and messages. Use only when the user requests a category change. Pass the exact id and updatedAt from list_chats or get_chat; reading messages is unnecessary. Resolve category IDs with list_categories or a user-requested create_category; null makes the Chat Uncategorized. On conflict, list or read again and reassess the requested change; never blindly retry with a newer timestamp. Return the saved title (or Chat if untitled) and url as a clickable link.",
+        inputSchema: updateChatCategoryInputSchema,
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: true,
+          idempotentHint: false,
+          openWorldHint: false,
+        },
+      },
+      async (input) =>
+        result(
+          async () => {
+            const chat = await updateOwnedChatCategory(userId, input.id, input);
+            return {
+              ...chat,
+              url: new URL(`/chats/${encodeURIComponent(chat.id)}`, site).href,
+            };
+          },
+          {
+            missing: "Chat or category not found.",
+            failure: "Could not update Chat category. Please try again.",
+            conflict:
+              "Chat has changed. Use list_chats or get_chat again and reassess the requested category change before retrying. Do not automatically retry by replacing updatedAt.",
           },
         ),
     ),

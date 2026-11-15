@@ -15,6 +15,8 @@ const chatReads = vi.hoisted(() => ({
   readOwnedChatPage: vi.fn(),
 }));
 vi.mock("../../../../server/utils/chat-reads", () => chatReads);
+const chatWrites = vi.hoisted(() => ({ updateOwnedChatCategory: vi.fn() }));
+vi.mock("../../../../server/utils/chat-writes", () => chatWrites);
 const writes = vi.hoisted(() => ({
   createOwnedNote: vi.fn(),
   updateOwnedNote: vi.fn(),
@@ -47,6 +49,7 @@ function setup(
   owner = "owner",
   allowMutations = true,
   categoryId?: string | null,
+  chatId?: string,
 ) {
   const controller = new AbortController();
   const assertActive = vi.fn().mockResolvedValue(undefined);
@@ -55,11 +58,20 @@ function setup(
     assertActive,
     allowMutations,
     categoryId,
+    chatId,
   });
   return { tools, controller, assertActive };
 }
 beforeEach(() => {
   vi.resetAllMocks();
+  chatWrites.updateOwnedChatCategory.mockImplementation(
+    async (_owner, id, input) => ({
+      id,
+      title: "Chat title",
+      categoryId: input.categoryId,
+      updatedAt: new Date(version),
+    }),
+  );
   chatReads.searchOwnedChats.mockResolvedValue({ chats: [], nextOffset: null });
   chatReads.readOwnedChatPage.mockResolvedValue({
     id: "chat",
@@ -81,6 +93,146 @@ beforeEach(() => {
   writes.deleteOwnedNote.mockResolvedValue({ id: "note", deleted: true });
 });
 describe("in-app Note tools", () => {
+  it.each([null, "category"])(
+    "changes a Chat category to %j using a listed version without reading messages",
+    async (categoryId) => {
+      const { tools } = setup();
+      const args = { id: "chat", categoryId, updatedAt: version };
+      expect(
+        await tools.update_chat_category!.execute!(args, context),
+      ).toHaveProperty("error");
+      chatReads.searchOwnedChats.mockResolvedValueOnce({
+        chats: [{ id: "chat", updatedAt: new Date(version) }],
+        nextOffset: 1,
+      });
+      await tools.list_chats.execute!({ limit: 1 }, context);
+      // Reading another page must preserve earlier page versions.
+      await tools.list_chats.execute!({ limit: 1, offset: 1 }, context);
+      expect(
+        await tools.update_chat_category!.execute!(
+          { ...args, updatedAt: "2026-11-13T00:00:01.000Z" },
+          context,
+        ),
+      ).toHaveProperty("error");
+      expect(
+        await tools.update_chat_category!.execute!(args, context),
+      ).toMatchObject({
+        structuredContent: {
+          id: "chat",
+          categoryId,
+          updatedAt: version,
+          url: "https://notes.example/chats/chat",
+        },
+      });
+      expect(
+        chatWrites.updateOwnedChatCategory,
+      ).toHaveBeenCalledExactlyOnceWith("owner", "chat", args);
+      expect(chatReads.readOwnedChatPage).not.toHaveBeenCalled();
+      expect(
+        await tools.update_chat_category!.execute!(args, context),
+      ).toHaveProperty("error");
+    },
+  );
+  it("requires a fresh Chat read after conflict and invalidates versions on failed reads", async () => {
+    const { tools } = setup();
+    const args = { id: "chat", categoryId: null, updatedAt: version };
+    await tools.get_chat.execute!({ id: "chat" }, context);
+    chatWrites.updateOwnedChatCategory.mockRejectedValueOnce({
+      statusCode: 409,
+    });
+    expect(
+      await tools.update_chat_category!.execute!(args, context),
+    ).toMatchObject({ isError: true });
+    expect(
+      await tools.update_chat_category!.execute!(args, context),
+    ).toHaveProperty("error");
+    await tools.get_chat.execute!({ id: "chat" }, context);
+    chatReads.readOwnedChatPage.mockRejectedValueOnce({ statusCode: 404 });
+    await tools.get_chat.execute!({ id: "chat" }, context);
+    expect(
+      await tools.update_chat_category!.execute!(args, context),
+    ).toHaveProperty("error");
+    await tools.get_chat.execute!({ id: "chat" }, context);
+    expect(
+      await tools.update_chat_category!.execute!(args, context),
+    ).toHaveProperty("structuredContent");
+    expect(chatWrites.updateOwnedChatCategory).toHaveBeenCalledTimes(2);
+  });
+  it("keeps Chat write versions separate between owners and from Note versions", async () => {
+    const a = setup("a").tools;
+    const b = setup("b").tools;
+    const args = { id: "chat", categoryId: null, updatedAt: version };
+    await a.get_chat.execute!({ id: "chat" }, context);
+    expect(
+      await b.update_chat_category!.execute!(args, context),
+    ).toHaveProperty("error");
+    reads.readOwnedNote.mockResolvedValueOnce({ ...note, id: "chat" });
+    await b.get_note.execute!({ id: "chat" }, context);
+    expect(
+      await b.update_chat_category!.execute!(args, context),
+    ).toHaveProperty("error");
+    await b.get_chat.execute!({ id: "chat" }, context);
+    await a.update_chat_category!.execute!(args, context);
+    await b.update_chat_category!.execute!(args, context);
+    expect(
+      chatWrites.updateOwnedChatCategory.mock.calls.map(([owner]) => owner),
+    ).toEqual(["a", "b"]);
+  });
+  it.each([
+    ["chat", true, null, undefined],
+    ["chat", true, "new-category", "new-category"],
+    ["other", true, "new-category", "old-category"],
+    ["chat", false, "new-category", "old-category"],
+  ] as const)(
+    "updates the default Note category only after moving the active Chat: %s, success %s",
+    async (id, succeeds, categoryId, expected) => {
+      const { tools } = setup("owner", true, "old-category", "chat");
+      chatReads.readOwnedChatPage.mockResolvedValueOnce({
+        id,
+        updatedAt: new Date(version),
+        messages: [],
+        nextOffset: null,
+      });
+      await tools.get_chat.execute!({ id }, context);
+      if (!succeeds)
+        chatWrites.updateOwnedChatCategory.mockRejectedValueOnce({
+          statusCode: 409,
+        });
+      await tools.update_chat_category!.execute!(
+        { id, categoryId, updatedAt: version },
+        context,
+      );
+      await tools.create_note!.execute!(
+        { title: "Title", markdown: "Body" },
+        context,
+      );
+      expect(writes.createOwnedNote).toHaveBeenCalledWith("owner", {
+        title: "Title",
+        markdown: "Body",
+        ...(expected ? { categoryId: expected } : {}),
+      });
+    },
+  );
+  it("validates Chat category changes and blocks execution after cancellation or generation ownership loss", async () => {
+    const { tools, controller } = setup();
+    const args = { id: "chat", categoryId: null, updatedAt: version };
+    await expect(
+      tools.update_chat_category!.execute!(
+        { ...args, messages: [] } as never,
+        context,
+      ),
+    ).rejects.toThrow();
+    controller.abort();
+    await expect(
+      tools.update_chat_category!.execute!(args, context),
+    ).rejects.toThrow();
+    const inactive = setup();
+    inactive.assertActive.mockRejectedValue(new Error("no longer active"));
+    await expect(
+      inactive.tools.update_chat_category!.execute!(args, context),
+    ).rejects.toThrow();
+    expect(chatWrites.updateOwnedChatCategory).not.toHaveBeenCalled();
+  });
   it.each([true, false])(
     "searches and reads saved Chats during normal turns and retries (%s)",
     async (allowMutations) => {

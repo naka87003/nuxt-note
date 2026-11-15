@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => {
     findMany: vi.fn(),
     findFirst: vi.fn(),
     create: vi.fn(),
+    update: vi.fn(),
     updateMany: vi.fn(),
     deleteMany: vi.fn(),
     count: vi.fn(),
@@ -50,6 +51,7 @@ beforeEach(() => {
   mocks.chat.findMany.mockResolvedValue([]);
   mocks.param.mockReturnValue("item");
   mocks.chat.updateMany.mockResolvedValue({ count: 1 });
+  mocks.chat.update.mockResolvedValue({ id: "item", categoryId: null });
   mocks.chat.deleteMany.mockResolvedValue({ count: 1 });
 });
 const handlers = [chats, readChat, assignChat, removeChat];
@@ -86,7 +88,7 @@ describe("chat ownership and category assignment", () => {
         statusMessage: "Invalid category",
       });
       expect(mocks.category.findFirst).not.toHaveBeenCalled();
-      expect(mocks.chat.updateMany).not.toHaveBeenCalled();
+      expect(mocks.chat.update).not.toHaveBeenCalled();
     },
   );
   it("returns a preview from the first user message without exposing messages", async () => {
@@ -130,7 +132,7 @@ describe("chat ownership and category assignment", () => {
     mocks.chat.findFirst.mockResolvedValue(null);
     await expect(assignChat(event)).rejects.toMatchObject({ statusCode: 404 });
     expect(mocks.category.findFirst).not.toHaveBeenCalled();
-    expect(mocks.chat.updateMany).not.toHaveBeenCalled();
+    expect(mocks.chat.update).not.toHaveBeenCalled();
   });
   it("rejects reassignment to another owner's category", async () => {
     mocks.chat.findFirst.mockResolvedValue({ id: "item" });
@@ -140,7 +142,7 @@ describe("chat ownership and category assignment", () => {
     expect(mocks.category.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "foreign", userId: owner } }),
     );
-    expect(mocks.chat.updateMany).not.toHaveBeenCalled();
+    expect(mocks.chat.update).not.toHaveBeenCalled();
   });
   it.each([null, "owned"])(
     "changes only categoryId to %j",
@@ -154,9 +156,10 @@ describe("chat ownership and category assignment", () => {
         messages: [],
       });
       await assignChat(event);
-      expect(mocks.chat.updateMany).toHaveBeenCalledWith({
+      expect(mocks.chat.update).toHaveBeenCalledWith({
         where: { id: "item", userId: owner },
         data: { categoryId },
+        select: { id: true, title: true, categoryId: true, updatedAt: true },
       });
     },
   );

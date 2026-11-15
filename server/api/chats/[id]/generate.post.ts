@@ -157,6 +157,7 @@ export default defineEventHandler(async (event) => {
             signal: controller.signal,
             allowMutations: !isRetry,
             categoryId,
+            chatId: id,
             assertActive,
           }),
           ...createChatWebTools({ signal: controller.signal, assertActive }),
@@ -170,7 +171,7 @@ export default defineEventHandler(async (event) => {
           CHAT_NOTES_INSTRUCTIONS +
           CHAT_WEB_INSTRUCTIONS +
           (isRetry
-            ? "This is a retry of an interrupted response. A previous attempt may already have changed Notes. Only read tools are available. Check current Notes and explain the current state. Ask the user to send a new message for any further changes; never claim a previous action succeeded without verification. "
+            ? "This is a retry of an interrupted response. A previous attempt may already have changed Notes or Chats. Only read tools are available. Check current Notes and Chats as relevant and explain the current state. Ask the user to send a new message for any further changes; never claim a previous action succeeded without verification. "
             : "") +
           (categoryName
             ? "The conversation's category name is provided below as JSON data. " +
