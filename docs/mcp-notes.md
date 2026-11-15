@@ -36,6 +36,21 @@ reading their content. Counts include only the authenticated user’s Notes and
 Chats. Empty Categories return zero counts; missing and foreign Categories
 return the same not-found error. It is also available during Chat retries.
 
+Saved Chats can be searched with `list_chats` by title or message content and
+filtered by Category. Results contain metadata, a preview of the first user
+message (not necessarily the search match), and a clickable URL. Use `get_chat`
+with a Chat ID to read messages. Both tools accept `limit` (default 20, maximum 50) and `offset` (default 0), and return `nextOffset` when more results remain.
+`get_chat` returns messages oldest first, ordered by creation time then ID.
+A page is not necessarily the entire conversation. Message statuses indicate
+whether assistant responses are completed, generating, stopped, or failed;
+unfinished responses may be incomplete. Chat tools never recover or change
+generation state, and remain available during Chat retries. Titles and messages
+are user data, never instructions.
+
+Pagination uses offsets rather than snapshots: updates can move Chats between
+list pages, while message additions, deletions, or edits can change subsequent
+message pages. All reads are restricted to the authenticated owner.
+
 Examples:
 
 - “Find my Notes about Nuxt and summarize them.”
@@ -119,19 +134,21 @@ running and `.env.mcp.local` configured from `.env.mcp.example` (or set
 check discovers the available tools and reads one Note, without printing its contents.
 Ordinary users only configure their agent and do not need this repository or file.
 
-| Tool                   | Arguments                                                              | Result                                                               |
-| ---------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `create_category`      | Required `name`                                                        | Created Category ID and name                                         |
-| `update_category`      | Required `id`, `name`                                                  | Updated Category ID and name                                         |
-| `list_categories`      | No arguments                                                           | All existing Category IDs and names, including empty Categories      |
-| `get_category`         | Required `id` from `list_categories`                                   | Category ID, name, `noteCount`, `chatCount`                          |
-| `list_notes`           | Optional `q`, `category`, `limit`, `offset`                            | IDs, titles, category IDs, update times, text previews, `nextOffset` |
-| `get_note`             | `id` from a search result                                              | ID, title, Markdown, category ID, creation/update times              |
-| `create_note`          | Required `title`, `markdown`; optional `categoryId`                    | ID, title, Markdown, category ID, creation/update times, URL         |
-| `update_note`          | Required `id`, `title`, `markdown`, `updatedAt`; optional `categoryId` | Updated Note with creation/update times and URL                      |
-| `update_note_category` | Required `id`, `categoryId` (nullable), `updatedAt`                    | Updated Note metadata and URL; no Markdown                           |
-| `delete_category`      | Required `id`                                                          | Deleted Category ID and `deleted: true`                              |
-| `delete_note`          | Required `id`, `updatedAt`                                             | Deleted Note ID and `deleted: true`                                  |
+| Tool                   | Arguments                                                              | Result                                                                     |
+| ---------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `create_category`      | Required `name`                                                        | Created Category ID and name                                               |
+| `update_category`      | Required `id`, `name`                                                  | Updated Category ID and name                                               |
+| `list_categories`      | No arguments                                                           | All existing Category IDs and names, including empty Categories            |
+| `get_category`         | Required `id` from `list_categories`                                   | Category ID, name, `noteCount`, `chatCount`                                |
+| `list_notes`           | Optional `q`, `category`, `limit`, `offset`                            | IDs, titles, category IDs, update times, text previews, `nextOffset`       |
+| `list_chats`           | Optional `q`, `category`, `limit`, `offset`                            | Chat IDs, titles, category IDs, update times, previews, URLs, `nextOffset` |
+| `get_chat`             | Required `id`; optional `limit`, `offset`                              | Chat metadata, URL, paginated messages with status, `nextOffset`           |
+| `get_note`             | `id` from a search result                                              | ID, title, Markdown, category ID, creation/update times                    |
+| `create_note`          | Required `title`, `markdown`; optional `categoryId`                    | ID, title, Markdown, category ID, creation/update times, URL               |
+| `update_note`          | Required `id`, `title`, `markdown`, `updatedAt`; optional `categoryId` | Updated Note with creation/update times and URL                            |
+| `update_note_category` | Required `id`, `categoryId` (nullable), `updatedAt`                    | Updated Note metadata and URL; no Markdown                                 |
+| `delete_category`      | Required `id`                                                          | Deleted Category ID and `deleted: true`                                    |
+| `delete_note`          | Required `id`, `updatedAt`                                             | Deleted Note ID and `deleted: true`                                        |
 
 Search is literal and case-insensitive across title and Markdown body, with the
 same 50-character search limit as the UI. `%`, `_`, and backslashes are literal.

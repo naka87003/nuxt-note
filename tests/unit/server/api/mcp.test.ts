@@ -16,6 +16,7 @@ vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));
 const writes = vi.hoisted(() => ({
+  chat: { findMany: vi.fn(), findFirst: vi.fn() },
   note: {
     create: vi.fn(),
     update: vi.fn(),
@@ -68,6 +69,296 @@ async function connect(owner: string, siteUrl = "https://notes.example") {
 }
 
 describe("remote MCP tools", () => {
+  it("searches saved Chats with bounded defaults, owner filters, previews, and URLs", async () => {
+    const client = await connect("owner");
+    writes.chat.findMany.mockResolvedValue([
+      {
+        id: "chat",
+        title: null,
+        categoryId: null,
+        updatedAt: new Date("2026-11-15T00:00:00Z"),
+        messages: [{ content: "A **question**" }],
+      },
+    ]);
+    const result = await client.callTool({
+      name: "list_chats",
+      arguments: { q: "50%_", category: "uncategorized" },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(result.structuredContent).toEqual({
+      chats: [
+        {
+          id: "chat",
+          title: null,
+          categoryId: null,
+          updatedAt: "2026-11-15T00:00:00.000Z",
+          preview: "A question",
+          url: "https://notes.example/chats/chat",
+        },
+      ],
+      nextOffset: null,
+    });
+    expect(writes.chat.findMany).toHaveBeenCalledExactlyOnceWith({
+      where: {
+        userId: "owner",
+        categoryId: null,
+        OR: [
+          { title: { contains: "50\\%\\_", mode: "insensitive" } },
+          {
+            messages: {
+              some: { content: { contains: "50\\%\\_", mode: "insensitive" } },
+            },
+          },
+        ],
+      },
+      select: {
+        id: true,
+        title: true,
+        categoryId: true,
+        updatedAt: true,
+        messages: {
+          where: { role: "user" },
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          take: 1,
+          select: { content: true },
+        },
+      },
+      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+      take: 21,
+      skip: 0,
+    });
+  });
+  it("returns bounded Chat pages with nextOffset and an empty final page", async () => {
+    const client = await connect("owner");
+    const chats = ["a", "b", "c"].map((id) => ({
+      id,
+      title: id,
+      messages: [],
+    }));
+    writes.chat.findMany.mockImplementation(async ({ skip, take }) =>
+      chats.slice(skip, skip + take),
+    );
+    const first = await client.callTool({
+      name: "list_chats",
+      arguments: { limit: 2 },
+    });
+    expect(first.structuredContent).toMatchObject({
+      chats: [{ id: "a", preview: "" }, { id: "b" }],
+      nextOffset: 2,
+    });
+    expect(first.structuredContent?.chats).toHaveLength(2);
+    expect(
+      (
+        await client.callTool({
+          name: "list_chats",
+          arguments: { limit: 2, offset: 2 },
+        })
+      ).structuredContent,
+    ).toMatchObject({ chats: [{ id: "c" }], nextOffset: null });
+    expect(
+      (
+        await client.callTool({
+          name: "list_chats",
+          arguments: { limit: 2, offset: 3 },
+        })
+      ).structuredContent,
+    ).toEqual({ chats: [], nextOffset: null });
+  });
+  it("reads Chat messages in bounded chronological pages without recovering generation state", async () => {
+    const client = await connect("owner");
+    const messages = ["user", "assistant", "user"].map((role, index) => ({
+      id: `m${index}`,
+      role,
+      content: `Message ${index}`,
+      status: "completed",
+      replyToId: null,
+      createdAt: new Date("2026-11-15T00:00:00Z"),
+    }));
+    writes.chat.findFirst.mockImplementation(async ({ select }) => ({
+      id: "chat",
+      title: "Chat title",
+      categoryId: "category",
+      updatedAt: new Date("2026-11-15T00:00:00Z"),
+      messages: messages.slice(
+        select.messages.skip,
+        select.messages.skip + select.messages.take,
+      ),
+    }));
+    const first = await client.callTool({
+      name: "get_chat",
+      arguments: { id: "chat", limit: 2 },
+    });
+    expect(first.isError).toBeFalsy();
+    expect(first.structuredContent).toMatchObject({
+      id: "chat",
+      url: "https://notes.example/chats/chat",
+      updatedAt: "2026-11-15T00:00:00.000Z",
+      messages: [
+        { id: "m0", role: "user", createdAt: "2026-11-15T00:00:00.000Z" },
+        { id: "m1", role: "assistant" },
+      ],
+      nextOffset: 2,
+    });
+    expect(first.structuredContent?.messages).toHaveLength(2);
+    expect(writes.chat.findFirst).toHaveBeenCalledExactlyOnceWith({
+      where: { id: "chat", userId: "owner" },
+      select: {
+        id: true,
+        title: true,
+        categoryId: true,
+        updatedAt: true,
+        messages: {
+          select: {
+            id: true,
+            role: true,
+            content: true,
+            status: true,
+            replyToId: true,
+            createdAt: true,
+          },
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          take: 3,
+          skip: 0,
+        },
+      },
+    });
+    const last = await client.callTool({
+      name: "get_chat",
+      arguments: { id: "chat", limit: 2, offset: 2 },
+    });
+    expect(last.structuredContent).toMatchObject({
+      messages: [{ id: "m2" }],
+      nextOffset: null,
+    });
+    const empty = await client.callTool({
+      name: "get_chat",
+      arguments: { id: "chat", offset: 3 },
+    });
+    expect(empty.structuredContent).toMatchObject({
+      messages: [],
+      nextOffset: null,
+    });
+    expect(writes.chat.findFirst).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          messages: expect.objectContaining({ take: 21, skip: 3 }),
+        }),
+      }),
+    );
+  });
+  it.each(["missing", "foreign"])(
+    "hides a %s Chat and its messages",
+    async (id) => {
+      const client = await connect("owner");
+      writes.chat.findFirst.mockResolvedValue(null);
+      expect(
+        await client.callTool({ name: "get_chat", arguments: { id } }),
+      ).toMatchObject({
+        isError: true,
+        content: [{ text: "Chat not found." }],
+      });
+      expect(writes.chat.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id, userId: "owner" } }),
+      );
+    },
+  );
+  it("isolates Chat owners across clients", async () => {
+    const [a, b] = await Promise.all([connect("a"), connect("b")]);
+    writes.chat.findMany.mockResolvedValue([]);
+    writes.chat.findFirst.mockResolvedValue({ id: "chat", messages: [] });
+    await Promise.all(
+      [a, b].map(async (client) => {
+        await client.callTool({ name: "list_chats", arguments: {} });
+        await client.callTool({ name: "get_chat", arguments: { id: "chat" } });
+      }),
+    );
+    expect(
+      writes.chat.findMany.mock.calls.map(([args]) => args.where.userId).sort(),
+    ).toEqual(["a", "b"]);
+    expect(
+      writes.chat.findFirst.mock.calls
+        .map(([args]) => args.where.userId)
+        .sort(),
+    ).toEqual(["a", "b"]);
+  });
+  it.each(["list_chats", "get_chat"])(
+    "hides storage errors for %s",
+    async (name) => {
+      const client = await connect("owner");
+      writes.chat.findMany.mockRejectedValue(
+        new Error("private database details"),
+      );
+      writes.chat.findFirst.mockRejectedValue(
+        new Error("private database details"),
+      );
+      expect(
+        await client.callTool({
+          name,
+          arguments: name === "get_chat" ? { id: "chat" } : {},
+        }),
+      ).toMatchObject({
+        isError: true,
+        content: [
+          {
+            text:
+              name === "get_chat"
+                ? "Could not read Chat. Please try again."
+                : "Could not read Chats. Please try again.",
+          },
+        ],
+      });
+    },
+  );
+  it.each([
+    { limit: 0 },
+    { limit: 51 },
+    { limit: 1.5 },
+    { offset: -1 },
+    { offset: 1_000_001 },
+    { userId: "other" },
+  ])(
+    "rejects invalid pagination or ownership for both Chat tools %j",
+    async (args) => {
+      const client = await connect("owner");
+      for (const name of ["list_chats", "get_chat"]) {
+        expect(
+          (
+            await client.callTool({
+              name,
+              arguments: {
+                ...(name === "get_chat" ? { id: "chat" } : {}),
+                ...args,
+              },
+            })
+          ).isError,
+        ).toBe(true);
+      }
+      expect(writes.chat.findMany).not.toHaveBeenCalled();
+      expect(writes.chat.findFirst).not.toHaveBeenCalled();
+    },
+  );
+  it.each([{}, { id: "" }, { id: "x".repeat(101) }, { id: 1 }])(
+    "rejects invalid Chat IDs %j",
+    async (args) => {
+      const client = await connect("owner");
+      expect(
+        (await client.callTool({ name: "get_chat", arguments: args })).isError,
+      ).toBe(true);
+      expect(writes.chat.findFirst).not.toHaveBeenCalled();
+    },
+  );
+  it.each([
+    { q: "x".repeat(51) },
+    { q: 1 },
+    { category: 1 },
+    { category: "x".repeat(101) },
+  ])("rejects invalid Chat search input %j", async (args) => {
+    const client = await connect("owner");
+    expect(
+      (await client.callTool({ name: "list_chats", arguments: args })).isError,
+    ).toBe(true);
+    expect(writes.chat.findMany).not.toHaveBeenCalled();
+  });
   it.each([0, 3])(
     "reads Category metadata and owner-scoped counts (%s Notes)",
     async (noteCount) => {
@@ -457,8 +748,10 @@ describe("remote MCP tools", () => {
       "delete_category",
       "delete_note",
       "get_category",
+      "get_chat",
       "get_note",
       "list_categories",
+      "list_chats",
       "list_notes",
       "update_category",
       "update_note",
@@ -469,8 +762,10 @@ describe("remote MCP tools", () => {
         .filter((t) =>
           [
             "get_category",
+            "get_chat",
             "get_note",
             "list_categories",
+            "list_chats",
             "list_notes",
           ].includes(t.name),
         )

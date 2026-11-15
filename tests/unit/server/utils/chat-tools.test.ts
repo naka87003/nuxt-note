@@ -10,6 +10,11 @@ const reads = vi.hoisted(() => ({
   searchOwnedNotes: vi.fn(),
   readOwnedNote: vi.fn(),
 }));
+const chatReads = vi.hoisted(() => ({
+  searchOwnedChats: vi.fn(),
+  readOwnedChatPage: vi.fn(),
+}));
+vi.mock("../../../../server/utils/chat-reads", () => chatReads);
 const writes = vi.hoisted(() => ({
   createOwnedNote: vi.fn(),
   updateOwnedNote: vi.fn(),
@@ -55,6 +60,16 @@ function setup(
 }
 beforeEach(() => {
   vi.resetAllMocks();
+  chatReads.searchOwnedChats.mockResolvedValue({ chats: [], nextOffset: null });
+  chatReads.readOwnedChatPage.mockResolvedValue({
+    id: "chat",
+    title: "Chat title",
+    updatedAt: new Date(version),
+    messages: [
+      { role: "user", content: "Question", createdAt: new Date(version) },
+    ],
+    nextOffset: null,
+  });
   reads.searchOwnedNotes.mockResolvedValue({ notes: [], nextOffset: null });
   reads.readOwnedNote.mockResolvedValue(note);
   writes.createOwnedNote.mockResolvedValue(note);
@@ -66,6 +81,52 @@ beforeEach(() => {
   writes.deleteOwnedNote.mockResolvedValue({ id: "note", deleted: true });
 });
 describe("in-app Note tools", () => {
+  it.each([true, false])(
+    "searches and reads saved Chats during normal turns and retries (%s)",
+    async (allowMutations) => {
+      const { tools, assertActive } = setup("owner", allowMutations);
+      await tools.list_chats.execute!({ q: "Question" }, context);
+      expect(chatReads.searchOwnedChats).toHaveBeenCalledExactlyOnceWith(
+        "owner",
+        { q: "Question", limit: 20, offset: 0 },
+      );
+      expect(
+        await tools.get_chat.execute!({ id: "chat" }, context),
+      ).toMatchObject({
+        structuredContent: {
+          id: "chat",
+          updatedAt: version,
+          url: "https://notes.example/chats/chat",
+          messages: [{ content: "Question", createdAt: version }],
+        },
+      });
+      expect(chatReads.readOwnedChatPage).toHaveBeenCalledExactlyOnceWith(
+        "owner",
+        { id: "chat", limit: 20, offset: 0 },
+      );
+      expect(assertActive).toHaveBeenCalledTimes(2);
+    },
+  );
+  it("stops Chat reads on cancellation or loss of generation ownership", async () => {
+    const cancelled = setup();
+    cancelled.controller.abort();
+    await expect(
+      cancelled.tools.list_chats.execute!({}, context),
+    ).rejects.toThrow();
+    await expect(
+      cancelled.tools.get_chat.execute!({ id: "chat" }, context),
+    ).rejects.toThrow();
+    const inactive = setup();
+    inactive.assertActive.mockRejectedValue(new Error("no longer active"));
+    await expect(
+      inactive.tools.list_chats.execute!({}, context),
+    ).rejects.toThrow();
+    await expect(
+      inactive.tools.get_chat.execute!({ id: "chat" }, context),
+    ).rejects.toThrow();
+    expect(chatReads.searchOwnedChats).not.toHaveBeenCalled();
+    expect(chatReads.readOwnedChatPage).not.toHaveBeenCalled();
+  });
   it.each([true, false])(
     "reads Category counts for the session owner (mutations allowed: %s)",
     async (allowMutations) => {
@@ -680,8 +741,10 @@ describe("in-app Note tools", () => {
   it("does not expose writes during retries", () => {
     expect(Object.keys(setup("owner", false).tools).sort()).toEqual([
       "get_category",
+      "get_chat",
       "get_note",
       "list_categories",
+      "list_chats",
       "list_notes",
     ]);
   });

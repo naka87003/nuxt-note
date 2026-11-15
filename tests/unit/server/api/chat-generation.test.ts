@@ -317,8 +317,10 @@ describe("Chat generation", () => {
       "delete_category",
       "delete_note",
       "get_category",
+      "get_chat",
       "get_note",
       "list_categories",
+      "list_chats",
       "list_notes",
       "read_webpage",
       "update_category",
@@ -370,8 +372,10 @@ describe("Chat generation", () => {
     const input = mocks.streamText.mock.calls[0]![0];
     expect(Object.keys(input.tools).sort()).toEqual([
       "get_category",
+      "get_chat",
       "get_note",
       "list_categories",
+      "list_chats",
       "list_notes",
       "read_webpage",
       "web_search",
