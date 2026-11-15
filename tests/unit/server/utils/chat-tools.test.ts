@@ -26,6 +26,7 @@ const writes = vi.hoisted(() => ({
   updateOwnedNote: vi.fn(),
   updateOwnedNoteCategory: vi.fn(),
   updateOwnedNoteTitle: vi.fn(),
+  moveOwnedCategoryNotes: vi.fn(),
   deleteOwnedNote: vi.fn(),
 }));
 vi.mock("../../../../server/utils/note-reads", () => reads);
@@ -111,6 +112,92 @@ beforeEach(() => {
   writes.deleteOwnedNote.mockResolvedValue({ id: "note", deleted: true });
 });
 describe("in-app Note tools", () => {
+  it.each([0, 2])(
+    "moves all Notes for the session owner and invalidates read versions only when changed: %s",
+    async (movedCount) => {
+      const { tools } = setup();
+      const args = { sourceCategoryId: "source", targetCategoryId: null };
+      writes.moveOwnedCategoryNotes.mockResolvedValueOnce({
+        ...args,
+        movedCount,
+      });
+      await tools.get_note.execute({ id: "note" }, context);
+      expect(
+        await tools.move_category_notes!.execute(args, context),
+      ).toMatchObject({ structuredContent: { ...args, movedCount } });
+      expect(writes.moveOwnedCategoryNotes).toHaveBeenCalledExactlyOnceWith(
+        "owner",
+        args,
+      );
+      const result = await tools.update_note_title!.execute(
+        { ...input, title: "New title" },
+        context,
+      );
+      expect(result).toHaveProperty(movedCount ? "error" : "structuredContent");
+      if (movedCount) {
+        expect(
+          await tools.update_note!.execute(update, context),
+        ).toHaveProperty("error");
+        expect(
+          await tools.update_note_category!.execute(
+            { ...input, categoryId: null },
+            context,
+          ),
+        ).toHaveProperty("error");
+        expect(await tools.delete_note!.execute(input, context)).toHaveProperty(
+          "error",
+        );
+      }
+      expect(reads.readOwnedNote).toHaveBeenCalledOnce();
+    },
+  );
+  it("keeps cached versions after a failed move and does not change the Chat's default Category", async () => {
+    const { tools } = setup("owner", true, "chat-category");
+    await tools.get_note.execute({ id: "note" }, context);
+    writes.moveOwnedCategoryNotes.mockRejectedValueOnce({ statusCode: 404 });
+    expect(
+      await tools.move_category_notes!.execute(
+        { sourceCategoryId: "source", targetCategoryId: null },
+        context,
+      ),
+    ).toMatchObject({ isError: true });
+    expect(
+      await tools.update_note_title!.execute(
+        { ...input, title: "New title" },
+        context,
+      ),
+    ).toHaveProperty("structuredContent");
+    await tools.create_note!.execute(
+      { title: "Title", markdown: "Body" },
+      context,
+    );
+    expect(writes.createOwnedNote).toHaveBeenCalledWith("owner", {
+      title: "Title",
+      markdown: "Body",
+      categoryId: "chat-category",
+    });
+    expect(writes.moveOwnedCategoryNotes).toHaveBeenCalledOnce();
+  });
+  it("validates bulk moves and stops after cancellation or generation ownership loss", async () => {
+    const args = { sourceCategoryId: "source", targetCategoryId: null };
+    const { tools, controller } = setup();
+    await expect(
+      tools.move_category_notes!.execute(
+        { ...args, targetCategoryId: "source" },
+        context,
+      ),
+    ).rejects.toThrow();
+    controller.abort();
+    await expect(
+      tools.move_category_notes!.execute(args, context),
+    ).rejects.toThrow();
+    const inactive = setup();
+    inactive.assertActive.mockRejectedValue(new Error("no longer active"));
+    await expect(
+      inactive.tools.move_category_notes!.execute(args, context),
+    ).rejects.toThrow();
+    expect(writes.moveOwnedCategoryNotes).not.toHaveBeenCalled();
+  });
   it("renames a Note from a listed version without fetching its body or granting body-edit access", async () => {
     const { tools } = setup();
     const args = { ...input, title: "Requested title" };

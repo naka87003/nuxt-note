@@ -98,6 +98,16 @@ export const noteToolCategoryIdSchema = noteCategoryIdSchema
   .nullable()
   .optional();
 
+export const moveCategoryNotesInputSchema = z
+  .object({
+    sourceCategoryId: noteToolCategoryIdSchema.unwrap(),
+    targetCategoryId: noteToolCategoryIdSchema.unwrap(),
+  })
+  .strict()
+  .refine((input) => input.sourceCategoryId !== input.targetCategoryId, {
+    error: "Source and target Categories must be different",
+  });
+
 export const updateNoteCategoryInputSchema = z
   .object({
     ...noteVersionShape,

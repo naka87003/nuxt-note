@@ -36,6 +36,7 @@ export const CHAT_NOTES_INSTRUCTIONS =
   "Read an existing Note with get_note before replacing its Markdown or deleting it, and use its exact updatedAt. " +
   "For title-only changes, use update_note_title with the exact id and updatedAt from list_notes or get_note; no full body is needed. Preserve its category. On conflict, list or read again and reassess the requested rename; never blindly retry with a newer timestamp. " +
   "For category-only changes, use update_note_category with the exact id and updatedAt from list_notes or get_note; no full body is needed. Use null for Uncategorized. On category conflict, list or read again and reassess the requested change before retrying. " +
+  "Use move_category_notes only when the user explicitly requests moving all Notes from the identified source Category. Clarify ambiguous scope or targets first. Resolve Category IDs with list_categories; null means Uncategorized, never a fallback for a missing named Category. This preserves both Categories and all Chats. It moves Notes matching the source at execution time; do not describe it as moving a previously listed snapshot. Report the returned movedCount. Do not automatically repeat a failed move. " +
   "On update conflict, read again and reconcile changes; never blindly retry with a new timestamp. " +
   "On deletion conflict, read again and ask the user to confirm deletion of the changed Note in a new message. " +
   "Present successfully created or updated Notes as clickable Markdown links using the returned title and url. " +
@@ -223,6 +224,24 @@ export function createChatNoteTools(
     }),
     ...(options.allowMutations
       ? {
+          move_category_notes: adapt("move_category_notes", {
+            ...definitions.move_category_notes,
+            execute: async (input) => {
+              const result =
+                await definitions.move_category_notes.execute(input);
+              const movedCount = result.structuredContent?.movedCount;
+              if (
+                !result.isError &&
+                typeof movedCount === "number" &&
+                movedCount > 0
+              ) {
+                // Bulk results omit Note IDs; discard cached versions before any later write.
+                versions.clear();
+                metadataVersions.clear();
+              }
+              return result;
+            },
+          }),
           delete_chat: adapt("delete_chat", {
             ...definitions.delete_chat,
             execute: async (input) => {

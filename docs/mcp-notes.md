@@ -121,6 +121,31 @@ This does not grant permission to replace Markdown or delete a Note: those
 operations still require `get_note`. Renaming is unavailable during retries and
 stops after cancellation or generation ownership loss.
 
+Use `move_category_notes` only when the user explicitly requests moving all
+Notes from an identified Category. Required arguments are `sourceCategoryId`
+and `targetCategoryId`; both accept an owned Category ID or `null` for
+Uncategorized, and must be different. Resolve Category names with
+`list_categories`, clarify ambiguous scope or targets, and never treat a missing
+named Category as Uncategorized. Both Categories remain present, and Chats,
+Note titles, and Markdown are preserved. The result contains only the source,
+target, and actual `movedCount`; zero means no Notes matched.
+
+The move validates and locks the owned Categories and updates Notes within one
+transaction, without reading Note bodies or listing Notes page by page. A
+single update moves the authenticated owner's Notes matching the source at
+execution time. This is not a snapshot of a previous `list_notes` result: newly
+matching Notes may be included, while Notes concurrently moved out are not
+pulled back. Concurrent title/body edits are preserved. Every moved Note's
+`updatedAt` advances, including timestamps ahead of the database clock, so
+editors using old versions receive conflicts. A failure rolls back the whole
+move; do not automatically retry or claim success.
+
+In-app Chat exposes the move only on new messages with mutations allowed and
+checks cancellation/generation ownership before execution. After a nonempty
+successful move it discards all cached Note versions; subsequent single-Note
+writes require a fresh list/read. Empty or failed moves retain those versions.
+The current Chat's Category and default Category for new Notes are unchanged.
+
 Examples:
 
 - “Find my Notes about Nuxt and summarize them.”
@@ -220,6 +245,7 @@ Ordinary users only configure their agent and do not need this repository or fil
 | `update_chat_category` | Required `id`, `categoryId` (nullable), `updatedAt`                    | Updated Chat ID, title, category ID, update time, URL; no messages         |
 | `update_note_title`    | Required `id`, `title`, `updatedAt`                                    | Updated Note metadata and URL; no Markdown                                 |
 | `update_note_category` | Required `id`, `categoryId` (nullable), `updatedAt`                    | Updated Note metadata and URL; no Markdown                                 |
+| `move_category_notes`  | Required nullable `sourceCategoryId`, `targetCategoryId`               | Source and target Category IDs, `movedCount`; no Note bodies               |
 | `delete_category`      | Required `id`                                                          | Deleted Category ID and `deleted: true`                                    |
 | `delete_chat`          | Required `id`, `updatedAt`                                             | Deleted Chat ID and `deleted: true`                                        |
 | `delete_note`          | Required `id`, `updatedAt`                                             | Deleted Note ID and `deleted: true`                                        |
@@ -386,3 +412,17 @@ Only records identified by the run's random marker/IDs are removed in `finally`.
 Existing Notes are not edited or deleted and their content is not printed.
 An interrupted run may require cleanup of its verification records. This command
 does not deploy the app or register an agent connection.
+
+### Bulk move database checks
+
+`tests/unit/server/utils/move-category-notes.db.test.ts` contains opt-in checks
+against a disposable local PostgreSQL database, including concurrent reassignment
+and stale-editor rejection. Apply the initial migration to a local database named
+`nuxt_note_move_test*`, then run:
+
+```sh
+NUXT_NOTE_MOVE_TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:PORT/nuxt_note_move_test pnpm test --project unit tests/unit/server/utils/move-category-notes.db.test.ts
+```
+
+These checks use unique fixture users and never read the application's database
+configuration. The ordinary test suite skips them when the URL is unset.

@@ -16,6 +16,9 @@ vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
 }));
 const writes = vi.hoisted(() => ({
+  $transaction: vi.fn(),
+  $queryRaw: vi.fn(),
+  $executeRaw: vi.fn(),
   chat: {
     findMany: vi.fn(),
     findFirst: vi.fn(),
@@ -41,6 +44,9 @@ const clients: Client[] = [];
 const handlers: ReturnType<typeof createMcpHandler>[] = [];
 beforeEach(() => {
   vi.resetAllMocks();
+  writes.$transaction.mockImplementation(async (operation) =>
+    operation(writes),
+  );
   reads.searchOwnedNotes.mockResolvedValue({ notes: [], nextOffset: null });
   reads.readOwnedNote.mockResolvedValue({
     id: "note",
@@ -74,6 +80,107 @@ async function connect(owner: string, siteUrl = "https://notes.example") {
 }
 
 describe("remote MCP tools", () => {
+  it.each([
+    ["source", "target", 2],
+    [null, "target", 0],
+    ["source", null, 3],
+  ] as const)(
+    "moves Notes from %j to %j and returns the actual count",
+    async (sourceCategoryId, targetCategoryId, movedCount) => {
+      const client = await connect("owner");
+      const { tools } = await client.listTools();
+      const definition = tools.find(
+        (tool) => tool.name === "move_category_notes",
+      );
+      expect(definition?.inputSchema.required?.slice().sort()).toEqual([
+        "sourceCategoryId",
+        "targetCategoryId",
+      ]);
+      expect(definition?.annotations).toMatchObject({
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+      });
+      writes.$queryRaw.mockResolvedValue(
+        [sourceCategoryId, targetCategoryId]
+          .filter((id) => id !== null)
+          .map((id) => ({ id })),
+      );
+      writes.$executeRaw.mockResolvedValue(movedCount);
+      const result = await client.callTool({
+        name: "move_category_notes",
+        arguments: { sourceCategoryId, targetCategoryId },
+      });
+      expect(result.isError).toBeFalsy();
+      expect(result.structuredContent).toEqual({
+        sourceCategoryId,
+        targetCategoryId,
+        movedCount,
+      });
+      expect(writes.$transaction).toHaveBeenCalledOnce();
+      expect(writes.$executeRaw).toHaveBeenCalledOnce();
+      expect(writes.$queryRaw.mock.calls[0]?.[1]).toBe("owner");
+      expect(writes.$executeRaw.mock.calls[0]?.slice(1)).toEqual([
+        targetCategoryId,
+        "owner",
+        sourceCategoryId,
+      ]);
+      expect(reads.readOwnedNote).not.toHaveBeenCalled();
+      expect(reads.searchOwnedNotes).not.toHaveBeenCalled();
+      expect(writes.category.deleteMany).not.toHaveBeenCalled();
+      expect(writes.chat.update).not.toHaveBeenCalled();
+    },
+  );
+  it("does not move Notes when either Category is missing or foreign", async () => {
+    const client = await connect("owner");
+    writes.$queryRaw.mockResolvedValue([{ id: "source" }]);
+    expect(
+      await client.callTool({
+        name: "move_category_notes",
+        arguments: { sourceCategoryId: "source", targetCategoryId: "foreign" },
+      }),
+    ).toMatchObject({
+      isError: true,
+      content: [{ text: "Category not found." }],
+    });
+    expect(writes.$executeRaw).not.toHaveBeenCalled();
+  });
+  it("hides bulk move storage errors without automatically retrying", async () => {
+    const client = await connect("owner");
+    writes.$queryRaw.mockResolvedValue([{ id: "source" }, { id: "target" }]);
+    writes.$executeRaw.mockRejectedValue(new Error("private database details"));
+    expect(
+      await client.callTool({
+        name: "move_category_notes",
+        arguments: { sourceCategoryId: "source", targetCategoryId: "target" },
+      }),
+    ).toMatchObject({
+      isError: true,
+      content: [{ text: expect.stringContaining("Could not move Notes.") }],
+    });
+    expect(writes.$transaction).toHaveBeenCalledOnce();
+    expect(writes.$executeRaw).toHaveBeenCalledOnce();
+  });
+  it.each([
+    {},
+    { sourceCategoryId: "source" },
+    { targetCategoryId: null },
+    { sourceCategoryId: "same", targetCategoryId: "same" },
+    { sourceCategoryId: null, targetCategoryId: null },
+    { sourceCategoryId: "", targetCategoryId: "target" },
+    { sourceCategoryId: "source", targetCategoryId: 1 },
+    { sourceCategoryId: "x".repeat(101), targetCategoryId: null },
+    { sourceCategoryId: "source", targetCategoryId: "x".repeat(101) },
+    { sourceCategoryId: "source", targetCategoryId: null, userId: "other" },
+    { sourceCategoryId: "source", targetCategoryId: null, markdown: "Changed" },
+  ])("rejects invalid bulk move input %j", async (args) => {
+    const client = await connect("owner");
+    expect(
+      (await client.callTool({ name: "move_category_notes", arguments: args }))
+        .isError,
+    ).toBe(true);
+    expect(writes.$transaction).not.toHaveBeenCalled();
+  });
   const noteTitleInput = {
     id: "note",
     title: "  New title  ",
@@ -1359,6 +1466,7 @@ describe("remote MCP tools", () => {
       "list_categories",
       "list_chats",
       "list_notes",
+      "move_category_notes",
       "update_category",
       "update_chat_category",
       "update_chat_title",
