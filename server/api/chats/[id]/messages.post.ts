@@ -20,22 +20,24 @@ export default defineEventHandler(async (event) => {
       where: { id: message.id, chatId: id, role: "user" },
     });
     if (existing) {
-      if (existing.content !== message.content)
+      if (existing.content !== message.content) {
         throw createError({
           statusCode: 409,
           statusMessage: "Request already used",
         });
+      }
       return { messageId: existing.id };
     }
     const last = await tx.message.findFirst({
       where: { chatId: id },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     });
-    if (last?.role === "user")
+    if (last?.role === "user") {
       throw createError({
         statusCode: 409,
         statusMessage: "Retry the unanswered message first",
       });
+    }
     await tx.message.create({
       data: {
         ...message,

@@ -17,11 +17,12 @@ export default defineEventHandler(async (event) => {
     include: { messages: { where: { id: message.id } } },
   });
   if (existing) {
-    if (existing.messages[0]?.content !== message.content)
+    if (existing.messages[0]?.content !== message.content) {
       throw createError({
         statusCode: 409,
         statusMessage: "Request already used",
       });
+    }
     return { id, messageId: message.id };
   }
   const categoryId = await ownedCategory(userId, input.categoryId);
@@ -42,11 +43,12 @@ export default defineEventHandler(async (event) => {
       typeof error === "object" &&
       "code" in error &&
       error.code === "P2002"
-    )
+    ) {
       throw createError({
         statusCode: 409,
         statusMessage: "Request already received. Please try again.",
       });
+    }
     throw error;
   }
   setResponseStatus(event, 201);

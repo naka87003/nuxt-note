@@ -124,8 +124,9 @@ async function dismissDialog() {
 }
 
 async function go(next: Step) {
-  if (next === "done")
+  if (next === "done") {
     previewContent.value = await contentPreview(markdown.value);
+  }
   clearTimeout(transitionTimer);
   if (next === "chat" && (step.value === "done" || step.value === "edit")) {
     category.value = "Nuxt";

@@ -47,9 +47,10 @@ const {
               ),
             )
             .then((result) => {
-              if (result === false || result instanceof Error)
+              if (result === false || result instanceof Error) {
                 navigationFailure.value =
                   "Your chat was saved. You can reopen it from the chat list.";
+              }
             })
             .catch(() => {
               navigationFailure.value =

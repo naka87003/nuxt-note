@@ -4,8 +4,9 @@ import { setTimeout as delay } from "node:timers/promises";
 const originalFetch = globalThis.fetch;
 let failures = 0;
 globalThis.fetch = async (input, init) => {
-  if (!String(input).startsWith("https://api.openai.com/"))
+  if (!String(input).startsWith("https://api.openai.com/")) {
     return originalFetch(input, init);
+  }
   const body = JSON.parse(init.body);
   const prompt = JSON.stringify(body.input);
   const fail = prompt.includes("FAIL") && failures++ === 0;
@@ -62,7 +63,7 @@ globalThis.fetch = async (input, init) => {
           delta: "Partial",
         });
         await delay(slow ? 3000 : 30, undefined, { signal });
-        if (fail)
+        if (fail) {
           send({
             type: "response.failed",
             sequence_number: 3,
@@ -70,7 +71,7 @@ globalThis.fetch = async (input, init) => {
               error: { code: "test_error", message: "Test provider error" },
             },
           });
-        else {
+        } else {
           send({
             type: "response.output_text.delta",
             item_id: "msg-test",

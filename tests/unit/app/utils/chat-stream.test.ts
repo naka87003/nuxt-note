@@ -18,8 +18,9 @@ it.each([1, 7, 10_000])(
     );
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
-        for (let offset = 0; offset < bytes.length; offset += chunkSize)
+        for (let offset = 0; offset < bytes.length; offset += chunkSize) {
           controller.enqueue(bytes.slice(offset, offset + chunkSize));
+        }
         controller.close();
       },
     });

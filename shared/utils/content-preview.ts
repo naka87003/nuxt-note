@@ -10,7 +10,8 @@ function nodeText(node: Node): string {
   if (typeof node === "string") return node;
   if (node[0] === null) return "";
   if (node[0] === "img") return String(node[1].alt ?? "");
-  const text = (node.slice(2) as Node[]).map(nodeText).join("");
+  const [, , ...children] = node;
+  const text = children.map(nodeText).join("");
   return inlineTags.has(node[0]) ? text : `${text} `;
 }
 

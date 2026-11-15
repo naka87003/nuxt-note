@@ -123,70 +123,73 @@ describe("in-app Note tools", () => {
         messages: [],
         nextOffset: null,
       });
-      await tools.get_chat.execute!({ id }, context);
-      if (succeeds)
+      await tools.get_chat.execute({ id }, context);
+      if (succeeds) {
         chatWrites.updateOwnedChatTitle.mockResolvedValueOnce({
           id,
           title: "Saved title",
           updatedAt: new Date(version),
         });
-      else
+      } else {
         chatWrites.updateOwnedChatTitle.mockRejectedValueOnce({
           statusCode: 409,
         });
-      await tools.update_chat_title!.execute!(
+      }
+      await tools.update_chat_title!.execute(
         { id, title: "Requested title", updatedAt: version },
         context,
       );
-      if (succeeds && id === "chat")
+      if (succeeds && id === "chat") {
         expect(onChatTitleUpdated).toHaveBeenCalledExactlyOnceWith(
           "Saved title",
         );
-      else expect(onChatTitleUpdated).not.toHaveBeenCalled();
+      } else {
+        expect(onChatTitleUpdated).not.toHaveBeenCalled();
+      }
     },
   );
   it("renames a Chat from a listed version without reading messages or changing the Note category default", async () => {
     const { tools } = setup("owner", true, "existing", "chat");
     const args = { id: "chat", title: "New title", updatedAt: version };
     expect(
-      await tools.update_chat_title!.execute!(args, context),
+      await tools.update_chat_title!.execute(args, context),
     ).toHaveProperty("error");
     chatReads.searchOwnedChats.mockResolvedValueOnce({
       chats: [{ id: "chat", updatedAt: new Date(version) }],
       nextOffset: 1,
     });
-    await tools.list_chats.execute!({ limit: 1 }, context);
-    await tools.list_chats.execute!({ limit: 1, offset: 1 }, context);
+    await tools.list_chats.execute({ limit: 1 }, context);
+    await tools.list_chats.execute({ limit: 1, offset: 1 }, context);
     expect(
-      await tools.update_chat_title!.execute!(
+      await tools.update_chat_title!.execute(
         { ...args, updatedAt: "2026-11-13T00:00:01.000Z" },
         context,
       ),
     ).toHaveProperty("error");
-    expect(
-      await tools.update_chat_title!.execute!(args, context),
-    ).toMatchObject({
-      structuredContent: {
-        title: "New title",
-        updatedAt: version,
-        url: "https://notes.example/chats/chat",
+    expect(await tools.update_chat_title!.execute(args, context)).toMatchObject(
+      {
+        structuredContent: {
+          title: "New title",
+          updatedAt: version,
+          url: "https://notes.example/chats/chat",
+        },
       },
-    });
+    );
     expect(chatWrites.updateOwnedChatTitle).toHaveBeenCalledExactlyOnceWith(
       "owner",
       args,
     );
     expect(chatReads.readOwnedChatPage).not.toHaveBeenCalled();
     expect(
-      await tools.update_chat_title!.execute!(args, context),
+      await tools.update_chat_title!.execute(args, context),
     ).toHaveProperty("error");
     expect(
-      await tools.update_chat_category!.execute!(
+      await tools.update_chat_category!.execute(
         { id: "chat", categoryId: null, updatedAt: version },
         context,
       ),
     ).toHaveProperty("error");
-    await tools.create_note!.execute!(
+    await tools.create_note!.execute(
       { title: "Title", markdown: "Body" },
       context,
     );
@@ -199,25 +202,25 @@ describe("in-app Note tools", () => {
   it("requires a fresh Chat version after a category change or failed rename", async () => {
     const { tools } = setup();
     const args = { id: "chat", title: "New title", updatedAt: version };
-    await tools.get_chat.execute!({ id: "chat" }, context);
-    await tools.update_chat_category!.execute!(
+    await tools.get_chat.execute({ id: "chat" }, context);
+    await tools.update_chat_category!.execute(
       { id: "chat", categoryId: null, updatedAt: version },
       context,
     );
     expect(
-      await tools.update_chat_title!.execute!(args, context),
+      await tools.update_chat_title!.execute(args, context),
     ).toHaveProperty("error");
-    await tools.get_chat.execute!({ id: "chat" }, context);
+    await tools.get_chat.execute({ id: "chat" }, context);
     chatWrites.updateOwnedChatTitle.mockRejectedValueOnce({ statusCode: 409 });
+    expect(await tools.update_chat_title!.execute(args, context)).toMatchObject(
+      { isError: true },
+    );
     expect(
-      await tools.update_chat_title!.execute!(args, context),
-    ).toMatchObject({ isError: true });
-    expect(
-      await tools.update_chat_title!.execute!(args, context),
+      await tools.update_chat_title!.execute(args, context),
     ).toHaveProperty("error");
-    await tools.get_chat.execute!({ id: "chat" }, context);
+    await tools.get_chat.execute({ id: "chat" }, context);
     expect(
-      await tools.update_chat_title!.execute!(args, context),
+      await tools.update_chat_title!.execute(args, context),
     ).toHaveProperty("structuredContent");
     expect(chatWrites.updateOwnedChatTitle).toHaveBeenCalledTimes(2);
   });
@@ -225,13 +228,13 @@ describe("in-app Note tools", () => {
     const a = setup("a").tools;
     const b = setup("b").tools;
     const args = { id: "chat", title: "New title", updatedAt: version };
-    await a.get_chat.execute!({ id: "chat" }, context);
-    expect(await b.update_chat_title!.execute!(args, context)).toHaveProperty(
+    await a.get_chat.execute({ id: "chat" }, context);
+    expect(await b.update_chat_title!.execute(args, context)).toHaveProperty(
       "error",
     );
     chatReads.readOwnedChatPage.mockRejectedValueOnce({ statusCode: 404 });
-    await a.get_chat.execute!({ id: "chat" }, context);
-    expect(await a.update_chat_title!.execute!(args, context)).toHaveProperty(
+    await a.get_chat.execute({ id: "chat" }, context);
+    expect(await a.update_chat_title!.execute(args, context)).toHaveProperty(
       "error",
     );
     expect(chatWrites.updateOwnedChatTitle).not.toHaveBeenCalled();
@@ -240,16 +243,16 @@ describe("in-app Note tools", () => {
     const { tools, controller } = setup();
     const args = { id: "chat", title: "New title", updatedAt: version };
     await expect(
-      tools.update_chat_title!.execute!({ ...args, title: " " }, context),
+      tools.update_chat_title!.execute({ ...args, title: " " }, context),
     ).rejects.toThrow();
     controller.abort();
     await expect(
-      tools.update_chat_title!.execute!(args, context),
+      tools.update_chat_title!.execute(args, context),
     ).rejects.toThrow();
     const inactive = setup();
     inactive.assertActive.mockRejectedValue(new Error("no longer active"));
     await expect(
-      inactive.tools.update_chat_title!.execute!(args, context),
+      inactive.tools.update_chat_title!.execute(args, context),
     ).rejects.toThrow();
     expect(chatWrites.updateOwnedChatTitle).not.toHaveBeenCalled();
   });
@@ -259,23 +262,23 @@ describe("in-app Note tools", () => {
       const { tools } = setup();
       const args = { id: "chat", categoryId, updatedAt: version };
       expect(
-        await tools.update_chat_category!.execute!(args, context),
+        await tools.update_chat_category!.execute(args, context),
       ).toHaveProperty("error");
       chatReads.searchOwnedChats.mockResolvedValueOnce({
         chats: [{ id: "chat", updatedAt: new Date(version) }],
         nextOffset: 1,
       });
-      await tools.list_chats.execute!({ limit: 1 }, context);
+      await tools.list_chats.execute({ limit: 1 }, context);
       // Reading another page must preserve earlier page versions.
-      await tools.list_chats.execute!({ limit: 1, offset: 1 }, context);
+      await tools.list_chats.execute({ limit: 1, offset: 1 }, context);
       expect(
-        await tools.update_chat_category!.execute!(
+        await tools.update_chat_category!.execute(
           { ...args, updatedAt: "2026-11-13T00:00:01.000Z" },
           context,
         ),
       ).toHaveProperty("error");
       expect(
-        await tools.update_chat_category!.execute!(args, context),
+        await tools.update_chat_category!.execute(args, context),
       ).toMatchObject({
         structuredContent: {
           id: "chat",
@@ -289,32 +292,32 @@ describe("in-app Note tools", () => {
       ).toHaveBeenCalledExactlyOnceWith("owner", "chat", args);
       expect(chatReads.readOwnedChatPage).not.toHaveBeenCalled();
       expect(
-        await tools.update_chat_category!.execute!(args, context),
+        await tools.update_chat_category!.execute(args, context),
       ).toHaveProperty("error");
     },
   );
   it("requires a fresh Chat read after conflict and invalidates versions on failed reads", async () => {
     const { tools } = setup();
     const args = { id: "chat", categoryId: null, updatedAt: version };
-    await tools.get_chat.execute!({ id: "chat" }, context);
+    await tools.get_chat.execute({ id: "chat" }, context);
     chatWrites.updateOwnedChatCategory.mockRejectedValueOnce({
       statusCode: 409,
     });
     expect(
-      await tools.update_chat_category!.execute!(args, context),
+      await tools.update_chat_category!.execute(args, context),
     ).toMatchObject({ isError: true });
     expect(
-      await tools.update_chat_category!.execute!(args, context),
+      await tools.update_chat_category!.execute(args, context),
     ).toHaveProperty("error");
-    await tools.get_chat.execute!({ id: "chat" }, context);
+    await tools.get_chat.execute({ id: "chat" }, context);
     chatReads.readOwnedChatPage.mockRejectedValueOnce({ statusCode: 404 });
-    await tools.get_chat.execute!({ id: "chat" }, context);
+    await tools.get_chat.execute({ id: "chat" }, context);
     expect(
-      await tools.update_chat_category!.execute!(args, context),
+      await tools.update_chat_category!.execute(args, context),
     ).toHaveProperty("error");
-    await tools.get_chat.execute!({ id: "chat" }, context);
+    await tools.get_chat.execute({ id: "chat" }, context);
     expect(
-      await tools.update_chat_category!.execute!(args, context),
+      await tools.update_chat_category!.execute(args, context),
     ).toHaveProperty("structuredContent");
     expect(chatWrites.updateOwnedChatCategory).toHaveBeenCalledTimes(2);
   });
@@ -322,18 +325,18 @@ describe("in-app Note tools", () => {
     const a = setup("a").tools;
     const b = setup("b").tools;
     const args = { id: "chat", categoryId: null, updatedAt: version };
-    await a.get_chat.execute!({ id: "chat" }, context);
-    expect(
-      await b.update_chat_category!.execute!(args, context),
-    ).toHaveProperty("error");
+    await a.get_chat.execute({ id: "chat" }, context);
+    expect(await b.update_chat_category!.execute(args, context)).toHaveProperty(
+      "error",
+    );
     reads.readOwnedNote.mockResolvedValueOnce({ ...note, id: "chat" });
-    await b.get_note.execute!({ id: "chat" }, context);
-    expect(
-      await b.update_chat_category!.execute!(args, context),
-    ).toHaveProperty("error");
-    await b.get_chat.execute!({ id: "chat" }, context);
-    await a.update_chat_category!.execute!(args, context);
-    await b.update_chat_category!.execute!(args, context);
+    await b.get_note.execute({ id: "chat" }, context);
+    expect(await b.update_chat_category!.execute(args, context)).toHaveProperty(
+      "error",
+    );
+    await b.get_chat.execute({ id: "chat" }, context);
+    await a.update_chat_category!.execute(args, context);
+    await b.update_chat_category!.execute(args, context);
     expect(
       chatWrites.updateOwnedChatCategory.mock.calls.map(([owner]) => owner),
     ).toEqual(["a", "b"]);
@@ -353,16 +356,17 @@ describe("in-app Note tools", () => {
         messages: [],
         nextOffset: null,
       });
-      await tools.get_chat.execute!({ id }, context);
-      if (!succeeds)
+      await tools.get_chat.execute({ id }, context);
+      if (!succeeds) {
         chatWrites.updateOwnedChatCategory.mockRejectedValueOnce({
           statusCode: 409,
         });
-      await tools.update_chat_category!.execute!(
+      }
+      await tools.update_chat_category!.execute(
         { id, categoryId, updatedAt: version },
         context,
       );
-      await tools.create_note!.execute!(
+      await tools.create_note!.execute(
         { title: "Title", markdown: "Body" },
         context,
       );
@@ -377,19 +381,16 @@ describe("in-app Note tools", () => {
     const { tools, controller } = setup();
     const args = { id: "chat", categoryId: null, updatedAt: version };
     await expect(
-      tools.update_chat_category!.execute!(
-        { ...args, messages: [] } as never,
-        context,
-      ),
+      tools.update_chat_category!.execute({ ...args, messages: [] }, context),
     ).rejects.toThrow();
     controller.abort();
     await expect(
-      tools.update_chat_category!.execute!(args, context),
+      tools.update_chat_category!.execute(args, context),
     ).rejects.toThrow();
     const inactive = setup();
     inactive.assertActive.mockRejectedValue(new Error("no longer active"));
     await expect(
-      inactive.tools.update_chat_category!.execute!(args, context),
+      inactive.tools.update_chat_category!.execute(args, context),
     ).rejects.toThrow();
     expect(chatWrites.updateOwnedChatCategory).not.toHaveBeenCalled();
   });
@@ -397,13 +398,13 @@ describe("in-app Note tools", () => {
     "searches and reads saved Chats during normal turns and retries (%s)",
     async (allowMutations) => {
       const { tools, assertActive } = setup("owner", allowMutations);
-      await tools.list_chats.execute!({ q: "Question" }, context);
+      await tools.list_chats.execute({ q: "Question" }, context);
       expect(chatReads.searchOwnedChats).toHaveBeenCalledExactlyOnceWith(
         "owner",
         { q: "Question", limit: 20, offset: 0 },
       );
       expect(
-        await tools.get_chat.execute!({ id: "chat" }, context),
+        await tools.get_chat.execute({ id: "chat" }, context),
       ).toMatchObject({
         structuredContent: {
           id: "chat",
@@ -423,18 +424,18 @@ describe("in-app Note tools", () => {
     const cancelled = setup();
     cancelled.controller.abort();
     await expect(
-      cancelled.tools.list_chats.execute!({}, context),
+      cancelled.tools.list_chats.execute({}, context),
     ).rejects.toThrow();
     await expect(
-      cancelled.tools.get_chat.execute!({ id: "chat" }, context),
+      cancelled.tools.get_chat.execute({ id: "chat" }, context),
     ).rejects.toThrow();
     const inactive = setup();
     inactive.assertActive.mockRejectedValue(new Error("no longer active"));
     await expect(
-      inactive.tools.list_chats.execute!({}, context),
+      inactive.tools.list_chats.execute({}, context),
     ).rejects.toThrow();
     await expect(
-      inactive.tools.get_chat.execute!({ id: "chat" }, context),
+      inactive.tools.get_chat.execute({ id: "chat" }, context),
     ).rejects.toThrow();
     expect(chatReads.searchOwnedChats).not.toHaveBeenCalled();
     expect(chatReads.readOwnedChatPage).not.toHaveBeenCalled();
@@ -449,7 +450,7 @@ describe("in-app Note tools", () => {
       });
       const { tools, assertActive } = setup("owner", allowMutations);
       expect(
-        await tools.get_category.execute!({ id: "category" }, context),
+        await tools.get_category.execute({ id: "category" }, context),
       ).toMatchObject({
         structuredContent: {
           id: "category",
@@ -469,16 +470,16 @@ describe("in-app Note tools", () => {
   it("validates Category reads and stops after cancellation or generation ownership loss", async () => {
     const { tools, controller } = setup();
     await expect(
-      tools.get_category.execute!({ id: "" }, context),
+      tools.get_category.execute({ id: "" }, context),
     ).rejects.toThrow();
     controller.abort();
     await expect(
-      tools.get_category.execute!({ id: "category" }, context),
+      tools.get_category.execute({ id: "category" }, context),
     ).rejects.toThrow();
     const inactive = setup();
     inactive.assertActive.mockRejectedValue(new Error("no longer active"));
     await expect(
-      inactive.tools.get_category.execute!({ id: "category" }, context),
+      inactive.tools.get_category.execute({ id: "category" }, context),
     ).rejects.toThrow();
     expect(categories.findFirst).not.toHaveBeenCalled();
   });
@@ -486,7 +487,7 @@ describe("in-app Note tools", () => {
     categories.updateMany.mockResolvedValue({ count: 1 });
     const { tools, assertActive } = setup("owner", true, "chat-category");
     expect(
-      await tools.update_category!.execute!(
+      await tools.update_category!.execute(
         { id: "chat-category", name: "  Ｎｕｘｔ  " },
         context,
       ),
@@ -498,7 +499,7 @@ describe("in-app Note tools", () => {
       data: { name: "Ｎｕｘｔ", nameKey: "nuxt" },
     });
     expect(assertActive).toHaveBeenCalledOnce();
-    await tools.create_note!.execute!(
+    await tools.create_note!.execute(
       { title: "Title", markdown: "Body" },
       context,
     );
@@ -514,22 +515,19 @@ describe("in-app Note tools", () => {
     const input = { id: "category", name: "Nuxt" };
     const { tools, controller } = setup();
     await expect(
-      tools.update_category!.execute!(
-        { ...input, userId: "other" } as never,
-        context,
-      ),
+      tools.update_category!.execute({ ...input, userId: "other" }, context),
     ).rejects.toThrow();
     await expect(
-      tools.update_category!.execute!({ ...input, name: " " }, context),
+      tools.update_category!.execute({ ...input, name: " " }, context),
     ).rejects.toThrow();
     controller.abort();
     await expect(
-      tools.update_category!.execute!(input, context),
+      tools.update_category!.execute(input, context),
     ).rejects.toThrow();
     const inactive = setup();
     inactive.assertActive.mockRejectedValue(new Error("no longer active"));
     await expect(
-      inactive.tools.update_category!.execute!(input, context),
+      inactive.tools.update_category!.execute(input, context),
     ).rejects.toThrow();
     expect(categories.updateMany).not.toHaveBeenCalled();
   });
@@ -537,7 +535,7 @@ describe("in-app Note tools", () => {
     categories.deleteMany.mockResolvedValue({ count: 1 });
     const { tools, assertActive } = setup("owner");
     expect(
-      await tools.delete_category!.execute!({ id: "category" }, context),
+      await tools.delete_category!.execute({ id: "category" }, context),
     ).toMatchObject({
       structuredContent: { id: "category", deleted: true },
     });
@@ -549,14 +547,15 @@ describe("in-app Note tools", () => {
   it("clears a successfully deleted Chat category before creating another Note in the same turn", async () => {
     categories.deleteMany.mockResolvedValue({ count: 1 });
     writes.createOwnedNote.mockImplementation(async (_owner, input) => {
-      if (input.categoryId === "chat-category")
+      if (input.categoryId === "chat-category") {
         throw Object.assign(new Error(), { statusCode: 404 });
+      }
       return { ...note, categoryId: input.categoryId ?? null };
     });
     const { tools } = setup("owner", true, "chat-category");
-    await tools.delete_category!.execute!({ id: "chat-category" }, context);
+    await tools.delete_category!.execute({ id: "chat-category" }, context);
     expect(
-      await tools.create_note!.execute!(
+      await tools.create_note!.execute(
         { title: "Title", markdown: "Body" },
         context,
       ),
@@ -567,7 +566,7 @@ describe("in-app Note tools", () => {
       title: "Title",
       markdown: "Body",
     });
-    await tools.create_note!.execute!(
+    await tools.create_note!.execute(
       { title: "Explicit", markdown: "Body", categoryId: "other" },
       context,
     );
@@ -585,8 +584,8 @@ describe("in-app Note tools", () => {
     async (id, count) => {
       categories.deleteMany.mockResolvedValue({ count });
       const { tools } = setup("owner", true, "chat-category");
-      await tools.delete_category!.execute!({ id }, context);
-      await tools.create_note!.execute!(
+      await tools.delete_category!.execute({ id }, context);
+      await tools.create_note!.execute(
         { title: "Title", markdown: "Body" },
         context,
       );
@@ -600,22 +599,22 @@ describe("in-app Note tools", () => {
   it("validates Category deletion and stops after cancellation or ownership loss", async () => {
     const { tools, controller } = setup();
     await expect(
-      tools.delete_category!.execute!(
-        { id: "category", userId: "other" } as never,
+      tools.delete_category!.execute(
+        { id: "category", userId: "other" },
         context,
       ),
     ).rejects.toThrow();
     await expect(
-      tools.delete_category!.execute!({ id: "" }, context),
+      tools.delete_category!.execute({ id: "" }, context),
     ).rejects.toThrow();
     controller.abort();
     await expect(
-      tools.delete_category!.execute!({ id: "category" }, context),
+      tools.delete_category!.execute({ id: "category" }, context),
     ).rejects.toThrow();
     const inactive = setup();
     inactive.assertActive.mockRejectedValue(new Error("no longer active"));
     await expect(
-      inactive.tools.delete_category!.execute!({ id: "category" }, context),
+      inactive.tools.delete_category!.execute({ id: "category" }, context),
     ).rejects.toThrow();
     expect(categories.deleteMany).not.toHaveBeenCalled();
   });
@@ -626,7 +625,7 @@ describe("in-app Note tools", () => {
     });
     const { tools, assertActive } = setup("owner", true, "chat-category");
     expect(
-      await tools.create_category!.execute!({ name: "  Ｎｕｘｔ  " }, context),
+      await tools.create_category!.execute({ name: "  Ｎｕｘｔ  " }, context),
     ).toMatchObject({
       structuredContent: { id: "new-category", name: "Ｎｕｘｔ" },
     });
@@ -634,7 +633,7 @@ describe("in-app Note tools", () => {
       data: { name: "Ｎｕｘｔ", nameKey: "nuxt", userId: "owner" },
       select: { id: true, name: true },
     });
-    await tools.create_note!.execute!(
+    await tools.create_note!.execute(
       { title: "Title", markdown: "Body", categoryId: "new-category" },
       context,
     );
@@ -648,29 +647,29 @@ describe("in-app Note tools", () => {
   it("validates category creation and stops after cancellation or ownership loss", async () => {
     const { tools, controller } = setup();
     await expect(
-      tools.create_category!.execute!(
-        { name: "Nuxt", userId: "other" } as never,
+      tools.create_category!.execute(
+        { name: "Nuxt", userId: "other" },
         context,
       ),
     ).rejects.toThrow();
     await expect(
-      tools.create_category!.execute!({ name: " " }, context),
+      tools.create_category!.execute({ name: " " }, context),
     ).rejects.toThrow();
     controller.abort();
     await expect(
-      tools.create_category!.execute!({ name: "Nuxt" }, context),
+      tools.create_category!.execute({ name: "Nuxt" }, context),
     ).rejects.toThrow();
     const inactive = setup();
     inactive.assertActive.mockRejectedValue(new Error("no longer active"));
     await expect(
-      inactive.tools.create_category!.execute!({ name: "Nuxt" }, context),
+      inactive.tools.create_category!.execute({ name: "Nuxt" }, context),
     ).rejects.toThrow();
     expect(categories.create).not.toHaveBeenCalled();
   });
   it("lists existing categories for the session owner even during retries", async () => {
     categories.findMany.mockResolvedValue([{ id: "empty", name: "Empty" }]);
     const { tools, assertActive } = setup("owner", false);
-    expect(await tools.list_categories.execute!({}, context)).toMatchObject({
+    expect(await tools.list_categories.execute({}, context)).toMatchObject({
       structuredContent: { categories: [{ id: "empty", name: "Empty" }] },
     });
     expect(assertActive).toHaveBeenCalledOnce();
@@ -688,7 +687,7 @@ describe("in-app Note tools", () => {
     "preserves an explicit category %j before the chat default",
     async (categoryId, expected) => {
       const { tools } = setup("owner", true, "chat-category");
-      await tools.create_note!.execute!(
+      await tools.create_note!.execute(
         {
           title: "Title",
           markdown: "Body",
@@ -706,31 +705,31 @@ describe("in-app Note tools", () => {
   it("stops category reads after cancellation", async () => {
     const { tools, controller } = setup();
     controller.abort();
-    await expect(tools.list_categories.execute!({}, context)).rejects.toThrow();
+    await expect(tools.list_categories.execute({}, context)).rejects.toThrow();
     expect(categories.findMany).not.toHaveBeenCalled();
   });
   it("uses the authenticated owner and validates search defaults", async () => {
     const { tools, assertActive } = setup();
-    await tools.list_notes.execute!({}, context);
+    await tools.list_notes.execute({}, context);
     expect(assertActive).toHaveBeenCalledOnce();
     expect(reads.searchOwnedNotes).toHaveBeenCalledWith("owner", {
       limit: 20,
       offset: 0,
     });
     await expect(
-      tools.list_notes.execute!({ limit: 51 }, context),
+      tools.list_notes.execute({ limit: 51 }, context),
     ).rejects.toThrow();
     expect(reads.searchOwnedNotes).toHaveBeenCalledTimes(1);
   });
   it("serializes timestamps and links successful mutations", async () => {
     const { tools } = setup();
+    expect(await tools.get_note.execute({ id: "note" }, context)).toMatchObject(
+      {
+        structuredContent: { updatedAt: version },
+      },
+    );
     expect(
-      await tools.get_note.execute!({ id: "note" }, context),
-    ).toMatchObject({
-      structuredContent: { updatedAt: version },
-    });
-    expect(
-      await tools.create_note!.execute!(
+      await tools.create_note!.execute(
         { title: "Title", markdown: "# Note" },
         context,
       ),
@@ -744,7 +743,7 @@ describe("in-app Note tools", () => {
       title: "Title",
       markdown: "# Note",
     });
-    expect(await tools.update_note!.execute!(update, context)).toMatchObject({
+    expect(await tools.update_note!.execute(update, context)).toMatchObject({
       structuredContent: { url: "https://notes.example/notes/note" },
     });
     expect(writes.updateOwnedNote).toHaveBeenCalledWith("owner", update);
@@ -757,7 +756,7 @@ describe("in-app Note tools", () => {
     "https://notes.example/notes/%6eote",
   ])("reads a known Note link without searching first: %s", async (id) => {
     const { tools } = setup();
-    expect(await tools.get_note.execute!({ id }, context)).toMatchObject({
+    expect(await tools.get_note.execute({ id }, context)).toMatchObject({
       structuredContent: { id: "note", updatedAt: version },
     });
     expect(reads.readOwnedNote).toHaveBeenCalledExactlyOnceWith(
@@ -765,7 +764,7 @@ describe("in-app Note tools", () => {
       "note",
     );
     expect(reads.searchOwnedNotes).not.toHaveBeenCalled();
-    expect(await tools.update_note!.execute!(update, context)).toHaveProperty(
+    expect(await tools.update_note!.execute(update, context)).toHaveProperty(
       "structuredContent",
     );
     expect(writes.updateOwnedNote).toHaveBeenCalledExactlyOnceWith(
@@ -784,17 +783,17 @@ describe("in-app Note tools", () => {
     "javascript:alert(1)",
   ])("rejects non-app Note references: %s", async (id) => {
     const { tools } = setup();
-    expect(await tools.get_note.execute!({ id }, context)).toMatchObject({
+    expect(await tools.get_note.execute({ id }, context)).toMatchObject({
       isError: true,
     });
     expect(reads.readOwnedNote).not.toHaveBeenCalled();
   });
   it("does not retain a write version after a subsequent failed read", async () => {
     const { tools } = setup();
-    await tools.get_note.execute!({ id: "note" }, context);
+    await tools.get_note.execute({ id: "note" }, context);
     reads.readOwnedNote.mockRejectedValueOnce({ statusCode: 404 });
-    await tools.get_note.execute!({ id: "/notes/note" }, context);
-    expect(await tools.update_note!.execute!(update, context)).toHaveProperty(
+    await tools.get_note.execute({ id: "/notes/note" }, context);
+    expect(await tools.update_note!.execute(update, context)).toHaveProperty(
       "error",
     );
     expect(writes.updateOwnedNote).not.toHaveBeenCalled();
@@ -804,13 +803,13 @@ describe("in-app Note tools", () => {
     async (name) => {
       const { tools } = setup();
       const args = name === "update_note" ? update : input;
-      const execute = () => tools[name]!.execute!(args, context);
+      const execute = () => tools[name]!.execute(args, context);
       expect(await execute()).toMatchObject({
         error: expect.stringContaining("get_note"),
       });
       expect(writes.updateOwnedNote).not.toHaveBeenCalled();
       expect(writes.deleteOwnedNote).not.toHaveBeenCalled();
-      await tools.get_note.execute!({ id: "note" }, context);
+      await tools.get_note.execute({ id: "note" }, context);
       expect(await execute()).toHaveProperty("structuredContent");
       expect(await execute()).toHaveProperty("error");
     },
@@ -825,23 +824,23 @@ describe("in-app Note tools", () => {
       const { tools, assertActive } = setup();
       const args = { ...input, categoryId };
       expect(
-        await tools.update_note_category!.execute!(args, context),
+        await tools.update_note_category!.execute(args, context),
       ).toHaveProperty("error");
-      await tools.list_notes.execute!({}, context);
+      await tools.list_notes.execute({}, context);
       expect(
-        await tools.update_note_category!.execute!(
+        await tools.update_note_category!.execute(
           { ...args, updatedAt: "2026-11-13T00:00:01.000Z" },
           context,
         ),
       ).toHaveProperty("error");
-      expect(await tools.update_note!.execute!(update, context)).toHaveProperty(
+      expect(await tools.update_note!.execute(update, context)).toHaveProperty(
         "error",
       );
-      expect(await tools.delete_note!.execute!(input, context)).toHaveProperty(
+      expect(await tools.delete_note!.execute(input, context)).toHaveProperty(
         "error",
       );
       expect(
-        await tools.update_note_category!.execute!(args, context),
+        await tools.update_note_category!.execute(args, context),
       ).toMatchObject({
         structuredContent: {
           updatedAt: version,
@@ -855,7 +854,7 @@ describe("in-app Note tools", () => {
       expect(reads.readOwnedNote).not.toHaveBeenCalled();
       expect(assertActive).toHaveBeenCalled();
       expect(
-        await tools.update_note_category!.execute!(args, context),
+        await tools.update_note_category!.execute(args, context),
       ).toHaveProperty("error");
     },
   );
@@ -871,19 +870,19 @@ describe("in-app Note tools", () => {
         notes: [{ id: "second", updatedAt: new Date(version) }],
         nextOffset: null,
       });
-    const firstPage = (await tools.list_notes.execute!(
+    const firstPage = (await tools.list_notes.execute(
       { limit: 1 },
       context,
     )) as {
       structuredContent: { nextOffset: number };
     };
-    await tools.list_notes.execute!(
+    await tools.list_notes.execute(
       { limit: 1, offset: firstPage.structuredContent.nextOffset },
       context,
     );
     const args = { ...input, categoryId: null };
     expect(
-      await tools.update_note_category!.execute!(args, context),
+      await tools.update_note_category!.execute(args, context),
     ).toHaveProperty("structuredContent");
     expect(writes.updateOwnedNoteCategory).toHaveBeenCalledExactlyOnceWith(
       "owner",
@@ -893,15 +892,15 @@ describe("in-app Note tools", () => {
       notes: [{ id: "second", updatedAt: new Date(newerVersion) }],
       nextOffset: null,
     });
-    await tools.list_notes.execute!({}, context);
+    await tools.list_notes.execute({}, context);
     expect(
-      await tools.update_note_category!.execute!(
+      await tools.update_note_category!.execute(
         { ...args, id: "second" },
         context,
       ),
     ).toHaveProperty("error");
     expect(
-      await tools.update_note_category!.execute!(
+      await tools.update_note_category!.execute(
         {
           ...args,
           id: "second",
@@ -915,27 +914,27 @@ describe("in-app Note tools", () => {
   it("consumes category and full-read versions on conflict and permits reassessment from a fresh list", async () => {
     const { tools } = setup();
     const args = { ...input, categoryId: null };
-    await tools.get_note.execute!({ id: "note" }, context);
+    await tools.get_note.execute({ id: "note" }, context);
     writes.updateOwnedNoteCategory.mockRejectedValueOnce({ statusCode: 409 });
     expect(
-      await tools.update_note_category!.execute!(args, context),
+      await tools.update_note_category!.execute(args, context),
     ).toMatchObject({ isError: true });
     expect(
-      await tools.update_note_category!.execute!(args, context),
+      await tools.update_note_category!.execute(args, context),
     ).toHaveProperty("error");
-    expect(await tools.update_note!.execute!(update, context)).toHaveProperty(
+    expect(await tools.update_note!.execute(update, context)).toHaveProperty(
       "error",
     );
-    expect(await tools.delete_note!.execute!(input, context)).toHaveProperty(
+    expect(await tools.delete_note!.execute(input, context)).toHaveProperty(
       "error",
     );
     reads.searchOwnedNotes.mockResolvedValue({
       notes: [{ id: "note", updatedAt: new Date(version) }],
       nextOffset: null,
     });
-    await tools.list_notes.execute!({}, context);
+    await tools.list_notes.execute({}, context);
     expect(
-      await tools.update_note_category!.execute!(args, context),
+      await tools.update_note_category!.execute(args, context),
     ).toHaveProperty("structuredContent");
     expect(writes.updateOwnedNoteCategory).toHaveBeenCalledTimes(2);
   });
@@ -943,46 +942,46 @@ describe("in-app Note tools", () => {
     const a = setup("a").tools;
     const b = setup("b").tools;
     const args = { ...input, categoryId: null };
-    await a.get_note.execute!({ id: "note" }, context);
-    expect(
-      await b.update_note_category!.execute!(args, context),
-    ).toHaveProperty("error");
+    await a.get_note.execute({ id: "note" }, context);
+    expect(await b.update_note_category!.execute(args, context)).toHaveProperty(
+      "error",
+    );
     reads.readOwnedNote.mockRejectedValueOnce({ statusCode: 404 });
-    await a.get_note.execute!({ id: "note" }, context);
-    expect(
-      await a.update_note_category!.execute!(args, context),
-    ).toHaveProperty("error");
+    await a.get_note.execute({ id: "note" }, context);
+    expect(await a.update_note_category!.execute(args, context)).toHaveProperty(
+      "error",
+    );
     expect(writes.updateOwnedNoteCategory).not.toHaveBeenCalled();
   });
   it("validates category-only changes and stops after cancellation or generation ownership loss", async () => {
     const { tools, controller } = setup();
     const args = { ...input, categoryId: null };
     await expect(
-      tools.update_note_category!.execute!(
-        { ...args, markdown: "body" } as never,
+      tools.update_note_category!.execute(
+        { ...args, markdown: "body" },
         context,
       ),
     ).rejects.toThrow();
     controller.abort();
     await expect(
-      tools.update_note_category!.execute!(args, context),
+      tools.update_note_category!.execute(args, context),
     ).rejects.toThrow();
     const inactive = setup();
     inactive.assertActive.mockRejectedValue(new Error("no longer active"));
     await expect(
-      inactive.tools.update_note_category!.execute!(args, context),
+      inactive.tools.update_note_category!.execute(args, context),
     ).rejects.toThrow();
     expect(writes.updateOwnedNoteCategory).not.toHaveBeenCalled();
   });
   it("blocks another deletion after a conflict even if the model reads again", async () => {
     const { tools } = setup();
     writes.deleteOwnedNote.mockRejectedValue({ statusCode: 409 });
-    await tools.get_note.execute!({ id: "note" }, context);
-    expect(await tools.delete_note!.execute!(input, context)).toMatchObject({
+    await tools.get_note.execute({ id: "note" }, context);
+    expect(await tools.delete_note!.execute(input, context)).toMatchObject({
       isError: true,
     });
-    await tools.get_note.execute!({ id: "note" }, context);
-    expect(await tools.delete_note!.execute!(input, context)).toMatchObject({
+    await tools.get_note.execute({ id: "note" }, context);
+    expect(await tools.delete_note!.execute(input, context)).toMatchObject({
       error: expect.stringContaining("confirm deletion"),
     });
     expect(writes.deleteOwnedNote).toHaveBeenCalledOnce();
@@ -990,10 +989,10 @@ describe("in-app Note tools", () => {
   it("does not grant a version for a missing or foreign Note", async () => {
     const { tools } = setup();
     reads.readOwnedNote.mockRejectedValue({ statusCode: 404 });
-    expect(
-      await tools.get_note.execute!({ id: "note" }, context),
-    ).toMatchObject({ isError: true });
-    expect(await tools.delete_note!.execute!(input, context)).toHaveProperty(
+    expect(await tools.get_note.execute({ id: "note" }, context)).toMatchObject(
+      { isError: true },
+    );
+    expect(await tools.delete_note!.execute(input, context)).toHaveProperty(
       "error",
     );
     expect(writes.deleteOwnedNote).not.toHaveBeenCalled();
@@ -1001,14 +1000,14 @@ describe("in-app Note tools", () => {
   it("isolates owners and read versions between concurrent requests", async () => {
     const a = setup("a").tools;
     const b = setup("b").tools;
-    await a.get_note.execute!({ id: "note" }, context);
-    expect(await b.update_note!.execute!(update, context)).toHaveProperty(
+    await a.get_note.execute({ id: "note" }, context);
+    expect(await b.update_note!.execute(update, context)).toHaveProperty(
       "error",
     );
-    await b.get_note.execute!({ id: "note" }, context);
+    await b.get_note.execute({ id: "note" }, context);
     await Promise.all([
-      a.update_note!.execute!(update, context),
-      b.update_note!.execute!(update, context),
+      a.update_note!.execute(update, context),
+      b.update_note!.execute(update, context),
     ]);
     expect(
       writes.updateOwnedNote.mock.calls.map(([owner]) => owner).sort(),
@@ -1019,15 +1018,15 @@ describe("in-app Note tools", () => {
     writes.createOwnedNote.mockRejectedValue(
       new Error("private database detail"),
     );
-    const result = await tools.create_note!.execute!(
+    const result = await tools.create_note!.execute(
       { title: "Title", markdown: "" },
       context,
     );
     expect(result).toMatchObject({ isError: true });
     expect(JSON.stringify(result)).not.toContain("private database detail");
     await expect(
-      tools.create_note!.execute!(
-        { title: "Title", markdown: "", userId: "other" } as never,
+      tools.create_note!.execute(
+        { title: "Title", markdown: "", userId: "other" },
         context,
       ),
     ).rejects.toThrow();
@@ -1037,12 +1036,12 @@ describe("in-app Note tools", () => {
     const cancelled = setup();
     cancelled.controller.abort();
     await expect(
-      cancelled.tools.list_notes.execute!({}, context),
+      cancelled.tools.list_notes.execute({}, context),
     ).rejects.toThrow();
     const inactive = setup();
     inactive.assertActive.mockRejectedValue(new Error("no longer active"));
     await expect(
-      inactive.tools.create_note!.execute!(
+      inactive.tools.create_note!.execute(
         { title: "Title", markdown: "" },
         context,
       ),
@@ -1071,7 +1070,7 @@ it.each([
   async (knownLink, categoryOnly) => {
     if (knownLink) {
       const creator = setup().tools;
-      await creator.create_note!.execute!(
+      await creator.create_note!.execute(
         { title: "Title", markdown: "# Note" },
         context,
       );

@@ -42,8 +42,9 @@ export async function listOwnedNotes(
 }
 
 export async function readOwnedNote(userId: string, id: string | undefined) {
-  if (!id)
+  if (!id) {
     throw createError({ statusCode: 404, statusMessage: "Note not found" });
+  }
   const note = await getPrisma().note.findFirst({
     where: { id, userId },
     select: {
@@ -55,7 +56,8 @@ export async function readOwnedNote(userId: string, id: string | undefined) {
       updatedAt: true,
     },
   });
-  if (!note)
+  if (!note) {
     throw createError({ statusCode: 404, statusMessage: "Note not found" });
+  }
   return note;
 }

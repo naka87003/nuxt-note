@@ -19,8 +19,9 @@ describe("Notebook migration", () => {
       'id,body\n1,"body"oops',
       "id,body\n1,2,3",
       "id,id\n1,2",
-    ])
+    ]) {
       expect(() => parseCsv(csv)).toThrow();
+    }
   });
   it("converts Tokyo timestamps to UTC across year boundaries", () => {
     expect(sourceDate("2026-01-01 00:30:00")).toBe("2025-12-31 15:30:00.000");

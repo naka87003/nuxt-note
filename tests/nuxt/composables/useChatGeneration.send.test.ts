@@ -218,10 +218,11 @@ it("aborts its own stream on navigation and preserves the displayed partial answ
           for (const event of [
             { type: "start", messageId: "reply" },
             { type: "text", text: "Partial answer" },
-          ])
+          ]) {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
             );
+          }
           options.signal.addEventListener(
             "abort",
             () => controller.error(new DOMException("Stopped", "AbortError")),

@@ -13,8 +13,9 @@ watch(
       !element?.animate ||
       !characters ||
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    )
+    ) {
       return;
+    }
 
     animation = element.animate(
       [{ clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0 0 0)" }],

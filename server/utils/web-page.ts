@@ -31,8 +31,9 @@ for (const [address, prefix] of [
   ["203.0.113.0", 24],
   ["224.0.0.0", 4],
   ["240.0.0.0", 4],
-] as const)
+] as const) {
   blocked.addSubnet(address, prefix, "ipv4");
+}
 const globalV6 = new BlockList();
 globalV6.addSubnet("2000::", 3, "ipv6");
 blocked.addSubnet("2001::", 23, "ipv6");
@@ -60,8 +61,9 @@ export function webpageUrl(value: string): URL {
     hostname === "localhost" ||
     hostname.endsWith(".localhost") ||
     (isIP(hostname) && !isPublicAddress(hostname))
-  )
+  ) {
     throw new Error("Only public HTTP(S) URLs on standard ports can be read.");
+  }
   url.hash = "";
   return url;
 }
@@ -74,8 +76,9 @@ const publicLookup: LookupFunction = (hostname, options, callback) => {
     if (
       !addresses.length ||
       addresses.some(({ address }) => !isPublicAddress(address))
-    )
+    ) {
       return callback(new Error("Non-public destination."), []);
+    }
     const first = addresses[0]!;
     callback(null, options.all ? [first] : first.address, first.family);
   });
@@ -127,7 +130,9 @@ function download(url: URL, signal: AbortSignal): Promise<DownloadResult> {
           if (size > MAX_BYTES) {
             reject(new Error("Page is too large."));
             response.destroy();
-          } else chunks.push(chunk);
+          } else {
+            chunks.push(chunk);
+          }
         });
         response.on("error", reject);
         response.on("aborted", () =>
@@ -191,7 +196,9 @@ export function extractWebpage(body: string, html: boolean) {
       { decodeEntities: true },
     );
     parser.end(body);
-  } else text = body;
+  } else {
+    text = body;
+  }
   text = text
     .replace(/[\t \r]+/g, " ")
     .replace(/ *\n */g, "\n")

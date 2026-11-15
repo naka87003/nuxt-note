@@ -14,8 +14,9 @@ async function openNotebook(event: MouseEvent, source: typeof opening.value) {
     event.ctrlKey ||
     event.shiftKey ||
     event.altKey
-  )
+  ) {
     return;
+  }
   event.preventDefault();
   if (opening.value) return;
   opening.value = source;

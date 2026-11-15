@@ -13,8 +13,9 @@ export function webSourceLinks(sources: Map<string, string>): string {
         !["http:", "https:"].includes(url.protocol) ||
         url.username ||
         url.password
-      )
+      ) {
         continue;
+      }
       const label = title
         .replace(/[\r\n\t]/g, " ")
         .replace(/[\\[\]<>*_`]/g, "\\$&");

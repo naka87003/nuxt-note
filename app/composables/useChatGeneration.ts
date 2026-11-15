@@ -55,16 +55,18 @@ export function useChatGeneration(
       const result = await $fetch(`/api/chats/${chatId}/title`, {
         method: "POST",
       });
-      if (!disposed && chat.value?.id === chatId && result.title)
+      if (!disposed && chat.value?.id === chatId && result.title) {
         chat.value.title = result.title;
+      }
       await refreshNuxtData("workspace-list");
     } catch {
       // Keep the existing title; this must not interrupt the conversation.
     }
   }
   async function generate() {
-    if (busy.value || !persisted.value || !chat.value || !lastQuestion.value)
+    if (busy.value || !persisted.value || !chat.value || !lastQuestion.value) {
       return;
+    }
     const target = chat.value;
     const questionId = lastQuestion.value.id;
     sending.value = true;
@@ -83,12 +85,14 @@ export function useChatGeneration(
         signal: attempt.controller.signal,
       });
       if (!response.ok || !response.body) {
-        if (response.status === 503)
+        if (response.status === 503) {
           throw new Error(
             "Response generation is currently unavailable. Please try again later.",
           );
-        if (response.status === 409)
+        }
+        if (response.status === 409) {
           throw new Error("This conversation has changed. Please try again.");
+        }
         throw new Error("Could not generate a response. Please try again.");
       }
       let reply: ChatMessage | undefined;
@@ -122,22 +126,25 @@ export function useChatGeneration(
         throw new Error("The connection was interrupted. Please try again.");
       }
     } catch (error) {
-      if (!attempt.controller.signal.aborted && !disposed)
+      if (!attempt.controller.signal.aborted && !disposed) {
         failure.value =
           error instanceof Error
             ? error.message
             : "Could not generate a response. Please try again.";
+      }
     } finally {
       activeGeneration.value = undefined;
       if (!disposed) {
         // A completed stream already contains the saved answer. Only failures
         // and interruptions need to reload the server's partial state.
-        if (terminalStatus === "completed") target.generationId = null;
-        else
+        if (terminalStatus === "completed") {
+          target.generationId = null;
+        } else {
           await refresh().catch(() => {
             failure.value =
               "Could not reload this chat. Please reload the page.";
           });
+        }
         void refreshNuxtData(["workspace-list", "workspace-categories"]).catch(
           () => {},
         );
@@ -146,8 +153,9 @@ export function useChatGeneration(
       if (
         terminalStatus === "completed" &&
         questionId === target.messages.find((m) => m.role === "user")?.id
-      )
+      ) {
         void summarizeTitle(target.id);
+      }
     }
   }
   async function send() {
@@ -163,13 +171,14 @@ export function useChatGeneration(
       !pending ||
       pending.content !== content ||
       (isNew && pending.categoryId !== categoryId)
-    )
+    ) {
       pending = {
         messageId: crypto.randomUUID(),
         content,
         ...(isNew ? { chatId: crypto.randomUUID(), categoryId } : {}),
       };
-    if (isNew)
+    }
+    if (isNew) {
       chat.value = {
         id: pending.chatId!,
         title: null,
@@ -177,6 +186,7 @@ export function useChatGeneration(
         generationId: null,
         messages: [],
       };
+    }
     const target = chat.value!;
     const message = {
       id: pending.messageId,
@@ -219,8 +229,9 @@ export function useChatGeneration(
     }
   }
   function resumeUnansweredQuestion() {
-    if (lastQuestion.value && !lastReply.value && !chat.value?.generationId)
+    if (lastQuestion.value && !lastReply.value && !chat.value?.generationId) {
       void generate();
+    }
   }
   onMounted(() => {
     if (chat.value) resumeUnansweredQuestion();

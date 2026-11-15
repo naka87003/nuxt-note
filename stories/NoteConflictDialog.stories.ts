@@ -40,8 +40,9 @@ export const Saving: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     const dialog = within(await page.findByRole("dialog"));
-    for (const name of ["Keep editing", "Overwrite and save"])
+    for (const name of ["Keep editing", "Overwrite and save"]) {
       await expect(dialog.getByRole("button", { name })).toBeDisabled();
+    }
     await expect(
       dialog.queryByRole("button", { name: "Close" }),
     ).not.toBeInTheDocument();

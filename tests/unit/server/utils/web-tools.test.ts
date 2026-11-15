@@ -15,7 +15,7 @@ it("checks generation ownership before reading a page", async () => {
     assertActive,
   });
   await expect(
-    tools.read_webpage.execute!({ url: "https://example.com" }, {} as never),
+    tools.read_webpage.execute({ url: "https://example.com" }, {} as never),
   ).rejects.toThrow("inactive");
   expect(readWebpage).not.toHaveBeenCalled();
 });
@@ -33,7 +33,7 @@ it("returns page data and sanitized failures so the model can try another source
     truncated: false,
   });
   expect(
-    await tools.read_webpage.execute!(
+    await tools.read_webpage.execute(
       { url: "https://example.com" },
       {} as never,
     ),
@@ -42,7 +42,7 @@ it("returns page data and sanitized failures so the model can try another source
   vi.mocked(readWebpage).mockRejectedValueOnce(
     new Error("private network detail"),
   );
-  const result = await tools.read_webpage.execute!(
+  const result = await tools.read_webpage.execute(
     { url: "https://example.com" },
     {} as never,
   );
@@ -58,7 +58,7 @@ it("propagates cancellation instead of returning an ordinary tool failure", asyn
   });
   controller.abort();
   await expect(
-    tools.read_webpage.execute!({ url: "https://example.com" }, {} as never),
+    tools.read_webpage.execute({ url: "https://example.com" }, {} as never),
   ).rejects.toThrow();
   expect(readWebpage).not.toHaveBeenCalled();
 });

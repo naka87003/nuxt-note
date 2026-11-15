@@ -25,8 +25,9 @@ async function throwNoteWriteError(userId: string, id: string): Promise<never> {
     where: { id, userId },
     select: { id: true },
   });
-  if (!note)
+  if (!note) {
     throw createError({ statusCode: 404, statusMessage: "Note not found" });
+  }
   throw createError({ statusCode: 409, statusMessage: "Note has changed" });
 }
 
@@ -101,8 +102,9 @@ async function updateNoteVersion<S extends Prisma.NoteSelect>(
       typeof error !== "object" ||
       !("code" in error) ||
       error.code !== "P2025"
-    )
+    ) {
       throw error;
+    }
     return throwNoteWriteError(userId, input.id);
   }
 }

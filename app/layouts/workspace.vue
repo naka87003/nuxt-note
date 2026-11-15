@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { getErrorStatusMessage } from "~/utils/http-error";
 import { useEventListener, useMediaQuery } from "@vueuse/core";
 import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import type { WorkspaceItem } from "#shared/types/workspace";
@@ -108,8 +109,9 @@ watch(
   () => route.fullPath,
   () => {
     state.value.filter = filter.value;
-    if (typeof route.params.id === "string")
+    if (typeof route.params.id === "string") {
       current.value.selected = route.params.id;
+    }
     drawer.value = false;
   },
   { immediate: true },
@@ -149,17 +151,17 @@ async function saveCategory() {
   busy.value = true;
   failure.value = "";
   try {
-    if (operation.value === "create")
+    if (operation.value === "create") {
       await $fetch("/api/categories", {
         method: "POST",
         body: { name: categoryLabel.value },
       });
-    else if (operation.value === "rename")
+    } else if (operation.value === "rename") {
       await $fetch(`/api/categories/${categoryTarget.value}`, {
         method: "PATCH",
         body: { name: categoryLabel.value },
       });
-    else {
+    } else {
       await $fetch(`/api/categories/${categoryTarget.value}`, {
         method: "DELETE",
       });
@@ -173,9 +175,8 @@ async function saveCategory() {
     categoryDialog.value = false;
     await refreshNuxtData();
   } catch (error) {
-    const response = error as { data?: { statusMessage?: string } };
     failure.value =
-      response.data?.statusMessage ??
+      getErrorStatusMessage(error) ??
       "Could not update the category. Please try again.";
   } finally {
     busy.value = false;

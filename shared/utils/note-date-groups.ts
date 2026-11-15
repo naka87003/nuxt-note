@@ -28,8 +28,9 @@ export function groupNotesByUpdatedAt<
   const grouped = new Map<NoteDateGroup, T[]>(
     NOTE_DATE_GROUPS.map((label) => [label, []]),
   );
-  for (const note of notes)
+  for (const note of notes) {
     grouped.get(getNoteDateGroup(note.updatedAt, now))!.push(note);
+  }
   return NOTE_DATE_GROUPS.map((label) => ({
     label,
     notes: grouped

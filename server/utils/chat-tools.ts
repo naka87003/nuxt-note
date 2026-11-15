@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { createWorkspaceTools } from "./workspace-tools";
+import { noteVersionShape } from "./input-schemas";
 import {
   CATEGORY_CREATION_INSTRUCTIONS,
   CATEGORY_DELETION_INSTRUCTIONS,
@@ -9,6 +10,8 @@ import {
 } from "./category-instructions";
 
 export const CHAT_TOOL_STEPS = 8;
+
+const noteVersionSchema = z.object(noteVersionShape);
 
 export const CHAT_NOTES_INSTRUCTIONS =
   "You can list, create, rename, and delete Categories using the provided tools. Use get_category to read a Category's name, Note count, and Chat count without reading their content. " +
@@ -77,11 +80,12 @@ export function createChatNoteTools(
   let deletionConflict = false;
 
   function consumeChatVersion(input: { id: string; updatedAt: string }) {
-    if (chatVersions.get(input.id) !== input.updatedAt)
+    if (chatVersions.get(input.id) !== input.updatedAt) {
       return {
         error:
           "Use list_chats or get_chat first, then pass its exact id and updatedAt.",
       };
+    }
     // Require a fresh read after every write attempt, including conflicts.
     chatVersions.delete(input.id);
     return undefined;
@@ -109,26 +113,25 @@ export function createChatNoteTools(
           name === "update_note_category" ||
           name === "delete_note"
         ) {
-          const { id, updatedAt } = parsed as {
-            id: string;
-            updatedAt: string;
-          };
-          if (name === "delete_note" && deletionConflict)
+          const { id, updatedAt } = noteVersionSchema.parse(parsed);
+          if (name === "delete_note" && deletionConflict) {
             return {
               error:
                 "Ask the user to confirm deletion of the changed Note in a new message before retrying.",
             };
+          }
           const expectedVersion =
             name === "update_note_category"
               ? categoryVersions.get(id)
               : versions.get(id);
-          if (expectedVersion !== updatedAt)
+          if (expectedVersion !== updatedAt) {
             return {
               error:
                 name === "update_note_category"
                   ? "Use list_notes or get_note first, then pass its exact id and updatedAt."
                   : "Use get_note to read the Note first, then pass its exact updatedAt.",
             };
+          }
           // A subsequent write must read again, including after a conflict.
           versions.delete(id);
           categoryVersions.delete(id);
@@ -137,16 +140,18 @@ export function createChatNoteTools(
         // Dates must reach the model in the same ISO format as the MCP result.
         const serialized = JSON.parse(JSON.stringify(result));
         if (name === "list_chats" && !serialized.isError) {
-          for (const chat of serialized.structuredContent.chats)
+          for (const chat of serialized.structuredContent.chats) {
             chatVersions.set(chat.id, chat.updatedAt);
+          }
         }
         if (name === "get_chat" && !serialized.isError) {
           const chat = serialized.structuredContent;
           chatVersions.set(chat.id, chat.updatedAt);
         }
         if (name === "list_notes" && !serialized.isError) {
-          for (const note of serialized.structuredContent.notes)
+          for (const note of serialized.structuredContent.notes) {
             categoryVersions.set(note.id, note.updatedAt);
+          }
         }
         if (name === "get_note" && !serialized.isError) {
           const note = serialized.structuredContent;
@@ -159,8 +164,9 @@ export function createChatNoteTools(
           serialized.content.some((part: { text: string }) =>
             part.text.includes("Note has changed."),
           )
-        )
+        ) {
           deletionConflict = true;
+        }
         return serialized;
       },
     });
@@ -195,7 +201,7 @@ export function createChatNoteTools(
         .strict(),
       execute: async ({ id: reference }) => {
         const id = noteIdFromReference(reference, siteUrl);
-        if (!id)
+        if (!id) {
           return {
             isError: true,
             content: [
@@ -205,6 +211,7 @@ export function createChatNoteTools(
               },
             ],
           };
+        }
         versions.delete(id);
         categoryVersions.delete(id);
         return definitions.get_note.execute({ id });
@@ -223,8 +230,9 @@ export function createChatNoteTools(
                 !result.isError &&
                 input.id === options.chatId &&
                 typeof title === "string"
-              )
+              ) {
                 options.onChatTitleUpdated?.(title);
+              }
               return result;
             },
           }),
@@ -235,8 +243,9 @@ export function createChatNoteTools(
               if (error) return error;
               const result =
                 await definitions.update_chat_category.execute(input);
-              if (!result.isError && input.id === options.chatId)
+              if (!result.isError && input.id === options.chatId) {
                 categoryId = input.categoryId;
+              }
               return result;
             },
           }),

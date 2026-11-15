@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { getErrorStatusCode } from "~/utils/http-error";
 import type { SavedNote } from "#shared/types/note";
 import { assertNavigationSucceeded } from "~/utils/navigation";
 
@@ -76,9 +77,10 @@ function startDeletion() {
 
 async function loadLatestAfterDeletionConflict() {
   await refresh();
-  if (!error.value && note.value)
+  if (!error.value && note.value) {
     failure.value =
       "Review the latest content below, then choose Delete again if you still want to delete it.";
+  }
 }
 
 async function remove() {
@@ -92,7 +94,7 @@ async function remove() {
       retry: 0,
     });
   } catch (cause) {
-    const code = (cause as { statusCode?: number }).statusCode;
+    const code = getErrorStatusCode(cause);
     if (code === 409 || code === 404) {
       deletion.value = false;
       deleteTarget.value = null;

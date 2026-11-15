@@ -25,8 +25,9 @@ it.skipIf(process.env.NUXT_NOTE_LIVE_AI !== "1")(
   async () => {
     loadEnv({ quiet: true });
     const apiKey = process.env.NUXT_OPENAI_API_KEY;
-    if (!apiKey)
+    if (!apiKey) {
       throw new Error("NUXT_OPENAI_API_KEY is required for the live AI check.");
+    }
     const note = {
       id: "11111111-1111-4111-8111-111111111111",
       title: "Nuxt memo",

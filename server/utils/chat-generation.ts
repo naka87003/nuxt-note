@@ -27,8 +27,9 @@ export function messageInput(body: unknown) {
 
 export async function requireChat(userId: string, id: string) {
   const chat = await getPrisma().chat.findFirst({ where: { id, userId } });
-  if (!chat)
+  if (!chat) {
     throw createError({ statusCode: 404, statusMessage: "Chat not found" });
+  }
   return chat;
 }
 
@@ -42,11 +43,12 @@ export async function lockIdleChat(
     where: { id, userId, generationId: null },
     data: { updatedAt: new Date() },
   });
-  if (!result.count)
+  if (!result.count) {
     throw createError({
       statusCode: 409,
       statusMessage: "A response is already being generated",
     });
+  }
 }
 
 export async function recoverGeneration(userId: string, id: string) {
@@ -62,11 +64,12 @@ export async function recoverGeneration(userId: string, id: string) {
       },
       data: { generationId: null, generationStartedAt: null },
     });
-    if (expired.count)
+    if (expired.count) {
       await tx.message.updateMany({
         where: { chatId: id, status: "generating" },
         data: { status: "failed" },
       });
+    }
   });
 }
 

@@ -15,8 +15,9 @@ function createNoteLinkDraft(note: unknown): string {
     !note ||
     note.length > 100 ||
     /[\\/\s?#:]/.test(note)
-  )
+  ) {
     return "";
+  }
 
   const url = new URL(
     `/notes/${encodeURIComponent(note)}`,

@@ -33,11 +33,12 @@ export default defineEventHandler(async (event) => {
   const body: unknown = await readBody(event);
   const { messageId, attemptId } = parseInput(generateChatInputSchema, body);
   const config = useRuntimeConfig(event);
-  if (!config.openaiApiKey || !config.openaiModel)
+  if (!config.openaiApiKey || !config.openaiModel) {
     throw createError({
       statusCode: 503,
       statusMessage: "AI is not configured",
     });
+  }
   await recoverGeneration(userId, id);
   const generation = await getPrisma().$transaction(async (tx) => {
     await lockIdleChat(tx, userId, id);
@@ -50,17 +51,19 @@ export default defineEventHandler(async (event) => {
       orderBy: messageOrder,
     });
     const question = messages.filter((m) => m.role === "user").at(-1);
-    if (!question || question.id !== messageId)
+    if (!question || question.id !== messageId) {
       throw createError({
         statusCode: 409,
         statusMessage: "Only the latest question can be retried",
       });
+    }
     const previous = messages.find((m) => m.replyToId === messageId);
-    if (previous?.status === "completed")
+    if (previous?.status === "completed") {
       throw createError({
         statusCode: 409,
         statusMessage: "This response is already complete",
       });
+    }
     const reply = await tx.message.upsert({
       where: { replyToId: messageId },
       create: {
@@ -96,11 +99,12 @@ export default defineEventHandler(async (event) => {
       )
       .filter((m) => m.id !== previous?.id)
       .map((m) => ({ role: m.role, content: m.content }));
-    if (history.reduce((size, m) => size + m.content.length, 0) > 100_000)
+    if (history.reduce((size, m) => size + m.content.length, 0) > 100_000) {
       throw createError({
         statusCode: 413,
         statusMessage: "This conversation is too long. Start a new chat.",
       });
+    }
     return {
       reply,
       history,
@@ -197,13 +201,15 @@ export default defineEventHandler(async (event) => {
           if (controller.signal.aborted) break;
         } else if (part.type === "source" && part.sourceType === "url") {
           sources.set(part.url, part.title || part.url);
-        } else if (part.type === "error") throw part.error;
-        else if (part.type === "tool-error")
+        } else if (part.type === "error") {
+          throw part.error;
+        } else if (part.type === "tool-error") {
           throw new Error("Could not execute a Chat tool.");
-        else if (part.type === "finish") {
+        } else if (part.type === "finish") {
           const references = webSourceLinks(sources);
-          if (output.content.trim() && references)
+          if (output.content.trim() && references) {
             await output.append(references);
+          }
           status =
             part.finishReason === "stop" && output.content.trim()
               ? "completed"
@@ -215,8 +221,9 @@ export default defineEventHandler(async (event) => {
     } finally {
       await output.flush();
       clearTimeout(timer);
-      if (controller.signal.aborted)
+      if (controller.signal.aborted) {
         status = timedOut || output.failed ? "failed" : "stopped";
+      }
       try {
         const saved = await saveGeneration(
           userId,

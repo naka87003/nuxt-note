@@ -14,22 +14,25 @@ export function validateMcpRequest(
     origins.add(deployment.origin);
   }
   const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-  if (!loopback && !allowedHosts.has(url.host))
+  if (!loopback && !allowedHosts.has(url.host)) {
     throw createError({
       statusCode: 403,
       statusMessage: "MCP host is not allowed",
     });
+  }
   if (loopback) origins.add(url.origin);
   for (const value of config.allowedOrigins
     .split(",")
     .map((s) => s.trim())
-    .filter(Boolean))
+    .filter(Boolean)) {
     origins.add(value);
+  }
   const origin = request.headers.get("origin");
-  if (origin && !origins.has(origin))
+  if (origin && !origins.has(origin)) {
     throw createError({
       statusCode: 403,
       statusMessage: "MCP origin is not allowed",
     });
+  }
   return origin;
 }

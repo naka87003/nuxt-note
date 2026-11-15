@@ -259,12 +259,14 @@ describe("remote MCP tools", () => {
           where: { id: "chat", userId: "owner" },
           select: { id: true },
         });
-        if (categoryId)
+        if (categoryId) {
           expect(writes.category.findFirst).toHaveBeenCalledWith({
             where: { id: "owned", userId: "owner" },
             select: { id: true },
           });
-        else expect(writes.category.findFirst).not.toHaveBeenCalled();
+        } else {
+          expect(writes.category.findFirst).not.toHaveBeenCalled();
+        }
       } finally {
         clock.mockRestore();
       }
@@ -1266,11 +1268,12 @@ describe("remote MCP tools", () => {
           data: expect.objectContaining({ categoryId }),
         }),
       );
-      if (categoryId)
+      if (categoryId) {
         expect(writes.category.findFirst).toHaveBeenCalledWith({
           where: { id: "owned", userId: "owner" },
           select: { id: true },
         });
+      }
     },
   );
   it("rejects missing and foreign categories before writing", async () => {
@@ -1425,12 +1428,14 @@ describe("remote MCP tools", () => {
             updatedAt: true,
           },
         });
-        if (categoryId)
+        if (categoryId) {
           expect(writes.category.findFirst).toHaveBeenCalledWith({
             where: { id: categoryId, userId: "owner" },
             select: { id: true },
           });
-        else expect(writes.category.findFirst).not.toHaveBeenCalled();
+        } else {
+          expect(writes.category.findFirst).not.toHaveBeenCalled();
+        }
         expect(reads.readOwnedNote).not.toHaveBeenCalled();
         expect(writes.note.findFirst).not.toHaveBeenCalled();
       } finally {
@@ -1596,8 +1601,9 @@ describe("remote MCP tools", () => {
     async (stage) => {
       const client = await connect("owner");
       const error = new Error("private database details");
-      if (stage === "delete") writes.note.deleteMany.mockRejectedValue(error);
-      else {
+      if (stage === "delete") {
+        writes.note.deleteMany.mockRejectedValue(error);
+      } else {
         writes.note.deleteMany.mockResolvedValue({ count: 0 });
         writes.note.findFirst.mockRejectedValue(error);
       }

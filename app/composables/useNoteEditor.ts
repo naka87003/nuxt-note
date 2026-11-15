@@ -1,3 +1,4 @@
+import { getErrorStatusCode } from "~/utils/http-error";
 import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import type { NoteDraft, SavedNote } from "#shared/types/note";
 
@@ -65,7 +66,7 @@ export function useNoteEditor(options: NoteEditorOptions) {
       failure.value = "";
       confirmation.value = true;
     } catch (error) {
-      unavailable.value = (error as { statusCode?: number }).statusCode === 404;
+      unavailable.value = getErrorStatusCode(error) === 404;
       failure.value = unavailable.value
         ? "This note was deleted or is no longer available. Your changes are still here."
         : "Could not prepare overwrite. Your changes are still here. Save again to try.";
@@ -75,8 +76,9 @@ export function useNoteEditor(options: NoteEditorOptions) {
   }
 
   async function save(overwrite = false) {
-    if (saving.value || saved.value || overLimit.value || unavailable.value)
+    if (saving.value || saved.value || overLimit.value || unavailable.value) {
       return;
+    }
     if (confirmation.value && !overwrite) return;
     if (conflicted.value && !overwrite) return prepareOverwrite();
     const expectedVersion = overwrite ? overwriteVersion.value : version;
@@ -99,7 +101,7 @@ export function useNoteEditor(options: NoteEditorOptions) {
             retry: 0,
           });
     } catch (error) {
-      const code = (error as { statusCode?: number }).statusCode;
+      const code = getErrorStatusCode(error);
       if (code === 409) {
         conflicted.value = true;
         confirmation.value = false;
@@ -129,7 +131,9 @@ export function useNoteEditor(options: NoteEditorOptions) {
         id: result.id,
         updatedAt: result.updatedAt,
       });
-    } else if (needsConfirmation) await prepareOverwrite();
+    } else if (needsConfirmation) {
+      await prepareOverwrite();
+    }
   }
   return {
     title,

@@ -2,10 +2,10 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { createError } from "nuxt/server";
 import { PrismaClient } from "../../generated/prisma/client";
 
-const globalForPrisma = globalThis as unknown as {
-  nuxtNotePrisma?: PrismaClient;
-};
-let client = globalForPrisma.nuxtNotePrisma;
+declare global {
+  var nuxtNotePrisma: PrismaClient | undefined;
+}
+let client = globalThis.nuxtNotePrisma;
 
 export function getPrisma() {
   if (client) return client;
@@ -19,7 +19,8 @@ export function getPrisma() {
   client = new PrismaClient({
     adapter: new PrismaPg({ connectionString, max: 5 }),
   });
-  if (process.env.NODE_ENV !== "production")
-    globalForPrisma.nuxtNotePrisma = client;
+  if (process.env.NODE_ENV !== "production") {
+    globalThis.nuxtNotePrisma = client;
+  }
   return client;
 }

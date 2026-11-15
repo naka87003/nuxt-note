@@ -32,14 +32,16 @@ const prepared = prepareNotes(
   values["source-user"],
   values["target-user"],
 );
-if (!prepared.length || prepared.length !== Number(values["expected-count"]))
+if (!prepared.length || prepared.length !== Number(values["expected-count"])) {
   throw new Error("Unexpected source count");
+}
 const client = new pg.Client({
   connectionString: process.env.DIRECT_URL || process.env.DATABASE_URL,
   connectionTimeoutMillis: 10000,
 });
-if (!process.env.DIRECT_URL && !process.env.DATABASE_URL)
+if (!process.env.DIRECT_URL && !process.env.DATABASE_URL) {
   throw new Error("Database is not configured");
+}
 let inTransaction = false;
 try {
   await client.connect();
@@ -49,16 +51,18 @@ try {
       : "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY",
   );
   inTransaction = true;
-  if (values.apply)
+  if (values.apply) {
     await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
       `notebook-import:${values["target-user"]}`,
     ]);
+  }
   const { rows: users } = await client.query(
     'SELECT id, "githubLogin" FROM "User" WHERE id = $1',
     [values["target-user"]],
   );
-  if (users.length !== 1 || users[0].githubLogin !== values["github-login"])
+  if (users.length !== 1 || users[0].githubLogin !== values["github-login"]) {
     throw new Error("Target identity mismatch");
+  }
   const { rows: categories } = await client.query(
     'SELECT * FROM "Category" WHERE "userId" = $1',
     [values["target-user"]],
@@ -154,8 +158,9 @@ try {
         saved.categoryId !== (categoryIds.get(note.categoryKey) ?? null) ||
         saved.createdAt !== note.createdAt ||
         saved.updatedAt !== note.updatedAt
-      )
+      ) {
         throw new Error("Imported content verification failed");
+      }
     }
     await client.query("COMMIT");
     inTransaction = false;

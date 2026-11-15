@@ -15,8 +15,9 @@ export function useChatRefresh(
     if (!activeId.value || (!force && sending.value)) return chat.value;
     const startedAt = revision;
     const snapshot = await load(activeId.value);
-    if (force || (startedAt === revision && !sending.value))
+    if (force || (startedAt === revision && !sending.value)) {
       chat.value = snapshot;
+    }
     return chat.value;
   };
 }

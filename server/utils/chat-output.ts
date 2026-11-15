@@ -20,8 +20,9 @@ export function createChatOutput({
   const timer = setInterval(startCheckpoint, 100);
 
   function startCheckpoint() {
-    if (pending || controller.signal.aborted || content.length === saved)
+    if (pending || controller.signal.aborted || content.length === saved) {
       return;
+    }
     pending = (async () => {
       const snapshot = content;
       if (!(await save(snapshot))) {

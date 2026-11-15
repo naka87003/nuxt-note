@@ -210,7 +210,7 @@ describe("ChatSession", () => {
         configurable: true,
       },
     });
-    notify([], observer as ResizeObserver);
+    notify([], observer);
     expect(top).toBe(700);
 
     // A scroll event queued by the previous automatic scroll can arrive after
@@ -218,7 +218,7 @@ describe("ChatSession", () => {
     height = 1400;
     await wrapper.get(".chat-messages").trigger("scroll");
     expect(observed.has(content)).toBe(true);
-    notify([], observer as ResizeObserver);
+    notify([], observer);
     await nextTick();
     expect(top).toBe(1100);
     expect(
@@ -231,7 +231,7 @@ describe("ChatSession", () => {
       wrapper.find('[aria-label="Scroll to latest message"]').exists(),
     ).toBe(true);
     height = 1800;
-    notify([], observer as ResizeObserver);
+    notify([], observer);
     await nextTick();
     expect(top).toBe(800);
 
@@ -240,7 +240,7 @@ describe("ChatSession", () => {
       .trigger("click");
     expect(top).toBe(1500);
     height = 2000;
-    notify([], observer as ResizeObserver);
+    notify([], observer);
     expect(top).toBe(1700);
   });
 

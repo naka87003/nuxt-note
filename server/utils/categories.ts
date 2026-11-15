@@ -33,8 +33,9 @@ export async function ownedCategory(userId: string, value: unknown) {
     where: { id: parsed.data, userId },
     select: { id: true },
   });
-  if (!category)
+  if (!category) {
     throw createError({ statusCode: 404, statusMessage: "Category not found" });
+  }
   return category.id;
 }
 

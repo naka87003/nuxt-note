@@ -43,8 +43,9 @@ try {
     if (
       result.structuredContent.id !== first.id ||
       typeof result.structuredContent.markdown !== "string"
-    )
+    ) {
       throw new Error("Unexpected Note response.");
+    }
     console.log(
       "Authenticated search and full Note reading succeeded. Note content is omitted.",
     );

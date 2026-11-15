@@ -90,7 +90,9 @@ function itemCategory(item: WorkspaceItem) {
 }
 
 function onScroll(event: Event) {
-  current.value.scroll = (event.target as HTMLElement).scrollTop;
+  if (event.target instanceof HTMLElement) {
+    current.value.scroll = event.target.scrollTop;
+  }
 }
 
 function clearSearch() {

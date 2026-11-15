@@ -27,38 +27,43 @@ export default defineEventHandler(async (event) => {
       },
     },
   });
-  if (!chat)
+  if (!chat) {
     throw createError({ statusCode: 404, statusMessage: "Chat not found" });
-  if (chat.generationId)
+  }
+  if (chat.generationId) {
     throw createError({
       statusCode: 409,
       statusMessage: "Wait for the current response to finish",
     });
+  }
   const messages = chat.messages
     .filter(
       (m) =>
         (m.role === "user" || m.status === "completed") && m.content.trim(),
     )
     .map(({ role, content }) => ({ role, content }));
-  if (!messages.some((m) => m.role === "assistant"))
+  if (!messages.some((m) => m.role === "assistant")) {
     throw createError({
       statusCode: 400,
       statusMessage: "A completed response is required",
     });
+  }
   if (
     messages.reduce((size, m) => size + m.content.length, 0) >
     NOTE_DRAFT_INPUT_LIMIT
-  )
+  ) {
     throw createError({
       statusCode: 413,
       statusMessage: "This conversation is too long to organize into a note",
     });
+  }
   const config = useRuntimeConfig(event);
-  if (!config.openaiApiKey || !config.openaiModel)
+  if (!config.openaiApiKey || !config.openaiModel) {
     throw createError({
       statusCode: 503,
       statusMessage: "AI is not configured",
     });
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), NOTE_DRAFT_TIMEOUT);

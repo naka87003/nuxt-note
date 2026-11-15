@@ -248,13 +248,15 @@ it.each([
   "list refresh",
 ])("reports deletion success if %s fails afterwards", async (step) => {
   const { wrapper, data } = await deletionPage();
-  if (step === "navigation")
+  if (step === "navigation") {
     navigate.mockRejectedValueOnce(new Error("Navigation failed"));
-  else if (step === "cancelled navigation")
+  } else if (step === "cancelled navigation") {
     navigate.mockResolvedValueOnce(false);
-  else if (step === "failed navigation result")
+  } else if (step === "failed navigation result") {
     navigate.mockResolvedValueOnce(new Error("Navigation failed"));
-  else refreshWorkspace.mockRejectedValueOnce(new Error("List refresh failed"));
+  } else {
+    refreshWorkspace.mockRejectedValueOnce(new Error("List refresh failed"));
+  }
   await button(wrapper, "Delete").trigger("click");
   await button(wrapper, "Delete note").trigger("click");
   await flushPromises();
@@ -283,20 +285,21 @@ it.each([
   async (step) => {
     const { wrapper, data, refresh, error, status } = await deletionPage();
     const savedNote = { ...changed, title: "Saved title", categoryId: "work" };
-    if (step === "navigation")
+    if (step === "navigation") {
       navigate.mockRejectedValueOnce(new Error("Navigation failed"));
-    else if (step === "cancelled navigation")
+    } else if (step === "cancelled navigation") {
       navigate.mockResolvedValueOnce(false);
-    else if (step === "failed navigation result")
+    } else if (step === "failed navigation result") {
       navigate.mockResolvedValueOnce(new Error("Navigation failed"));
-    else if (step === "note refresh")
+    } else if (step === "note refresh") {
       refresh.mockImplementationOnce(async () => {
         error.value = { statusCode: 503 };
         data.value = undefined;
         status.value = "error";
       });
-    else
+    } else {
       refreshWorkspace.mockRejectedValueOnce(new Error("List refresh failed"));
+    }
     await button(wrapper, "Edit").trigger("click");
     wrapper.getComponent(NoteEditor).vm.$emit("saved", savedNote);
     await flushPromises();
@@ -331,13 +334,15 @@ it.each([
       },
     },
   });
-  if (step === "navigation")
+  if (step === "navigation") {
     navigate.mockRejectedValueOnce(new Error("Navigation failed"));
-  else if (step === "cancelled navigation")
+  } else if (step === "cancelled navigation") {
     navigate.mockResolvedValueOnce(false);
-  else if (step === "failed navigation result")
+  } else if (step === "failed navigation result") {
     navigate.mockResolvedValueOnce(new Error("Navigation failed"));
-  else refreshWorkspace.mockRejectedValueOnce(new Error("List refresh failed"));
+  } else {
+    refreshWorkspace.mockRejectedValueOnce(new Error("List refresh failed"));
+  }
   wrapper
     .getComponent({ name: "NoteEditor" })
     .vm.$emit("saved", { ...original, categoryId: "work" });

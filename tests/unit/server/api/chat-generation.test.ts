@@ -130,13 +130,15 @@ describe("Chat generation", () => {
         updatedAt: new Date(updatedAt),
         messages: [],
       });
-      if (succeeds)
+      if (succeeds) {
         mocks.chat.update.mockResolvedValue({
           id,
           title: "Saved title",
           updatedAt: new Date(updatedAt),
         });
-      else mocks.chat.update.mockRejectedValue({ code: "P2025" });
+      } else {
+        mocks.chat.update.mockRejectedValue({ code: "P2025" });
+      }
       mocks.streamText.mockImplementation(({ tools }) => ({
         fullStream: (async function* () {
           const context = { toolCallId: "test", messages: [] };

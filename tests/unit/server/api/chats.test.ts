@@ -63,9 +63,11 @@ describe("Chat API authentication", () => {
         Object.assign(new Error(), { statusCode: 401 }),
       );
       await expect(handler(event)).rejects.toMatchObject({ statusCode: 401 });
-      for (const model of [mocks.category, mocks.note, mocks.chat])
-        for (const method of Object.values(model))
+      for (const model of [mocks.category, mocks.note, mocks.chat]) {
+        for (const method of Object.values(model)) {
           expect(method).not.toHaveBeenCalled();
+        }
+      }
       expect(mocks.body).not.toHaveBeenCalled();
     },
   );

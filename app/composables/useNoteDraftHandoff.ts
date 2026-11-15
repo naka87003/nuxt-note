@@ -26,8 +26,9 @@ export function useNoteDraftHandoff() {
         result === false ||
         result instanceof Error ||
         router.currentRoute.value.path !== "/notes/new"
-      )
+      ) {
         throw new Error("Could not open the note draft");
+      }
     } catch (error) {
       // A rejected/aborted navigation must not seed a later ordinary New note.
       // Do not clear a newer handoff made while this navigation was pending.

@@ -1,3 +1,4 @@
+import { getErrorStatusCode } from "~/utils/http-error";
 import type { NoteDraft } from "#shared/types/note";
 
 export function useChatNoteDraft(
@@ -30,8 +31,9 @@ export function useChatNoteDraft(
   }
 
   async function create() {
-    if (disposed || (phase.value !== "confirm" && phase.value !== "failed"))
+    if (disposed || (phase.value !== "confirm" && phase.value !== "failed")) {
       return;
+    }
     const id = chatId();
     phase.value = "generating";
     failure.value = "";
@@ -51,7 +53,7 @@ export function useChatNoteDraft(
       phase.value = "closed";
     } catch (error) {
       if (disposed || id !== chatId()) return;
-      const code = (error as { statusCode?: number }).statusCode;
+      const code = getErrorStatusCode(error);
       failure.value = prepared.value
         ? "Could not open your draft. Please try again."
         : code === 413
