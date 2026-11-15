@@ -8,7 +8,12 @@ it.each([1, 7, 10_000])(
     const events: ChatStreamEvent[] = [
       { type: "start", messageId: "reply" },
       { type: "text", text: "こんにちは 👋\nSecond line" },
-      { type: "done", status: "completed", title: "旅行計画 👋" },
+      {
+        type: "done",
+        status: "completed",
+        title: "旅行計画 👋",
+        categoryId: "travel",
+      },
     ];
     const bytes = new TextEncoder().encode(
       ": keep-alive\r\n\r\n" +
@@ -59,6 +64,7 @@ it.each([
   { type: "done", status: "unknown" },
   { type: "done", status: "completed", title: null },
   { type: "done", status: "completed", title: 123 },
+  { type: "done", status: "completed", categoryId: 123 },
 ])("rejects an invalid event without yielding it: %j", async (event) => {
   const body = new Response(`data: ${JSON.stringify(event)}\n\n`).body!;
   const received = [];

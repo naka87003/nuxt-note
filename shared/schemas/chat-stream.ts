@@ -7,6 +7,7 @@ export const chatStreamEventSchema = z.discriminatedUnion("type", [
     type: z.literal("done"),
     status: z.enum(["completed", "stopped", "failed"]),
     title: z.string().optional(),
+    categoryId: z.string().nullable().optional(),
   }),
 ]);
 

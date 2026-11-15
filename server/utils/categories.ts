@@ -1,7 +1,25 @@
 import { INPUT_LIMITS } from "#shared/utils/input-limits";
+import { Prisma } from "../../generated/prisma/client";
 import { createError } from "nuxt/server";
 import { getPrisma } from "./prisma";
 import { categoryIdSchema, categoryNameSchema } from "./input-schemas";
+
+export async function lockOwnedCategories(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  ids: (string | null)[],
+) {
+  const categoryIds = ids.filter((id) => id !== null);
+  // Consistent lock order keeps both Categories owned and present until commit.
+  const categories = await tx.$queryRaw<{ id: string }[]>`
+    SELECT "id" FROM "Category"
+    WHERE "userId" = ${userId} AND "id" IN (${Prisma.join(categoryIds)})
+    ORDER BY "id" FOR SHARE
+  `;
+  if (categories.length !== categoryIds.length) {
+    throw createError({ statusCode: 404, statusMessage: "Category not found" });
+  }
+}
 
 export function categoryName(body: unknown) {
   const parsed = categoryNameSchema.safeParse(body);

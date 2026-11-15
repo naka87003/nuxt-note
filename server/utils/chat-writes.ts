@@ -1,12 +1,53 @@
 import { createError } from "nuxt/server";
 import { getPrisma } from "./prisma";
-import { ownedCategory } from "./categories";
+import { ownedCategory, lockOwnedCategories } from "./categories";
 import {
   updateChatCategorySchema,
   updateChatTitleInputSchema,
   deleteChatBodySchema,
+  moveCategoryInputSchema,
 } from "./input-schemas";
 import { parseInput } from "./parse-input";
+
+export async function moveOwnedCategoryChats(
+  userId: string,
+  body: unknown,
+  currentChatId?: string,
+) {
+  const input = parseInput(moveCategoryInputSchema, body);
+  return getPrisma().$transaction(async (tx) => {
+    await lockOwnedCategories(tx, userId, [
+      input.sourceCategoryId,
+      input.targetCategoryId,
+    ]);
+    // Aggregate on the server rather than returning every moved Chat ID.
+    const [moved] = await tx.$queryRaw<
+      { movedCount: number; currentChatMoved: boolean }[]
+    >`
+      WITH moved AS (
+        UPDATE "Chat"
+        SET "categoryId" = ${input.targetCategoryId}::text,
+            "updatedAt" = GREATEST(
+              clock_timestamp() AT TIME ZONE 'UTC',
+              "updatedAt" + INTERVAL '1 millisecond'
+            )
+        WHERE "userId" = ${userId}
+          AND "categoryId" IS NOT DISTINCT FROM ${input.sourceCategoryId}::text
+        RETURNING "id"
+      )
+      SELECT COUNT(*)::integer AS "movedCount",
+             COALESCE(bool_or("id" = ${currentChatId ?? null}::text), false) AS "currentChatMoved"
+      FROM moved
+    `;
+    if (!moved) {
+      throw createError({
+        statusCode: 500,
+        statusMessage: "Could not move Chats",
+      });
+    }
+    return { ...input, ...moved };
+  });
+}
 
 async function throwChatWriteError(userId: string, id: string): Promise<never> {
   const chat = await getPrisma().chat.findFirst({

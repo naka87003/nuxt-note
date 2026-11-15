@@ -146,6 +146,27 @@ successful move it discards all cached Note versions; subsequent single-Note
 writes require a fresh list/read. Empty or failed moves retain those versions.
 The current Chat's Category and default Category for new Notes are unchanged.
 
+Use `move_category_chats` when the user explicitly requests moving all Chats
+from an identified Category. It accepts the same required nullable
+`sourceCategoryId` and `targetCategoryId` as the Note move, and returns those IDs
+and `movedCount`. The source and target must differ and belong to the owner.
+Both Categories, all Notes, Chat titles, messages, and generation state are
+preserved. The move uses execution-time membership, advances every moved Chat's
+version, and commits atomically. Concurrent reassignment out of the source is
+not undone. Missing/foreign Categories fail before any Chat is moved.
+
+The current in-app Chat is eligible for the move. Whether it actually moved is
+computed by the update itself, without reading messages or returning all moved
+IDs. If moved, its new Category becomes the default for Notes created by tools
+later in the same turn and is sent in the final `done` event as optional nullable
+`categoryId`. The UI updates its Category label and URL without reloading the
+conversation. Single-Chat Category changes and deletion of the current Category
+use the same notification. Unchanged/failed moves omit that stream field.
+A nonempty successful move clears cached Chat versions, leaving Note versions
+intact. Further single-Chat writes require a fresh read/list. Retry attempts
+expose only read tools, and cancellation/ownership checks run before the move.
+External MCP moves appear when the displayed Chat is reloaded.
+
 Examples:
 
 - “Find my Notes about Nuxt and summarize them.”
@@ -245,6 +266,7 @@ Ordinary users only configure their agent and do not need this repository or fil
 | `update_chat_category` | Required `id`, `categoryId` (nullable), `updatedAt`                    | Updated Chat ID, title, category ID, update time, URL; no messages         |
 | `update_note_title`    | Required `id`, `title`, `updatedAt`                                    | Updated Note metadata and URL; no Markdown                                 |
 | `update_note_category` | Required `id`, `categoryId` (nullable), `updatedAt`                    | Updated Note metadata and URL; no Markdown                                 |
+| `move_category_chats`  | Required nullable `sourceCategoryId`, `targetCategoryId`               | Source and target Category IDs, `movedCount`; no messages                  |
 | `move_category_notes`  | Required nullable `sourceCategoryId`, `targetCategoryId`               | Source and target Category IDs, `movedCount`; no Note bodies               |
 | `delete_category`      | Required `id`                                                          | Deleted Category ID and `deleted: true`                                    |
 | `delete_chat`          | Required `id`, `updatedAt`                                             | Deleted Chat ID and `deleted: true`                                        |
@@ -415,13 +437,14 @@ does not deploy the app or register an agent connection.
 
 ### Bulk move database checks
 
-`tests/unit/server/utils/move-category-notes.db.test.ts` contains opt-in checks
-against a disposable local PostgreSQL database, including concurrent reassignment
-and stale-editor rejection. Apply the initial migration to a local database named
+`tests/unit/server/utils/category-moves.db.test.ts` contains opt-in checks
+against a disposable local PostgreSQL database for both Note and Chat moves,
+including concurrent reassignment, stale-write rejection, and active generation
+preservation. Apply the initial migration to a local database named
 `nuxt_note_move_test*`, then run:
 
 ```sh
-NUXT_NOTE_MOVE_TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:PORT/nuxt_note_move_test pnpm test --project unit tests/unit/server/utils/move-category-notes.db.test.ts
+NUXT_NOTE_MOVE_TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:PORT/nuxt_note_move_test pnpm test --project unit tests/unit/server/utils/category-moves.db.test.ts
 ```
 
 These checks use unique fixture users and never read the application's database

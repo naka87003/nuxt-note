@@ -120,6 +120,9 @@ export function useChatGeneration(
           terminalStatus = data.status;
           if (reply) reply.status = data.status;
           if (data.title !== undefined) target.title = data.title;
+          if (data.categoryId !== undefined) {
+            target.categoryId = data.categoryId;
+          }
         }
       }
       if (!terminalStatus) {

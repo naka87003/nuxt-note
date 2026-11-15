@@ -85,6 +85,115 @@ describe("remote MCP tools", () => {
     [null, "target", 0],
     ["source", null, 3],
   ] as const)(
+    "moves Chats from %j to %j without exposing messages or internal context",
+    async (sourceCategoryId, targetCategoryId, movedCount) => {
+      const client = await connect("owner");
+      const { tools } = await client.listTools();
+      const definition = tools.find(
+        (tool) => tool.name === "move_category_chats",
+      );
+      expect(definition?.inputSchema.required?.slice().sort()).toEqual([
+        "sourceCategoryId",
+        "targetCategoryId",
+      ]);
+      expect(definition?.annotations).toMatchObject({
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+      });
+      writes.$queryRaw
+        .mockResolvedValueOnce(
+          [sourceCategoryId, targetCategoryId]
+            .filter((id) => id !== null)
+            .map((id) => ({ id })),
+        )
+        .mockResolvedValueOnce([{ movedCount, currentChatMoved: false }]);
+      const result = await client.callTool({
+        name: "move_category_chats",
+        arguments: { sourceCategoryId, targetCategoryId },
+      });
+      expect(result.isError).toBeFalsy();
+      expect(result.structuredContent).toEqual({
+        sourceCategoryId,
+        targetCategoryId,
+        movedCount,
+      });
+      expect(writes.$transaction).toHaveBeenCalledOnce();
+      expect(writes.$queryRaw).toHaveBeenCalledTimes(2);
+      expect(writes.$queryRaw.mock.calls[0]?.[1]).toBe("owner");
+      expect(writes.$queryRaw.mock.calls[1]?.slice(1)).toEqual([
+        targetCategoryId,
+        "owner",
+        sourceCategoryId,
+        null,
+      ]);
+      expect(writes.$executeRaw).not.toHaveBeenCalled();
+      expect(writes.chat.findFirst).not.toHaveBeenCalled();
+      expect(writes.chat.findMany).not.toHaveBeenCalled();
+      expect(writes.category.deleteMany).not.toHaveBeenCalled();
+      expect(writes.note.update).not.toHaveBeenCalled();
+    },
+  );
+  it("does not move Chats when either Category is missing or foreign", async () => {
+    const client = await connect("owner");
+    writes.$queryRaw.mockResolvedValue([{ id: "source" }]);
+    expect(
+      await client.callTool({
+        name: "move_category_chats",
+        arguments: { sourceCategoryId: "source", targetCategoryId: "foreign" },
+      }),
+    ).toMatchObject({
+      isError: true,
+      content: [{ text: "Category not found." }],
+    });
+    expect(writes.$queryRaw).toHaveBeenCalledOnce();
+  });
+  it("hides Chat move failures without automatic retries", async () => {
+    const client = await connect("owner");
+    writes.$queryRaw
+      .mockResolvedValueOnce([{ id: "source" }, { id: "target" }])
+      .mockRejectedValueOnce(new Error("private database details"));
+    expect(
+      await client.callTool({
+        name: "move_category_chats",
+        arguments: { sourceCategoryId: "source", targetCategoryId: "target" },
+      }),
+    ).toMatchObject({
+      isError: true,
+      content: [{ text: expect.stringContaining("Could not move Chats.") }],
+    });
+    expect(writes.$transaction).toHaveBeenCalledOnce();
+  });
+  it.each([
+    {},
+    { sourceCategoryId: "source" },
+    { targetCategoryId: null },
+    { sourceCategoryId: "same", targetCategoryId: "same" },
+    { sourceCategoryId: null, targetCategoryId: null },
+    { sourceCategoryId: "", targetCategoryId: "target" },
+    { sourceCategoryId: "source", targetCategoryId: 1 },
+    { sourceCategoryId: "x".repeat(101), targetCategoryId: null },
+    { sourceCategoryId: "source", targetCategoryId: "x".repeat(101) },
+    { sourceCategoryId: "source", targetCategoryId: null, userId: "other" },
+    {
+      sourceCategoryId: "source",
+      targetCategoryId: null,
+      currentChatId: "chat",
+    },
+    { sourceCategoryId: "source", targetCategoryId: null, messages: [] },
+  ])("rejects invalid Chat move input %j", async (args) => {
+    const client = await connect("owner");
+    expect(
+      (await client.callTool({ name: "move_category_chats", arguments: args }))
+        .isError,
+    ).toBe(true);
+    expect(writes.$transaction).not.toHaveBeenCalled();
+  });
+  it.each([
+    ["source", "target", 2],
+    [null, "target", 0],
+    ["source", null, 3],
+  ] as const)(
     "moves Notes from %j to %j and returns the actual count",
     async (sourceCategoryId, targetCategoryId, movedCount) => {
       const client = await connect("owner");
@@ -1466,6 +1575,7 @@ describe("remote MCP tools", () => {
       "list_categories",
       "list_chats",
       "list_notes",
+      "move_category_chats",
       "move_category_notes",
       "update_category",
       "update_chat_category",

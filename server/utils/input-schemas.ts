@@ -98,7 +98,7 @@ export const noteToolCategoryIdSchema = noteCategoryIdSchema
   .nullable()
   .optional();
 
-export const moveCategoryNotesInputSchema = z
+export const moveCategoryInputSchema = z
   .object({
     sourceCategoryId: noteToolCategoryIdSchema.unwrap(),
     targetCategoryId: noteToolCategoryIdSchema.unwrap(),

@@ -1,6 +1,6 @@
-import { Prisma } from "../../generated/prisma/client";
+import type { Prisma } from "../../generated/prisma/client";
 import { normalizeNoteContent, normalizeNoteTitle } from "./notes";
-import { ownedCategory } from "./categories";
+import { ownedCategory, lockOwnedCategories } from "./categories";
 import { getPrisma } from "./prisma";
 import { createError } from "nuxt/server";
 import {
@@ -9,7 +9,7 @@ import {
   updateNoteCategoryInputSchema,
   updateNoteTitleInputSchema,
   deleteNoteInputSchema,
-  moveCategoryNotesInputSchema,
+  moveCategoryInputSchema,
 } from "./input-schemas";
 import { parseInput } from "./parse-input";
 
@@ -24,23 +24,12 @@ const savedNoteMetadataSelect = {
 const savedNoteSelect = { ...savedNoteMetadataSelect, markdown: true } as const;
 
 export async function moveOwnedCategoryNotes(userId: string, body: unknown) {
-  const input = parseInput(moveCategoryNotesInputSchema, body);
-  const categoryIds = [input.sourceCategoryId, input.targetCategoryId].filter(
-    (id) => id !== null,
-  );
+  const input = parseInput(moveCategoryInputSchema, body);
   return getPrisma().$transaction(async (tx) => {
-    // Keep both Categories owned and present until the move commits.
-    const categories = await tx.$queryRaw<{ id: string }[]>`
-      SELECT "id" FROM "Category"
-      WHERE "userId" = ${userId} AND "id" IN (${Prisma.join(categoryIds)})
-      ORDER BY "id" FOR SHARE
-    `;
-    if (categories.length !== categoryIds.length) {
-      throw createError({
-        statusCode: 404,
-        statusMessage: "Category not found",
-      });
-    }
+    await lockOwnedCategories(tx, userId, [
+      input.sourceCategoryId,
+      input.targetCategoryId,
+    ]);
     // One atomic update; advance every version even within the same millisecond.
     const movedCount = await tx.$executeRaw`
       UPDATE "Note"

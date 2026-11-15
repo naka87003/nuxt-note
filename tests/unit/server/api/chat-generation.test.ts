@@ -9,6 +9,7 @@ import {
 } from "../../../../server/utils/chat-generation";
 
 const mocks = vi.hoisted(() => ({
+  $queryRaw: vi.fn(),
   session: vi.fn(),
   body: vi.fn(),
   config: vi.fn(),
@@ -116,6 +117,47 @@ beforeEach(() => {
   });
 });
 describe("Chat generation", () => {
+  it.each([
+    [true, 2, true],
+    [false, 2, true],
+    [false, 0, true],
+    [false, 0, false],
+  ] as const)(
+    "notifies a changed current Category after bulk moves (%s, count %s, success %s)",
+    async (currentChatMoved, movedCount, succeeds) => {
+      mocks.$queryRaw.mockResolvedValueOnce([{ id: "source" }]);
+      if (succeeds) {
+        mocks.$queryRaw.mockResolvedValueOnce([
+          { movedCount, currentChatMoved },
+        ]);
+      } else {
+        mocks.$queryRaw.mockRejectedValueOnce(new Error("storage unavailable"));
+      }
+      mocks.streamText.mockImplementation(({ tools }) => ({
+        fullStream: (async function* () {
+          await tools.move_category_chats.execute(
+            { sourceCategoryId: "source", targetCategoryId: null },
+            { toolCallId: "test", messages: [] },
+          );
+          yield { type: "text-delta", text: "Answer" };
+          yield { type: "finish", finishReason: "stop" };
+        })(),
+      }));
+      await run();
+      const events = mocks.push.mock.calls.map(([data]) => JSON.parse(data));
+      expect(events.at(-1)).toEqual({
+        type: "done",
+        status: "completed",
+        ...(currentChatMoved && succeeds ? { categoryId: null } : {}),
+      });
+      expect(mocks.$queryRaw.mock.calls[1]?.at(-1)).toBe("chat");
+      expect(mocks.message.updateMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          data: { content: "Answer", status: "completed" },
+        }),
+      );
+    },
+  );
   it.each([
     ["chat", true],
     ["other", true],
@@ -373,6 +415,7 @@ describe("Chat generation", () => {
       "list_categories",
       "list_chats",
       "list_notes",
+      "move_category_chats",
       "move_category_notes",
       "read_webpage",
       "update_category",

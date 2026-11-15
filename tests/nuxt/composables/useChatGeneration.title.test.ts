@@ -100,6 +100,48 @@ it.each([undefined, "Saved title"])(
   },
 );
 
+it.each([undefined, null, "target"])(
+  "applies a changed Category from done without reloading messages: %s",
+  async (categoryId) => {
+    const chat = conversation();
+    chat.value.title = "Keep title";
+    chat.value.categoryId = "source";
+    chat.value.messages.push(
+      { ...chat.value.messages[0]!, id: "second-question" },
+      {
+        ...chat.value.messages[1]!,
+        id: "second-reply",
+        replyToId: "second-question",
+      },
+    );
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        [
+          { type: "start", messageId: "second-reply" },
+          { type: "text", text: "Answer" },
+          { type: "done", status: "completed", categoryId },
+        ]
+          .map((data) => `data: ${JSON.stringify(data)}\n\n`)
+          .join(""),
+      ),
+    );
+    const refresh = vi.fn().mockResolvedValue(undefined);
+    const { result: generation } = await mountComposable(() =>
+      useChatGeneration(chat, refresh),
+    );
+    await generation.generate();
+    expect(chat.value.categoryId).toBe(
+      categoryId === undefined ? "source" : categoryId,
+    );
+    expect(chat.value.title).toBe("Keep title");
+    expect(chat.value.messages.at(-1)?.content).toBe("Answer");
+    expect(chat.value.messages.at(-1)?.status).toBe("completed");
+    expect(refresh).not.toHaveBeenCalled();
+    expect(titleRequest).not.toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledOnce();
+  },
+);
+
 it("allows the next message while a title is pending and updates the refreshed chat", async () => {
   const chat = conversation();
   let resolveTitle!: (value: { title: string }) => void;

@@ -16,6 +16,12 @@ import {
   moveOwnedCategoryNotes,
   updateOwnedNoteTitle,
 } from "../../../../server/utils/note-writes";
+import {
+  moveOwnedCategoryChats,
+  updateOwnedChatTitle,
+  deleteOwnedChat,
+} from "../../../../server/utils/chat-writes";
+import { saveGeneration } from "../../../../server/utils/chat-generation";
 
 vi.mock("../../../../server/utils/prisma", () => ({ getPrisma: vi.fn() }));
 vi.mock("nuxt/server", () => ({
@@ -24,9 +30,9 @@ vi.mock("nuxt/server", () => ({
 
 // Opt-in only; never reads .env or connects to the application's database.
 // Apply the initial migration to a disposable local DB named nuxt_note_move_test*, then run:
-// NUXT_NOTE_MOVE_TEST_DATABASE_URL=... pnpm test --project unit tests/unit/server/utils/move-category-notes.db.test.ts
+// NUXT_NOTE_MOVE_TEST_DATABASE_URL=... pnpm test --project unit tests/unit/server/utils/category-moves.db.test.ts
 const connectionString = process.env.NUXT_NOTE_MOVE_TEST_DATABASE_URL;
-describe.skipIf(!connectionString)("bulk Note moves in PostgreSQL", () => {
+describe.skipIf(!connectionString)("bulk category moves in PostgreSQL", () => {
   let db: PrismaClient;
   const owner = randomUUID();
   const other = randomUUID();
@@ -34,6 +40,7 @@ describe.skipIf(!connectionString)("bulk Note moves in PostgreSQL", () => {
   const target = randomUUID();
   const foreign = randomUUID();
   const noteId = randomUUID();
+  const chatId = randomUUID();
   const uncategorized = randomUUID();
   const applicationName = `bulk-move-test-${randomUUID()}`;
   const version = new Date("2100-01-01T00:00:00.000Z");
@@ -106,7 +113,25 @@ describe.skipIf(!connectionString)("bulk Note moves in PostgreSQL", () => {
       ],
     });
     await db.chat.create({
-      data: { userId: owner, categoryId: source, title: "Keep this Chat" },
+      data: {
+        id: chatId,
+        userId: owner,
+        categoryId: source,
+        title: "Keep this Chat",
+        updatedAt: version,
+        generationId: "attempt",
+        generationStartedAt: version,
+        messages: {
+          create: [
+            { role: "user", content: "Original question" },
+            {
+              role: "assistant",
+              content: "Partial answer",
+              status: "generating",
+            },
+          ],
+        },
+      },
     });
   });
   afterEach(async () => {
@@ -114,6 +139,188 @@ describe.skipIf(!connectionString)("bulk Note moves in PostgreSQL", () => {
   });
   afterAll(async () => {
     if (db) await db.$disconnect();
+  });
+
+  it("moves only owned Chats, preserving messages, generation state, Notes, and Categories", async () => {
+    const otherChat = await db.chat.create({
+      data: { userId: other, categoryId: source, title: "Other owner's Chat" },
+    });
+    const before = await db.chat.findUniqueOrThrow({
+      where: { id: chatId },
+      include: { messages: { orderBy: { id: "asc" } } },
+    });
+    const notes = await db.note.findMany({ orderBy: { id: "asc" } });
+    expect(
+      await moveOwnedCategoryChats(
+        owner,
+        { sourceCategoryId: source, targetCategoryId: target },
+        chatId,
+      ),
+    ).toEqual({
+      sourceCategoryId: source,
+      targetCategoryId: target,
+      movedCount: 1,
+      currentChatMoved: true,
+    });
+    expect(
+      await db.chat.findUniqueOrThrow({
+        where: { id: chatId },
+        include: { messages: { orderBy: { id: "asc" } } },
+      }),
+    ).toEqual({
+      ...before,
+      categoryId: target,
+      updatedAt: new Date(version.getTime() + 1),
+    });
+    expect(
+      await db.chat.findUniqueOrThrow({ where: { id: otherChat.id } }),
+    ).toMatchObject({ categoryId: source, title: "Other owner's Chat" });
+    expect(await db.note.findMany({ orderBy: { id: "asc" } })).toEqual(notes);
+    expect(await db.category.count({ where: { userId: owner } })).toBe(2);
+    await expect(
+      updateOwnedChatTitle(owner, {
+        id: chatId,
+        title: "Stale title",
+        updatedAt: version.toISOString(),
+      }),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    await expect(
+      deleteOwnedChat(owner, chatId, { updatedAt: version.toISOString() }),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    const reply = before.messages.find(
+      (message) => message.role === "assistant",
+    );
+    if (!reply) throw new Error("Missing fixture reply");
+    expect(
+      await saveGeneration(
+        owner,
+        chatId,
+        "attempt",
+        reply.id,
+        "Continued answer",
+        "generating",
+      ),
+    ).toBe(true);
+    expect(
+      await db.chat.findUniqueOrThrow({ where: { id: chatId } }),
+    ).toMatchObject({ categoryId: target, generationId: "attempt" });
+    expect(
+      await db.message.findUniqueOrThrow({ where: { id: reply.id } }),
+    ).toMatchObject({ content: "Continued answer", status: "generating" });
+  });
+  it("handles Uncategorized Chats and identifies whether the current Chat actually moved", async () => {
+    const uncategorizedChat = await db.chat.create({
+      data: { userId: owner, title: "Uncategorized Chat", updatedAt: version },
+    });
+    expect(
+      await moveOwnedCategoryChats(
+        owner,
+        { sourceCategoryId: null, targetCategoryId: target },
+        chatId,
+      ),
+    ).toEqual({
+      sourceCategoryId: null,
+      targetCategoryId: target,
+      movedCount: 1,
+      currentChatMoved: false,
+    });
+    expect(
+      await moveOwnedCategoryChats(
+        owner,
+        { sourceCategoryId: source, targetCategoryId: null },
+        chatId,
+      ),
+    ).toEqual({
+      sourceCategoryId: source,
+      targetCategoryId: null,
+      movedCount: 1,
+      currentChatMoved: true,
+    });
+    expect(
+      await db.chat.findUniqueOrThrow({ where: { id: uncategorizedChat.id } }),
+    ).toMatchObject({
+      categoryId: target,
+      updatedAt: new Date(version.getTime() + 1),
+    });
+    expect(
+      await moveOwnedCategoryChats(
+        owner,
+        { sourceCategoryId: source, targetCategoryId: target },
+        chatId,
+      ),
+    ).toEqual({
+      sourceCategoryId: source,
+      targetCategoryId: target,
+      movedCount: 0,
+      currentChatMoved: false,
+    });
+  });
+  it.each(["source", "target", "missing"])(
+    "does not change Chats when a Category is foreign or missing: %s",
+    async (kind) => {
+      const before = await db.chat.findMany({ orderBy: { id: "asc" } });
+      await expect(
+        moveOwnedCategoryChats(
+          owner,
+          {
+            sourceCategoryId: kind === "source" ? foreign : source,
+            targetCategoryId:
+              kind === "target"
+                ? foreign
+                : kind === "missing"
+                  ? randomUUID()
+                  : target,
+          },
+          chatId,
+        ),
+      ).rejects.toMatchObject({ statusCode: 404 });
+      expect(await db.chat.findMany({ orderBy: { id: "asc" } })).toEqual(
+        before,
+      );
+    },
+  );
+  it("does not pull back a Chat concurrently moved out of the source", async () => {
+    const locked = Promise.withResolvers<undefined>();
+    const release = Promise.withResolvers<undefined>();
+    const concurrentMove = db.$transaction(async (tx) => {
+      await tx.chat.update({
+        where: { id: chatId },
+        data: { categoryId: null },
+      });
+      locked.resolve(undefined);
+      await release.promise;
+    });
+    await locked.promise;
+    const bulkMove = moveOwnedCategoryChats(
+      owner,
+      { sourceCategoryId: source, targetCategoryId: target },
+      chatId,
+    );
+    try {
+      await vi.waitFor(
+        async () => {
+          const [activity] = await db.$queryRaw<{ waiting: boolean }[]>`
+          SELECT EXISTS (
+            SELECT 1 FROM pg_stat_activity WHERE application_name = ${applicationName}
+              AND wait_event_type = 'Lock' AND query LIKE '%UPDATE "Chat"%'
+          ) AS waiting
+        `;
+          expect(activity?.waiting).toBe(true);
+        },
+        { timeout: 2000, interval: 25 },
+      );
+    } finally {
+      release.resolve(undefined);
+      await concurrentMove;
+      await bulkMove;
+    }
+    expect(await bulkMove).toMatchObject({
+      movedCount: 0,
+      currentChatMoved: false,
+    });
+    expect(
+      await db.chat.findUniqueOrThrow({ where: { id: chatId } }),
+    ).toMatchObject({ categoryId: null, generationId: "attempt" });
   });
 
   it("moves only matching owned Notes, preserves content and Chats, and advances future timestamps", async () => {

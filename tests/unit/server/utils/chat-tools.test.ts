@@ -19,6 +19,7 @@ const chatWrites = vi.hoisted(() => ({
   updateOwnedChatCategory: vi.fn(),
   updateOwnedChatTitle: vi.fn(),
   deleteOwnedChat: vi.fn(),
+  moveOwnedCategoryChats: vi.fn(),
 }));
 vi.mock("../../../../server/utils/chat-writes", () => chatWrites);
 const writes = vi.hoisted(() => ({
@@ -112,6 +113,130 @@ beforeEach(() => {
   writes.deleteOwnedNote.mockResolvedValue({ id: "note", deleted: true });
 });
 describe("in-app Note tools", () => {
+  it.each([true, false])(
+    "updates the current Category only if that Chat was actually moved: %s",
+    async (currentChatMoved) => {
+      const onChatCategoryUpdated = vi.fn();
+      const tools = createChatNoteTools("owner", "https://notes.example", {
+        signal: new AbortController().signal,
+        assertActive: async () => {},
+        allowMutations: true,
+        chatId: "current",
+        categoryId: "source",
+        onChatCategoryUpdated,
+      });
+      const args = { sourceCategoryId: "source", targetCategoryId: null };
+      chatWrites.moveOwnedCategoryChats.mockResolvedValueOnce({
+        ...args,
+        movedCount: 2,
+        currentChatMoved,
+      });
+      expect(
+        await tools.move_category_chats!.execute(args, context),
+      ).toMatchObject({ structuredContent: { ...args, movedCount: 2 } });
+      expect(chatWrites.moveOwnedCategoryChats).toHaveBeenCalledExactlyOnceWith(
+        "owner",
+        args,
+        "current",
+      );
+      await tools.create_note!.execute(
+        { title: "Title", markdown: "Body" },
+        context,
+      );
+      expect(writes.createOwnedNote).toHaveBeenCalledWith("owner", {
+        title: "Title",
+        markdown: "Body",
+        ...(currentChatMoved ? {} : { categoryId: "source" }),
+      });
+      if (currentChatMoved) {
+        expect(onChatCategoryUpdated).toHaveBeenCalledExactlyOnceWith(null);
+      } else {
+        expect(onChatCategoryUpdated).not.toHaveBeenCalled();
+      }
+      expect(chatReads.readOwnedChatPage).not.toHaveBeenCalled();
+    },
+  );
+  it.each([0, 2])(
+    "discards cached Chat versions only after nonempty moves, preserving Note versions: %s",
+    async (movedCount) => {
+      const { tools } = setup();
+      const args = { sourceCategoryId: "source", targetCategoryId: "target" };
+      chatReads.searchOwnedChats.mockResolvedValueOnce({
+        chats: [{ id: "chat", updatedAt: new Date(version) }],
+        nextOffset: null,
+      });
+      await tools.list_chats.execute({}, context);
+      await tools.get_note.execute({ id: "note" }, context);
+      chatWrites.moveOwnedCategoryChats.mockResolvedValueOnce({
+        ...args,
+        movedCount,
+        currentChatMoved: false,
+      });
+      await tools.move_category_chats!.execute(args, context);
+      expect(
+        await tools.update_chat_title!.execute(
+          { id: "chat", title: "New title", updatedAt: version },
+          context,
+        ),
+      ).toHaveProperty(movedCount ? "error" : "structuredContent");
+      expect(
+        await tools.update_note_title!.execute(
+          { ...input, title: "New title" },
+          context,
+        ),
+      ).toHaveProperty("structuredContent");
+      expect(chatReads.readOwnedChatPage).not.toHaveBeenCalled();
+    },
+  );
+  it("retains the current Category and cached versions on a failed Chat move", async () => {
+    const { tools } = setup("owner", true, "source", "chat");
+    await tools.get_chat.execute({ id: "chat" }, context);
+    chatWrites.moveOwnedCategoryChats.mockRejectedValueOnce({
+      statusCode: 404,
+    });
+    expect(
+      await tools.move_category_chats!.execute(
+        { sourceCategoryId: "source", targetCategoryId: null },
+        context,
+      ),
+    ).toMatchObject({ isError: true });
+    expect(
+      await tools.update_chat_title!.execute(
+        { id: "chat", title: "New title", updatedAt: version },
+        context,
+      ),
+    ).toHaveProperty("structuredContent");
+    await tools.create_note!.execute(
+      { title: "Title", markdown: "Body" },
+      context,
+    );
+    expect(writes.createOwnedNote).toHaveBeenCalledWith("owner", {
+      title: "Title",
+      markdown: "Body",
+      categoryId: "source",
+    });
+    expect(chatWrites.moveOwnedCategoryChats).toHaveBeenCalledOnce();
+  });
+  it("validates Chat moves and stops after cancellation or generation ownership loss", async () => {
+    const args = { sourceCategoryId: "source", targetCategoryId: null };
+    const { tools, controller } = setup();
+    await expect(
+      tools.move_category_chats!.execute(
+        { ...args, targetCategoryId: "source" },
+        context,
+      ),
+    ).rejects.toThrow();
+    controller.abort();
+    await expect(
+      tools.move_category_chats!.execute(args, context),
+    ).rejects.toThrow();
+    const inactive = setup();
+    inactive.assertActive.mockRejectedValue(new Error("no longer active"));
+    await expect(
+      inactive.tools.move_category_chats!.execute(args, context),
+    ).rejects.toThrow();
+    expect(chatWrites.moveOwnedCategoryChats).not.toHaveBeenCalled();
+  });
   it.each([0, 2])(
     "moves all Notes for the session owner and invalidates read versions only when changed: %s",
     async (movedCount) => {

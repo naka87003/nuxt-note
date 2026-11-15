@@ -382,6 +382,52 @@ function withoutWorkCategory(categories: Ref<CategoriesResponse | undefined>) {
     uncategorized: { notes: 0, chats: 1 },
   };
 }
+describe("Chat category synchronization", () => {
+  it.each([null, "target"])(
+    "reflects a streamed Category change in the label and URL without reloading messages: %s",
+    async (categoryId) => {
+      const { wrapper, categories, load, chat } = await categorySession();
+      if (!categories.value || !chat.value) {
+        throw new Error("Missing fixture data");
+      }
+      categories.value = {
+        ...categories.value,
+        items: [
+          ...categories.value.items,
+          {
+            id: "target",
+            name: "Target",
+            _count: { notes: 0, chats: 0 },
+          },
+        ],
+      };
+      await wrapper.get("textarea").setValue("Unsent next question");
+      const composer = wrapper.get("textarea").element;
+      flow.sending.value = true;
+      flow.busy.value = true;
+      chat.value.messages[0]!.content = "Continued answer";
+      // useChatGeneration applies this field from the terminal stream event.
+      chat.value.categoryId = categoryId;
+      flow.sending.value = false;
+      flow.busy.value = false;
+      await flushPromises();
+      await vi.waitFor(() =>
+        expect(useRouter().currentRoute.value.query.category).toBe(
+          categoryId ?? "uncategorized",
+        ),
+      );
+      expect(wrapper.text()).toContain(categoryId ? "Target" : "Uncategorized");
+      expect(wrapper.text()).toContain("Continued answer");
+      expect(wrapper.get("textarea").element).toBe(composer);
+      expect(wrapper.get("textarea").element.value).toBe(
+        "Unsent next question",
+      );
+      expect(load).toHaveBeenCalledOnce();
+      expect(request).not.toHaveBeenCalled();
+    },
+  );
+});
+
 describe("Chat category deletion", () => {
   it("reloads a deleted current category after generation and moves the route to Uncategorized", async () => {
     const { wrapper, categories, load, chat } = await categorySession();

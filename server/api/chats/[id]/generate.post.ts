@@ -134,6 +134,7 @@ export default defineEventHandler(async (event) => {
   const run = async () => {
     let status = "failed";
     let updatedTitle: string | undefined;
+    let updatedCategoryId: string | null | undefined;
     const output = createChatOutput({
       controller,
       save: (content) =>
@@ -165,6 +166,9 @@ export default defineEventHandler(async (event) => {
             chatId: id,
             onChatTitleUpdated: (title) => {
               updatedTitle = title;
+            },
+            onChatCategoryUpdated: (categoryId) => {
+              updatedCategoryId = categoryId;
             },
             assertActive,
           }),
@@ -236,7 +240,12 @@ export default defineEventHandler(async (event) => {
         finished = true;
         if (saved && !controller.signal.aborted) {
           await stream.push(
-            JSON.stringify({ type: "done", status, title: updatedTitle }),
+            JSON.stringify({
+              type: "done",
+              status,
+              title: updatedTitle,
+              categoryId: updatedCategoryId,
+            }),
           );
         }
       } finally {

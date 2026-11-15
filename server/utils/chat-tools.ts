@@ -37,6 +37,7 @@ export const CHAT_NOTES_INSTRUCTIONS =
   "For title-only changes, use update_note_title with the exact id and updatedAt from list_notes or get_note; no full body is needed. Preserve its category. On conflict, list or read again and reassess the requested rename; never blindly retry with a newer timestamp. " +
   "For category-only changes, use update_note_category with the exact id and updatedAt from list_notes or get_note; no full body is needed. Use null for Uncategorized. On category conflict, list or read again and reassess the requested change before retrying. " +
   "Use move_category_notes only when the user explicitly requests moving all Notes from the identified source Category. Clarify ambiguous scope or targets first. Resolve Category IDs with list_categories; null means Uncategorized, never a fallback for a missing named Category. This preserves both Categories and all Chats. It moves Notes matching the source at execution time; do not describe it as moving a previously listed snapshot. Report the returned movedCount. Do not automatically repeat a failed move. " +
+  "Use move_category_chats only when the user explicitly requests moving all Chats from the identified source Category. Clarify ambiguous scope or targets first. Resolve Category IDs with list_categories; null means Uncategorized, never a fallback for a missing named Category. Both Categories and all Notes are preserved. The current Chat may be included; its messages and response generation are preserved. Membership is evaluated at execution time. Report movedCount and do not automatically repeat a failed move. " +
   "On update conflict, read again and reconcile changes; never blindly retry with a new timestamp. " +
   "On deletion conflict, read again and ask the user to confirm deletion of the changed Note in a new message. " +
   "Present successfully created or updated Notes as clickable Markdown links using the returned title and url. " +
@@ -73,10 +74,18 @@ export function createChatNoteTools(
     categoryId?: string | null;
     chatId?: string;
     onChatTitleUpdated?: (title: string) => void;
+    onChatCategoryUpdated?: (categoryId: string | null) => void;
   },
 ) {
-  const definitions = createWorkspaceTools(userId, siteUrl);
   let categoryId = options.categoryId;
+  function updateCurrentCategory(nextCategoryId: string | null) {
+    categoryId = nextCategoryId;
+    options.onChatCategoryUpdated?.(nextCategoryId);
+  }
+  const definitions = createWorkspaceTools(userId, siteUrl, {
+    chatId: options.chatId,
+    onChatCategoryUpdated: updateCurrentCategory,
+  });
   const versions = new Map<string, string>();
   const metadataVersions = new Map<string, string>();
   const chatVersions = new Map<string, string>();
@@ -224,6 +233,22 @@ export function createChatNoteTools(
     }),
     ...(options.allowMutations
       ? {
+          move_category_chats: adapt("move_category_chats", {
+            ...definitions.move_category_chats,
+            execute: async (input) => {
+              const result =
+                await definitions.move_category_chats.execute(input);
+              const movedCount = result.structuredContent?.movedCount;
+              if (
+                !result.isError &&
+                typeof movedCount === "number" &&
+                movedCount > 0
+              ) {
+                chatVersions.clear();
+              }
+              return result;
+            },
+          }),
           move_category_notes: adapt("move_category_notes", {
             ...definitions.move_category_notes,
             execute: async (input) => {
@@ -296,7 +321,7 @@ export function createChatNoteTools(
               const result =
                 await definitions.update_chat_category.execute(input);
               if (!result.isError && input.id === options.chatId) {
-                categoryId = input.categoryId;
+                updateCurrentCategory(input.categoryId);
               }
               return result;
             },
@@ -313,7 +338,9 @@ export function createChatNoteTools(
             ...definitions.delete_category,
             execute: async (input) => {
               const result = await definitions.delete_category.execute(input);
-              if (!result.isError && input.id === categoryId) categoryId = null;
+              if (!result.isError && input.id === categoryId) {
+                updateCurrentCategory(null);
+              }
               return result;
             },
           }),
