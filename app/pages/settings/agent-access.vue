@@ -124,7 +124,7 @@ async function deleteToken() {
         </li>
         <li>
           Set the Authorization header to
-          <code>Bearer &lt;your token&gt;</code>, then reconnect your agent.
+          <code>Bearer {YOUR_TOKEN}</code>, then reconnect your agent.
         </li>
       </ol>
       <p class="text-sm text-muted">
