@@ -2,6 +2,7 @@ import { mockComponent, mountSuspended } from "@nuxt/test-utils/runtime";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createSSRApp, nextTick } from "vue";
 import { renderToString } from "vue/server-renderer";
+import { RouterLink } from "vue-router";
 import {
   clearNuxtState,
   useNuxtApp,
@@ -69,10 +70,12 @@ describe("WorkspaceList", () => {
     });
 
     Object.assign(app._context.provides, nuxtApp.vueApp._context.provides);
+    app.component("RouterLink", RouterLink);
 
     const html = await nuxtApp.runWithContext(() => renderToString(app));
     expect(html).toContain("All notes");
     expect(html).toContain("Search notes");
+    expect(html).toContain('href="/notes/new?category=uncategorized"');
     expect(html).toContain('class="list-scroll"');
     expect(html).toContain("Loading…");
     expect(html).not.toContain("Today");

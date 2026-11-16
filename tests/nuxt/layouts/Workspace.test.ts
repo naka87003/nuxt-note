@@ -1,6 +1,6 @@
 import { mockNuxtImport, mountSuspended } from "@nuxt/test-utils/runtime";
 import { flushPromises } from "@vue/test-utils";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import { clearNuxtState, useRouter, useState, useUserSession } from "#imports";
 import Workspace from "~/layouts/workspace.vue";
@@ -16,6 +16,10 @@ const { fetchWorkspace, refreshWorkspace } = vi.hoisted(() => ({
 
 mockNuxtImport("useFetch", () => fetchWorkspace);
 mockNuxtImport("refreshNuxtData", () => refreshWorkspace);
+
+afterEach(() => {
+  document.getElementById("content")?.remove();
+});
 
 beforeEach(() => {
   clearNuxtState();
@@ -153,6 +157,10 @@ it("hides stale results while a different search is loading", async () => {
 });
 
 it("replaces a deleted category without changing the open note or other query parameters", async () => {
+  const content = document.createElement("div");
+  content.id = "content";
+  document.body.appendChild(content);
+
   const { categories, wrapper } = await mountWorkspace(
     "/notes/note-1?category=work&extra=keep#content",
   );

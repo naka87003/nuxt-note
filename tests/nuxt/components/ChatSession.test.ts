@@ -7,6 +7,7 @@ import {
   clearNuxtState,
   refreshNuxtData,
   useNuxtData,
+  useError,
   useRouter,
   useUserSession,
 } from "#imports";
@@ -21,7 +22,8 @@ const mocks = vi.hoisted(() => ({
   generation: vi.fn(),
   refresh: vi.fn(),
   request: vi.fn().mockResolvedValue(null),
-  readRequest: vi.fn(),
+  // Nuxt's session initialization also uses this fetch mock.
+  readRequest: vi.fn().mockResolvedValue(null),
 }));
 
 mockNuxtImport("$fetch", () => mocks.request);
@@ -67,9 +69,10 @@ const modal = {
 };
 
 beforeEach(() => {
+  expect(useError().value).toBeUndefined();
   clearNuxtState();
   clearNuxtData();
-  mocks.readRequest.mockReset();
+  mocks.readRequest.mockReset().mockResolvedValue(null);
   request
     .mockReset()
     .mockResolvedValue({ title: "Note", markdown: "Draft", categoryId: null });
