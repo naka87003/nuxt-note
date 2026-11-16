@@ -31,7 +31,7 @@ export const Expanded: Story = {
       await expect(code).toBeVisible();
       await expect(code).toHaveTextContent("[mcp_servers.nuxt-note]");
       await expect(code).toHaveTextContent(
-        'Authorization = "Bearer YOUR_TOKEN"',
+        'Authorization = "Bearer {YOUR_TOKEN}"',
       );
     });
   },
