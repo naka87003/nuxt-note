@@ -4,6 +4,8 @@ const value = defineModel<string>({ default: "" });
 
 const props = defineProps<{
   busy?: boolean;
+  canStop?: boolean;
+  stopping?: boolean;
   disabled?: boolean;
   autofocus?: boolean;
 }>();
@@ -31,7 +33,7 @@ onMounted(() => {
 
 watch(value, resize, { flush: "post" });
 
-const emit = defineEmits<{ send: [] }>();
+const emit = defineEmits<{ send: []; stop: [] }>();
 
 const canSend = computed(
   () =>
@@ -65,6 +67,18 @@ function keydown(event: KeyboardEvent) {
       @keydown="keydown"
     />
     <UButton
+      v-if="canStop || stopping"
+      type="button"
+      :disabled="stopping"
+      class="chat-send"
+      aria-label="Stop response"
+      title="Stop response"
+      @click="emit('stop')"
+    >
+      <UIcon name="i-lucide-square" class="size-4 fill-current" />
+    </UButton>
+    <UButton
+      v-else
       type="submit"
       :disabled="!canSend"
       class="chat-send"

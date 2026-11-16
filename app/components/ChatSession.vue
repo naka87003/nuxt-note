@@ -19,6 +19,8 @@ const {
   persisted,
   busy: generating,
   sending,
+  canStop,
+  stopping,
   showProgressLabel,
   progressLabel,
   failure: generationFailure,
@@ -26,6 +28,7 @@ const {
   lastReply,
   send,
   generate,
+  stop,
 } = useChatGeneration(
   chat,
   () => refreshConversation(true),
@@ -66,7 +69,10 @@ if (!props.chatId && props.initialDraft) draft.value = props.initialDraft;
 const requestFetch = useRequestFetch();
 
 const refreshConversation = useChatRefresh(chat, activeId, sending, (id) =>
-  requestFetch<Conversation>(`/api/chats/${id}`),
+  requestFetch<Conversation>(
+    `/api/chats/${id}`,
+    stopping.value ? { timeout: 10_000, retry: 0 } : undefined,
+  ),
 );
 
 const {
@@ -381,7 +387,7 @@ async function remove() {
                 v-if="message.status === 'stopped'"
                 class="text-sm text-dimmed"
               >
-                The connection was interrupted. Please try again.
+                Response stopped.
               </p>
               <p
                 v-else-if="message.status === 'failed'"
@@ -432,6 +438,7 @@ async function remove() {
             v-if="canRetry"
             color="neutral"
             variant="soft"
+            icon="i-lucide-rotate-ccw"
             @click="generate"
           >
             Try again
@@ -439,8 +446,11 @@ async function remove() {
           <ChatComposer
             v-model="draft"
             :busy="sending"
+            :can-stop="canStop"
+            :stopping="stopping"
             :disabled="generating || creatingNote || (canRetry && !lastReply)"
             @send="send"
+            @stop="stop"
           />
         </div>
       </div>

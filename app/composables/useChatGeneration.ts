@@ -12,6 +12,8 @@ export function useChatGeneration(
 ) {
   const persisted = ref(!creation || !!chat.value);
   const sending = ref(false);
+  const canStop = ref(false);
+  const stopping = ref(false);
   let activeController: AbortController | undefined;
   const failure = ref("");
   const progressLabel = ref("");
@@ -67,6 +69,29 @@ export function useChatGeneration(
     }
   }
 
+  async function reloadAfterInterruption(attemptId: string) {
+    await refresh();
+    if (!stopping.value) return;
+
+    // Disconnecting cancels the provider, but the server still needs to drain
+    // its checkpoint and commit the partial answer before another send.
+    const deadline = Date.now() + 10_000;
+
+    while (
+      !disposed &&
+      chat.value?.generationId === attemptId &&
+      Date.now() < deadline
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      if (!disposed) await refresh();
+    }
+
+    if (!disposed && chat.value?.generationId === attemptId) {
+      failure.value =
+        "The response is still stopping. Please reload this chat to check its status.";
+    }
+  }
+
   async function generate() {
     if (busy.value || !persisted.value || !chat.value || !lastQuestion.value) {
       return;
@@ -111,9 +136,11 @@ export function useChatGeneration(
       let reply: ChatMessage | undefined;
 
       for await (const data of readChatStream(response.body)) {
-        if (disposed) continue;
+        if (disposed || attempt.controller.signal.aborted) continue;
 
         if (data.type === "start") {
+          target.generationId = attempt.id;
+          canStop.value = true;
           reply = target.messages.find((m) => m.id === data.messageId);
 
           if (reply) {
@@ -136,6 +163,7 @@ export function useChatGeneration(
           if (data.text) progressLabel.value = "";
           reply.content += data.text;
         } else if (data.type === "done") {
+          canStop.value = false;
           progressLabel.value = "";
           terminalStatus = data.status;
           if (reply) reply.status = data.status;
@@ -158,8 +186,9 @@ export function useChatGeneration(
             : "Could not generate a response. Please try again.";
       }
     } finally {
+      canStop.value = false;
       activeController = undefined;
-      progressLabel.value = "";
+      progressLabel.value = stopping.value ? "Stopping response…" : "";
 
       if (!disposed) {
         // A completed stream already contains the saved answer. Only failures
@@ -167,7 +196,7 @@ export function useChatGeneration(
         if (terminalStatus === "completed") {
           target.generationId = null;
         } else {
-          await refresh().catch(() => {
+          await reloadAfterInterruption(attempt.id).catch(() => {
             failure.value =
               "Could not reload this chat. Please reload the page.";
           });
@@ -179,6 +208,8 @@ export function useChatGeneration(
       }
 
       sending.value = false;
+      stopping.value = false;
+      progressLabel.value = "";
 
       if (
         terminalStatus === "completed" &&
@@ -187,6 +218,14 @@ export function useChatGeneration(
         void summarizeTitle(target.id);
       }
     }
+  }
+
+  function stop() {
+    if (!canStop.value || stopping.value) return;
+    canStop.value = false;
+    stopping.value = true;
+    progressLabel.value = "Stopping response…";
+    activeController?.abort();
   }
 
   async function send() {
@@ -298,10 +337,13 @@ export function useChatGeneration(
     showProgressLabel,
     progressLabel,
     sending,
+    canStop,
+    stopping,
     failure,
     canRetry,
     lastReply,
     send,
     generate,
+    stop,
   };
 }

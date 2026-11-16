@@ -69,4 +69,26 @@ describe("ChatComposer", () => {
     await wrapper.get("form").trigger("submit");
     expect(wrapper.emitted("send")).toHaveLength(1);
   });
+
+  it("allows stopping with an empty draft while sending is disabled", async () => {
+    const wrapper = await mountSuspended(ChatComposer, {
+      props: { busy: true, disabled: true, canStop: true },
+    });
+
+    const stop = wrapper.get('[aria-label="Stop response"]');
+    expect(stop.attributes("type")).toBe("button");
+    expect(stop.attributes("disabled")).toBeUndefined();
+    await stop.trigger("click");
+    expect(wrapper.emitted("stop")).toHaveLength(1);
+    expect(wrapper.emitted("send")).toBeUndefined();
+
+    await wrapper.setProps({ canStop: false, stopping: true });
+    expect(stop.attributes("disabled")).toBeDefined();
+    await stop.trigger("click");
+    expect(wrapper.emitted("stop")).toHaveLength(1);
+
+    await wrapper.setProps({ stopping: false, busy: false, disabled: false });
+    expect(wrapper.find('[aria-label="Stop response"]').exists()).toBe(false);
+    expect(wrapper.find('[aria-label="Send message"]').exists()).toBe(true);
+  });
 });

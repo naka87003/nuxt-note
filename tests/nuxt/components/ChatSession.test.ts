@@ -21,11 +21,13 @@ const mocks = vi.hoisted(() => ({
   generation: vi.fn(),
   refresh: vi.fn(),
   request: vi.fn().mockResolvedValue(null),
+  readRequest: vi.fn(),
 }));
 
 mockNuxtImport("$fetch", () => mocks.request);
 mockNuxtImport("useChatGeneration", () => mocks.generation);
 mockNuxtImport("useChatRefresh", () => mocks.refresh);
+mockNuxtImport("useRequestFetch", () => () => mocks.readRequest);
 
 const reply: ChatMessage = {
   id: "reply",
@@ -43,6 +45,8 @@ let flow: {
   persisted: ReturnType<typeof ref<boolean>>;
   busy: ReturnType<typeof ref<boolean>>;
   sending: ReturnType<typeof ref<boolean>>;
+  canStop: ReturnType<typeof ref<boolean>>;
+  stopping: ReturnType<typeof ref<boolean>>;
   showProgressLabel: ReturnType<typeof ref<boolean>>;
   progressLabel: ReturnType<typeof ref<string>>;
   failure: ReturnType<typeof ref<string>>;
@@ -50,6 +54,7 @@ let flow: {
   lastReply: ReturnType<typeof ref<typeof reply | null>>;
   send: ReturnType<typeof vi.fn>;
   generate: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
 };
 
 const request = mocks.request;
@@ -64,6 +69,7 @@ const modal = {
 beforeEach(() => {
   clearNuxtState();
   clearNuxtData();
+  mocks.readRequest.mockReset();
   request
     .mockReset()
     .mockResolvedValue({ title: "Note", markdown: "Draft", categoryId: null });
@@ -79,6 +85,8 @@ beforeEach(() => {
     persisted: ref(true),
     busy: ref(false),
     sending: ref(false),
+    canStop: ref(false),
+    stopping: ref(false),
     showProgressLabel: ref(false),
     progressLabel: ref("Searching notes…"),
     failure: ref(""),
@@ -86,6 +94,7 @@ beforeEach(() => {
     lastReply: ref(reply),
     send: vi.fn(),
     generate: vi.fn(),
+    stop: vi.fn(),
   };
   mocks.generation.mockReset().mockImplementation(() => flow);
   mocks.refresh.mockReset().mockImplementation((chat) => async () => {
@@ -112,6 +121,29 @@ async function mountSession(route?: string) {
 }
 
 describe("ChatSession", () => {
+  it("bounds stop confirmation requests to ten seconds without automatic retries", async () => {
+    await mountSession();
+    flow.stopping.value = true;
+    mocks.readRequest.mockResolvedValue(conversation);
+    const load = mocks.refresh.mock.calls[0]![3];
+    await load("chat");
+    expect(mocks.readRequest).toHaveBeenCalledWith("/api/chats/chat", {
+      timeout: 10_000,
+      retry: 0,
+    });
+  });
+
+  it("keeps normal chat reads unchanged outside stop confirmation", async () => {
+    await mountSession();
+    mocks.readRequest.mockResolvedValue(conversation);
+    const load = mocks.refresh.mock.calls[0]![3];
+    await load("chat");
+    expect(mocks.readRequest).toHaveBeenCalledWith(
+      "/api/chats/chat",
+      undefined,
+    );
+  });
+
   it("shows a generating response only after its text arrives", async () => {
     conversation.messages = [{ ...reply, content: "", status: "generating" }];
     flow.showProgressLabel.value = true;
@@ -132,7 +164,7 @@ describe("ChatSession", () => {
 
   it.each([
     ["failed", "Could not complete the response."],
-    ["stopped", "The connection was interrupted. Please try again."],
+    ["stopped", "Response stopped."],
   ] as const)(
     "shows the error for an empty %s response",
     async (status, message) => {
@@ -379,6 +411,23 @@ describe("ChatSession", () => {
     flow.showProgressLabel.value = false;
     await flushPromises();
     expect(wrapper.find('[role="status"]').exists()).toBe(false);
+  });
+
+  it("connects the stop button while chat actions and sending are disabled", async () => {
+    flow.busy.value = true;
+    flow.sending.value = true;
+    flow.canStop.value = true;
+    const wrapper = await mountSession();
+    await wrapper.get('[aria-label="Stop response"]').trigger("click");
+    expect(flow.stop).toHaveBeenCalledTimes(1);
+    expect(flow.send).not.toHaveBeenCalled();
+
+    flow.canStop.value = false;
+    flow.stopping.value = true;
+    await nextTick();
+    expect(
+      wrapper.get('[aria-label="Stop response"]').attributes("disabled"),
+    ).toBeDefined();
   });
 
   it("shows generation errors and connects the retry button", async () => {

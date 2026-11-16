@@ -30,7 +30,7 @@ beforeEach(() => {
 });
 
 async function setup(messages: ChatMessage[] = []) {
-  const chat = ref({
+  const chat = ref<Conversation>({
     id: "chat",
     title: "Title",
     generationId: null,
@@ -268,8 +268,7 @@ it("permits retry after an interrupted partial response", async () => {
   expect(generation.canRetry.value).toBe(false);
 });
 
-it("aborts its own stream on navigation and preserves the displayed partial answer", async () => {
-  save.mockResolvedValue(undefined);
+function mockActiveStream(content: string) {
   generate.mockImplementationOnce(async (_url, options) => {
     const encoder = new TextEncoder();
 
@@ -278,7 +277,7 @@ it("aborts its own stream on navigation and preserves the displayed partial answ
         start(controller) {
           for (const event of [
             { type: "start", messageId: "reply" },
-            { type: "text", text: "Partial answer" },
+            { type: "text", text: content },
           ]) {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
@@ -294,6 +293,11 @@ it("aborts its own stream on navigation and preserves the displayed partial answ
       }),
     );
   });
+}
+
+it("aborts its own stream on navigation and preserves the displayed partial answer", async () => {
+  save.mockResolvedValue(undefined);
+  mockActiveStream("Partial answer");
   const { chat, refresh, generation, unmount } = await setup();
   generation.draft.value = "Question";
   const sending = generation.send();
@@ -309,6 +313,122 @@ it("aborts its own stream on navigation and preserves the displayed partial answ
   expect(generation.failure.value).toBe("");
   expect(generation.showProgressLabel.value).toBe(false);
 });
+
+it.each(["", "Partial answer"])(
+  "stops generation and waits for the server to save the answer (%j)",
+  async (content) => {
+    save.mockResolvedValue(undefined);
+    mockActiveStream(content);
+    const { chat, refresh, generation, unmount } = await setup();
+
+    const { promise: committed, resolve: commit }: PromiseWithResolvers<void> =
+      Promise.withResolvers();
+
+    refresh
+      .mockResolvedValueOnce(undefined)
+      .mockImplementationOnce(async () => {
+        await committed;
+        chat.value.messages.at(-1)!.status = "stopped";
+        chat.value.generationId = null;
+      });
+
+    generation.stop();
+    expect(generation.stopping.value).toBe(false);
+    generation.draft.value = "Question";
+    const sending = generation.send();
+    await vi.waitFor(() => expect(generation.canStop.value).toBe(true));
+    expect(chat.value.messages.at(-1)?.content).toBe(content);
+
+    generation.stop();
+    generation.stop();
+    expect(generate.mock.calls[0]![1].signal.aborted).toBe(true);
+    expect(generation.canStop.value).toBe(false);
+    expect(generation.stopping.value).toBe(true);
+    await vi.waitFor(() => expect(refresh).toHaveBeenCalledTimes(2));
+    expect(generation.progressLabel.value).toBe("Stopping response…");
+    expect(generation.busy.value).toBe(true);
+    expect(generation.failure.value).toBe("");
+    generation.draft.value = "Next question";
+    await generation.send();
+    await generation.generate();
+    expect(generate).toHaveBeenCalledTimes(1);
+
+    commit();
+    await sending;
+    expect(chat.value.messages.at(-1)).toMatchObject({
+      content,
+      status: "stopped",
+    });
+    expect(generation.busy.value).toBe(false);
+    expect(generation.stopping.value).toBe(false);
+    expect(generation.showProgressLabel.value).toBe(false);
+    expect(generation.canRetry.value).toBe(true);
+    expect(generation.failure.value).toBe("");
+
+    if (content) {
+      await generation.send();
+      expect(save).toHaveBeenCalledTimes(2);
+    } else {
+      await generation.generate();
+      expect(
+        save.mock.calls.filter(([url]) => url === "/api/chats/chat/messages"),
+      ).toHaveLength(1);
+    }
+
+    expect(generate).toHaveBeenCalledTimes(2);
+    expect(generation.busy.value).toBe(false);
+    unmount();
+  },
+);
+
+it.each(["offline", "timeout", "navigation"])(
+  "handles %s while waiting for a stopped response to be saved",
+  async (scenario) => {
+    save.mockResolvedValue(undefined);
+    mockActiveStream("Partial answer");
+    const { chat, refresh, generation, unmount } = await setup();
+    generation.draft.value = "Question";
+    const sending = generation.send();
+    await vi.waitFor(() => expect(generation.canStop.value).toBe(true));
+
+    if (scenario === "offline") {
+      refresh.mockRejectedValueOnce(new Error("Offline"));
+    }
+
+    vi.useFakeTimers();
+
+    try {
+      generation.stop();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(refresh).toHaveBeenCalledTimes(1);
+
+      if (scenario === "navigation") unmount();
+      await vi.advanceTimersByTimeAsync(10_000);
+      await sending;
+      expect(generation.canStop.value).toBe(false);
+      expect(generation.stopping.value).toBe(false);
+      expect(generation.busy.value).toBe(true);
+      expect(generation.canRetry.value).toBe(false);
+      expect(chat.value.messages.at(-1)?.content).toBe("Partial answer");
+
+      if (scenario === "offline") {
+        expect(generation.failure.value).toContain(
+          "Could not reload this chat",
+        );
+      } else if (scenario === "timeout") {
+        expect(generation.failure.value).toContain(
+          "response is still stopping",
+        );
+      } else {
+        expect(refresh).toHaveBeenCalledTimes(1);
+        expect(generation.failure.value).toBe("");
+      }
+    } finally {
+      unmount();
+      vi.useRealTimers();
+    }
+  },
+);
 
 it("preserves an oversized draft without saving or starting AI", async () => {
   const { chat, generation } = await setup();

@@ -30,4 +30,10 @@ export const Multiline: Story = {
 export const Sending: Story = {
   args: { modelValue: "Summarize this conversation.", busy: true },
 };
+export const Generating: Story = {
+  args: { busy: true, canStop: true },
+};
+export const Stopping: Story = {
+  args: { busy: true, stopping: true },
+};
 export const Disabled: Story = { args: { disabled: true } };
