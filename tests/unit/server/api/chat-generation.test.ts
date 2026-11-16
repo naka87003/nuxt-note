@@ -461,7 +461,7 @@ describe("Chat generation", () => {
     });
     expect(
       mocks.push.mock.calls.map(([data]) => JSON.parse(data).type),
-    ).toEqual(["start", "text", "done"]);
+    ).toEqual(["start", "progress", "text", "done"]);
     expect(
       mocks.message.updateMany.mock.invocationCallOrder.at(-1),
     ).toBeLessThan(mocks.push.mock.invocationCallOrder.at(-1)!);
@@ -555,28 +555,79 @@ describe("Chat generation", () => {
       "A previous attempt may already have changed Notes",
     );
   });
-  it("continues streaming after tool events and saves the final answer", async () => {
+  it.each([
+    ["list_notes", "Searching notes…"],
+    ["update_note", "Updating a note…"],
+    ["web_search", "Searching the web…"],
+    ["unknown_tool", "Processing request…"],
+  ])(
+    "streams progress for %s and saves the final answer",
+    async (toolName, label) => {
+      mocks.streamText.mockReturnValue({
+        stream: (async function* () {
+          yield { type: "tool-input-start", toolName };
+          yield { type: "tool-call", toolName };
+          yield {
+            type: "tool-result",
+            toolName,
+            output: { notes: [] },
+          };
+          yield { type: "text-delta", text: "No matching Notes." };
+          yield { type: "finish", finishReason: "stop" };
+        })(),
+      });
+      await run();
+      expect(mocks.message.updateMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          data: { content: "No matching Notes.", status: "completed" },
+        }),
+      );
+      expect(
+        mocks.push.mock.calls.map(([data]) => JSON.parse(data).type),
+      ).toEqual(
+        toolName === "unknown_tool"
+          ? ["start", "progress", "progress", "text", "done"]
+          : ["start", "progress", "progress", "progress", "text", "done"],
+      );
+      expect(
+        mocks.push.mock.calls
+          .map(([data]) => JSON.parse(data))
+          .filter((data) => data.type === "progress")
+          .map((data) => data.label),
+      ).toEqual([
+        "Processing request…",
+        ...(toolName === "unknown_tool" ? [] : [label]),
+        "Preparing response…",
+      ]);
+    },
+  );
+  it.each([
+    ["list_notes", "Searching notes…"],
+    ["web_search", "Searching the web…"],
+  ])("reannounces %s after text clears its label", async (toolName, label) => {
     mocks.streamText.mockReturnValue({
       stream: (async function* () {
-        yield { type: "tool-call", toolName: "list_notes" };
-        yield {
-          type: "tool-result",
-          toolName: "list_notes",
-          output: { notes: [] },
-        };
-        yield { type: "text-delta", text: "No matching Notes." };
+        yield { type: "tool-input-start", toolName };
+        yield { type: "tool-call", toolName };
+        yield { type: "text-delta", text: "Checking more sources. " };
+        yield { type: "tool-input-start", toolName };
+        yield { type: "tool-call", toolName };
+        yield { type: "tool-result", toolName, output: {} };
+        yield { type: "text-delta", text: "Answer." };
         yield { type: "finish", finishReason: "stop" };
       })(),
     });
     await run();
-    expect(mocks.message.updateMany).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        data: { content: "No matching Notes.", status: "completed" },
-      }),
-    );
-    expect(
-      mocks.push.mock.calls.map(([data]) => JSON.parse(data).type),
-    ).toEqual(["start", "text", "done"]);
+    expect(mocks.push.mock.calls.map(([data]) => JSON.parse(data))).toEqual([
+      { type: "start", messageId: "reply" },
+      { type: "progress", label: "Processing request…" },
+      { type: "progress", label },
+      { type: "text", text: "Checking more sources. " },
+      { type: "progress", label },
+      { type: "progress", label: "Preparing response…" },
+      { type: "text", text: "Answer." },
+      { type: "done", status: "completed" },
+    ]);
   });
   it("persists and streams deduplicated web sources with the answer", async () => {
     mocks.streamText.mockReturnValue({
@@ -675,7 +726,7 @@ describe("Chat generation", () => {
     await run();
     expect(
       mocks.push.mock.calls.map(([data]) => JSON.parse(data).type),
-    ).toEqual(["start", "text"]);
+    ).toEqual(["start", "progress", "text"]);
     expect(mocks.message.updateMany).not.toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ status: "completed" }),
@@ -720,7 +771,7 @@ describe("Chat generation", () => {
     await vi.waitFor(() => expect(consumed).toBe(true));
     expect(
       mocks.push.mock.calls.map(([data]) => JSON.parse(data).type),
-    ).toEqual(["start", "text", "text"]);
+    ).toEqual(["start", "progress", "text", "text"]);
     releaseCheckpoint();
     expect(
       mocks.push.mock.calls
@@ -777,7 +828,7 @@ describe("Chat generation", () => {
     await run();
     expect(
       mocks.push.mock.calls.map(([data]) => JSON.parse(data).type),
-    ).toEqual(["start", "text"]);
+    ).toEqual(["start", "progress", "text"]);
     expect(mocks.message.updateMany).toHaveBeenLastCalledWith(
       expect.objectContaining({ data: { content: "Hello", status: "failed" } }),
     );

@@ -43,7 +43,8 @@ let flow: {
   persisted: ReturnType<typeof ref<boolean>>;
   busy: ReturnType<typeof ref<boolean>>;
   sending: ReturnType<typeof ref<boolean>>;
-  waitingForResponse: ReturnType<typeof ref<boolean>>;
+  showProgressLabel: ReturnType<typeof ref<boolean>>;
+  progressLabel: ReturnType<typeof ref<string>>;
   failure: ReturnType<typeof ref<string>>;
   canRetry: ReturnType<typeof ref<boolean>>;
   lastReply: ReturnType<typeof ref<typeof reply | null>>;
@@ -78,7 +79,8 @@ beforeEach(() => {
     persisted: ref(true),
     busy: ref(false),
     sending: ref(false),
-    waitingForResponse: ref(false),
+    showProgressLabel: ref(false),
+    progressLabel: ref("Searching notes…"),
     failure: ref(""),
     canRetry: ref(false),
     lastReply: ref(reply),
@@ -110,6 +112,36 @@ async function mountSession(route?: string) {
 }
 
 describe("ChatSession", () => {
+  it("shows a generating response only after its text arrives", async () => {
+    conversation.messages = [{ ...reply, content: "", status: "generating" }];
+    flow.showProgressLabel.value = true;
+    const wrapper = await mountSession();
+    const chat: Ref<Conversation> = mocks.refresh.mock.calls[0]![0];
+    expect(wrapper.find(".chat-assistant-message").exists()).toBe(false);
+    expect(wrapper.findComponent({ name: "ChatProgressLabel" }).exists()).toBe(
+      true,
+    );
+
+    chat.value.messages[0]!.content = " \n";
+    await nextTick();
+    expect(wrapper.find(".chat-assistant-message").exists()).toBe(false);
+    chat.value.messages[0]!.content = "Answer";
+    await flushPromises();
+    expect(wrapper.get(".chat-assistant-message").text()).toContain("Answer");
+  });
+
+  it.each([
+    ["failed", "Could not complete the response."],
+    ["stopped", "The connection was interrupted. Please try again."],
+  ] as const)(
+    "shows the error for an empty %s response",
+    async (status, message) => {
+      conversation.messages = [{ ...reply, content: "", status }];
+      const wrapper = await mountSession();
+      expect(wrapper.get(".chat-assistant-message").text()).toContain(message);
+    },
+  );
+
   it("passes the streaming state to Markdown until generation completes", async () => {
     conversation.messages = [{ ...reply, status: "generating" }];
     const wrapper = await mountSession();
@@ -236,6 +268,11 @@ describe("ChatSession", () => {
     notify([], observer);
     expect(top).toBe(700);
 
+    height = 1200;
+    flow.showProgressLabel.value = true;
+    await flushPromises();
+    expect(top).toBe(900);
+
     // A scroll event queued by the previous automatic scroll can arrive after
     // Comark has increased the content height. No user has scrolled upward.
     height = 1400;
@@ -258,10 +295,47 @@ describe("ChatSession", () => {
     await nextTick();
     expect(top).toBe(800);
 
+    flow.showProgressLabel.value = false;
+    await flushPromises();
+    expect(top).toBe(800);
+    expect(wrapper.text()).not.toContain("New messages");
+    flow.showProgressLabel.value = true;
+    flow.progressLabel.value = "Reading a note…";
+    await flushPromises();
+    expect(top).toBe(800);
+    expect(wrapper.text()).not.toContain("New messages");
+
+    const chat: Ref<Conversation> = mocks.refresh.mock.calls[0]![0];
+    chat.value.messages.push({
+      ...reply,
+      id: "empty-reply",
+      content: "",
+      status: "generating",
+    });
+    await flushPromises();
+    expect(top).toBe(800);
+    expect(wrapper.text()).not.toContain("New messages");
+    chat.value = {
+      ...chat.value,
+      messages: chat.value.messages.map((message) => ({ ...message })),
+    };
+    await flushPromises();
+    expect(top).toBe(800);
+    expect(wrapper.text()).not.toContain("New messages");
+
+    chat.value.messages[0]!.content += " More text.";
+    await flushPromises();
+    expect(top).toBe(800);
+    expect(wrapper.text()).toContain("New messages");
+    flow.showProgressLabel.value = false;
+    await flushPromises();
+    expect(wrapper.text()).toContain("New messages");
+
     await wrapper
       .get('[aria-label="Scroll to latest message"]')
       .trigger("click");
     expect(top).toBe(1500);
+    expect(wrapper.text()).not.toContain("New messages");
     height = 2000;
     notify([], observer);
     expect(top).toBe(1700);
@@ -280,7 +354,7 @@ describe("ChatSession", () => {
   it("disables sending and chat actions while a response is generating", async () => {
     flow.busy.value = true;
     flow.sending.value = true;
-    flow.waitingForResponse.value = true;
+    flow.showProgressLabel.value = true;
     const wrapper = await mountSession();
     expect(wrapper.getComponent(ChatComposer).props("busy")).toBe(true);
     expect(wrapper.get("textarea").attributes("disabled")).toBeDefined();
@@ -294,9 +368,17 @@ describe("ChatSession", () => {
       ).toBeDefined();
     }
 
-    expect(wrapper.findComponent({ name: "ChatResponseCursor" }).exists()).toBe(
+    expect(wrapper.findComponent({ name: "ChatProgressLabel" }).exists()).toBe(
       true,
     );
+    expect(wrapper.get('[role="status"]').text()).toContain("Searching notes…");
+    expect(wrapper.find(".chat-cursor").exists()).toBe(false);
+    flow.progressLabel.value = "Reading a note…";
+    await nextTick();
+    expect(wrapper.get('[role="status"]').text()).toContain("Reading a note…");
+    flow.showProgressLabel.value = false;
+    await flushPromises();
+    expect(wrapper.find('[role="status"]').exists()).toBe(false);
   });
 
   it("shows generation errors and connects the retry button", async () => {

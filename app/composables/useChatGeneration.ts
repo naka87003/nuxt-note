@@ -14,6 +14,7 @@ export function useChatGeneration(
   const sending = ref(false);
   let activeController: AbortController | undefined;
   const failure = ref("");
+  const progressLabel = ref("");
   const draft = ref("");
 
   const busy = computed(() => sending.value || !!chat.value?.generationId);
@@ -26,7 +27,9 @@ export function useChatGeneration(
     chat.value?.messages.find((m) => m.replyToId === lastQuestion.value?.id),
   );
 
-  const waitingForResponse = computed(() => sending.value && !failure.value);
+  const showProgressLabel = computed(
+    () => sending.value && !failure.value && !!progressLabel.value,
+  );
 
   const canRetry = computed(
     () =>
@@ -73,6 +76,7 @@ export function useChatGeneration(
     const questionId = lastQuestion.value.id;
     sending.value = true;
     failure.value = "";
+    progressLabel.value = "Processing request…";
 
     const attempt = {
       id: crypto.randomUUID(),
@@ -126,9 +130,13 @@ export function useChatGeneration(
             });
             reply = target.messages.at(-1);
           }
+        } else if (data.type === "progress") {
+          progressLabel.value = data.label;
         } else if (data.type === "text" && reply) {
+          if (data.text) progressLabel.value = "";
           reply.content += data.text;
         } else if (data.type === "done") {
+          progressLabel.value = "";
           terminalStatus = data.status;
           if (reply) reply.status = data.status;
           if (data.title !== undefined) target.title = data.title;
@@ -151,6 +159,7 @@ export function useChatGeneration(
       }
     } finally {
       activeController = undefined;
+      progressLabel.value = "";
 
       if (!disposed) {
         // A completed stream already contains the saved answer. Only failures
@@ -231,6 +240,7 @@ export function useChatGeneration(
     draft.value = "";
     sending.value = true;
     failure.value = "";
+    progressLabel.value = "Saving message…";
 
     try {
       await $fetch(isNew ? "/api/chats" : `/api/chats/${target.id}/messages`, {
@@ -250,6 +260,7 @@ export function useChatGeneration(
       return;
     } finally {
       sending.value = false;
+      progressLabel.value = "";
     }
 
     if (!disposed && chat.value?.id === target.id) {
@@ -284,7 +295,8 @@ export function useChatGeneration(
     draft,
     persisted,
     busy,
-    waitingForResponse,
+    showProgressLabel,
+    progressLabel,
     sending,
     failure,
     canRetry,

@@ -16,6 +16,7 @@ import {
 import { getAuthenticatedUserId } from "~~/server/utils/auth";
 import { getPrisma } from "~~/server/utils/prisma";
 import { createChatOutput } from "~~/server/utils/chat-output";
+import { chatToolProgress } from "~~/server/utils/chat-progress";
 import {
   GENERATION_TIMEOUT,
   lockIdleChat,
@@ -173,6 +174,15 @@ export default defineEventHandler(async (event) => {
     });
 
     const sources = new Map<string, string>();
+    let progressLabel = "";
+
+    const publishProgress = async (label: string) => {
+      if (progressLabel === label) return;
+      progressLabel = label;
+      await stream.push(
+        JSON.stringify({ type: "progress", label } satisfies ChatStreamEvent),
+      );
+    };
 
     try {
       await stream.push(
@@ -181,6 +191,7 @@ export default defineEventHandler(async (event) => {
           messageId: reply.id,
         } satisfies ChatStreamEvent),
       );
+      await publishProgress("Processing request…");
       const openai = createOpenAI({ apiKey: config.openaiApiKey });
 
       const assertActive = async () => {
@@ -242,8 +253,16 @@ export default defineEventHandler(async (event) => {
 
       for await (const part of response.stream) {
         if (part.type === "text-delta") {
+          if (part.text) progressLabel = "";
           await output.append(part.text);
           if (controller.signal.aborted) break;
+        } else if (
+          part.type === "tool-input-start" ||
+          part.type === "tool-call"
+        ) {
+          await publishProgress(chatToolProgress(part.toolName));
+        } else if (part.type === "tool-result" && !part.preliminary) {
+          await publishProgress("Preparing response…");
         } else if (part.type === "source" && part.sourceType === "url") {
           sources.set(part.url, part.title || part.url);
         } else if (part.type === "error") {

@@ -46,7 +46,7 @@ async function setup() {
   return { chat, category, onCreated, refresh, generation, unmount };
 }
 
-it("shows the first question and cursor immediately, then generates in the same conversation", async () => {
+it("shows the first question and progress label immediately, then generates in the same conversation", async () => {
   const { promise, resolve: acknowledge }: PromiseWithResolvers<void> =
     Promise.withResolvers();
 
@@ -57,7 +57,7 @@ it("shows the first question and cursor immediately, then generates in the same 
   const optimistic = chat.value;
   expect(optimistic?.messages[0]?.content).toBe("First question");
   expect(generation.draft.value).toBe("");
-  expect(generation.waitingForResponse.value).toBe(true);
+  expect(generation.showProgressLabel.value).toBe(true);
   expect(generation.persisted.value).toBe(false);
   expect(generation.canRetry.value).toBe(false);
   await generation.send();
@@ -105,7 +105,7 @@ it("restores the first draft after a lost acknowledgement and reuses both reques
   expect(chat.value).toBeNull();
   expect(generation.draft.value).toBe("Question");
   expect(generation.failure.value).toContain("Could not create");
-  expect(generation.waitingForResponse.value).toBe(false);
+  expect(generation.showProgressLabel.value).toBe(false);
   expect(onCreated).not.toHaveBeenCalled();
   expect(generate).not.toHaveBeenCalled();
   await generation.send();

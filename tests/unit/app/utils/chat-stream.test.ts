@@ -7,6 +7,7 @@ it.each([1, 7, 10_000])(
   async (chunkSize) => {
     const events: ChatStreamEvent[] = [
       { type: "start", messageId: "reply" },
+      { type: "progress", label: "Searching notes…" },
       { type: "text", text: "こんにちは 👋\nSecond line" },
       {
         type: "done",
@@ -65,6 +66,9 @@ it.each([
   { type: "start", messageId: 42 },
   { type: "text" },
   { type: "text", text: null },
+  { type: "progress" },
+  { type: "progress", label: "" },
+  { type: "progress", label: 42 },
   { type: "done" },
   { type: "done", status: "generating" },
   { type: "done", status: "unknown" },

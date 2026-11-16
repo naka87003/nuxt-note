@@ -74,7 +74,7 @@ it.each([
     expect(vi.getTimerCount()).toBe(0);
     expect(chat.value.messages[1]!.content).toBe("Partial");
     expect(generation.busy.value).toBe(busy);
-    expect(generation.waitingForResponse.value).toBe(false);
+    expect(generation.showProgressLabel.value).toBe(false);
     // A manual reload can replace the saved state and enable sending again.
     chat.value.generationId = null;
     chat.value.messages[1]!.status = "completed";

@@ -46,6 +46,59 @@ async function setup(messages: ChatMessage[] = []) {
   return { chat, refresh, generation, unmount };
 }
 
+it.each(["completed", "failed"])(
+  "updates activity during a stream and clears it on %s",
+  async (status) => {
+    save.mockResolvedValue(undefined);
+    const stream = new TransformStream();
+    const writer = stream.writable.getWriter();
+    const encoder = new TextEncoder();
+
+    const publish = (data: object) =>
+      writer.write(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+
+    generate.mockResolvedValueOnce(new Response(stream.readable));
+    const { chat, generation, unmount } = await setup();
+    generation.draft.value = "Question";
+    const sending = generation.send();
+    expect(generation.progressLabel.value).toBe("Saving message…");
+    await vi.waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
+    expect(generation.progressLabel.value).toBe("Processing request…");
+    await publish({ type: "start", messageId: "reply" });
+    await publish({ type: "progress", label: "Searching notes…" });
+    await vi.waitFor(() =>
+      expect(generation.progressLabel.value).toBe("Searching notes…"),
+    );
+    expect(generation.showProgressLabel.value).toBe(true);
+    expect(chat.value.messages.at(-1)?.content).toBe("");
+    await publish({ type: "text", text: "Answer" });
+    await vi.waitFor(() => {
+      expect(generation.progressLabel.value).toBe("");
+      expect(generation.showProgressLabel.value).toBe(false);
+      expect(generation.busy.value).toBe(true);
+      expect(chat.value.messages.at(-1)?.content).toBe("Answer");
+    });
+    await publish({ type: "progress", label: "Searching notes…" });
+    await vi.waitFor(() => {
+      expect(generation.progressLabel.value).toBe("Searching notes…");
+      expect(generation.showProgressLabel.value).toBe(true);
+    });
+    await publish({ type: "text", text: " continued" });
+    await vi.waitFor(() => {
+      expect(generation.progressLabel.value).toBe("");
+      expect(generation.showProgressLabel.value).toBe(false);
+    });
+    await publish({ type: "done", status });
+    await vi.waitFor(() => {
+      expect(generation.progressLabel.value).toBe("");
+      expect(generation.showProgressLabel.value).toBe(false);
+    });
+    await writer.close();
+    await sending;
+    unmount();
+  },
+);
+
 it.each([
   JSON.stringify({ type: "text", text: { invalid: "must not be displayed" } }),
   '{"type":"text","text":"unfinished',
@@ -94,7 +147,7 @@ it("shows the question immediately and starts AI after saving without reloading 
   expect(chat.value.messages[0]?.content).toBe("Question");
   expect(generation.draft.value).toBe("");
   expect(generation.busy.value).toBe(true);
-  expect(generation.waitingForResponse.value).toBe(true);
+  expect(generation.showProgressLabel.value).toBe(true);
   expect(generate).not.toHaveBeenCalled();
   await generation.send();
   expect(save).toHaveBeenCalledTimes(1);
@@ -119,7 +172,7 @@ it("restores a failed send and reuses its request ID on retry", async () => {
   expect(chat.value.messages).toEqual([]);
   expect(generation.draft.value).toBe("Question");
   expect(generation.failure.value).toContain("Could not save");
-  expect(generation.waitingForResponse.value).toBe(false);
+  expect(generation.showProgressLabel.value).toBe(false);
   expect(generate).not.toHaveBeenCalled();
   save.mockResolvedValue(undefined);
   await generation.send();
@@ -151,7 +204,7 @@ it("makes the next send available after completion while sidebar updates are pen
   expect(refresh).not.toHaveBeenCalled();
   expect(chat.value.messages.at(-1)?.content).toBe("Answer");
   expect(chat.value.messages.at(-1)?.status).toBe("completed");
-  expect(generation.waitingForResponse.value).toBe(false);
+  expect(generation.showProgressLabel.value).toBe(false);
   expect(generation.busy.value).toBe(false);
 });
 
@@ -171,17 +224,17 @@ it("keeps sending disabled while reloading after generation has failed", async (
   generation.draft.value = "Question";
   const sending = generation.send();
   await vi.waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
-  expect(generation.waitingForResponse.value).toBe(true);
+  expect(generation.showProgressLabel.value).toBe(true);
   respond(new Response("", { status: 503 }));
   await vi.waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
   expect(generation.busy.value).toBe(true);
-  expect(generation.waitingForResponse.value).toBe(false);
+  expect(generation.showProgressLabel.value).toBe(false);
   reloaded();
   await sending;
   expect(generation.busy.value).toBe(false);
 });
 
-it("clears the cursor and permits retry after an interrupted partial response", async () => {
+it("permits retry after an interrupted partial response", async () => {
   save.mockResolvedValue(undefined);
   generate.mockResolvedValueOnce(
     new Response(
@@ -195,7 +248,7 @@ it("clears the cursor and permits retry after an interrupted partial response", 
   );
   const { chat, refresh, generation } = await setup();
   refresh.mockImplementation(async () => {
-    expect(generation.waitingForResponse.value).toBe(false);
+    expect(generation.showProgressLabel.value).toBe(false);
     expect(generation.busy.value).toBe(true);
     chat.value.messages.at(-1)!.status = "stopped";
     chat.value.generationId = null;
@@ -205,7 +258,7 @@ it("clears the cursor and permits retry after an interrupted partial response", 
   expect(refresh).toHaveBeenCalledTimes(1);
   expect(chat.value.messages.at(-1)?.content).toBe("Partial answer");
   expect(generation.failure.value).toContain("connection was interrupted");
-  expect(generation.waitingForResponse.value).toBe(false);
+  expect(generation.showProgressLabel.value).toBe(false);
   expect(generation.busy.value).toBe(false);
   expect(generation.canRetry.value).toBe(true);
   await generation.generate();
@@ -247,14 +300,14 @@ it("aborts its own stream on navigation and preserves the displayed partial answ
   await vi.waitFor(() =>
     expect(chat.value.messages.at(-1)?.content).toBe("Partial answer"),
   );
-  expect(generation.waitingForResponse.value).toBe(true);
+  expect(generation.showProgressLabel.value).toBe(false);
   unmount();
   await sending;
   expect(generate.mock.calls[0]![1].signal.aborted).toBe(true);
   expect(chat.value.messages.at(-1)?.content).toBe("Partial answer");
   expect(refresh).not.toHaveBeenCalled();
   expect(generation.failure.value).toBe("");
-  expect(generation.waitingForResponse.value).toBe(false);
+  expect(generation.showProgressLabel.value).toBe(false);
 });
 
 it("preserves an oversized draft without saving or starting AI", async () => {

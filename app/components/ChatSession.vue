@@ -19,7 +19,8 @@ const {
   persisted,
   busy: generating,
   sending,
-  waitingForResponse,
+  showProgressLabel,
+  progressLabel,
   failure: generationFailure,
   canRetry,
   lastReply,
@@ -81,6 +82,15 @@ const {
 // Hydration can use the server snapshot without executing the loader again.
 chat.value = initialChat.value ?? null;
 
+const visibleMessages = computed(() =>
+  chat.value?.messages.filter(
+    (message) =>
+      message.role !== "assistant" ||
+      message.status !== "generating" ||
+      !!message.content.trim(),
+  ),
+);
+
 function messageClass(role: string) {
   return role === "user" ? "chat-user-message" : "chat-assistant-message";
 }
@@ -115,16 +125,26 @@ useResizeObserver([messagePane, messageContent], () => {
 });
 
 watch(
-  [
-    () => chat.value?.messages.map((m) => [m.id, m.content]),
-    waitingForResponse,
-  ],
-  async () => {
-    if (!followBottom.value) hasNewMessages.value = true;
+  () => new Map(chat.value?.messages.map((m) => [m.id, m.content])),
+  async (messages, previous) => {
+    if (
+      !followBottom.value &&
+      [...messages].some(
+        ([id, content]) => content.trim() && content !== previous?.get(id),
+      )
+    ) {
+      hasNewMessages.value = true;
+    }
+
     await nextTick();
     if (followBottom.value) scrollToBottom();
   },
 );
+
+watch(showProgressLabel, async () => {
+  await nextTick();
+  if (followBottom.value) scrollToBottom();
+});
 
 function onScroll() {
   const pane = messagePane.value;
@@ -345,7 +365,7 @@ async function remove() {
             <TypewriterText :text="chat.title || 'Untitled chat'" />
           </h1>
           <div
-            v-for="message in chat.messages"
+            v-for="message in visibleMessages"
             :key="message.id"
             :class="messageClass(message.role)"
           >
@@ -371,17 +391,7 @@ async function remove() {
               </p>
             </template>
           </div>
-          <Transition
-            :duration="{
-              enter: 0,
-              leave:
-                !generationFailure && lastReply?.status === 'completed'
-                  ? 250
-                  : 0,
-            }"
-          >
-            <ChatResponseCursor v-if="waitingForResponse" />
-          </Transition>
+          <ChatProgressLabel v-if="showProgressLabel" :label="progressLabel" />
         </div>
       </div>
       <div class="chat-composer-container">
