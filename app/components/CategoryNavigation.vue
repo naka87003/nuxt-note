@@ -164,11 +164,12 @@ function categoryMenuItems(
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 16px;
+  padding: 16px 0;
 }
 .category-scroll {
   flex: 1;
   min-height: 0;
+  padding-inline: 16px;
   overflow-y: auto;
 }
 .category-item {
@@ -208,7 +209,7 @@ function categoryMenuItems(
 }
 .category-footer {
   flex-shrink: 0;
-  padding-top: 16px;
+  padding: 16px 16px 0;
 }
 .category-navigation :deep(.workspace-tabs) {
   width: 100%;
