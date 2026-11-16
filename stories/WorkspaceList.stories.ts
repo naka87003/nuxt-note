@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@nuxtjs/storybook";
-import { useNuxtData, useState } from "#imports";
+import { useNuxtData } from "#imports";
 import { watchEffect } from "vue";
 import type { CategoriesResponse } from "#shared/types/workspace";
 import { useWorkspace } from "~/composables/useWorkspace";
@@ -18,13 +18,11 @@ const meta = {
     loading: false,
     failed: false,
     search: "",
+    referenceDate: "2026-11-16T12:00:00",
   },
   render: (args) => ({
     components: { WorkspaceList },
     setup() {
-      useState("workspace-list-now", () => "2026-11-08T12:00:00.000Z").value =
-        "2026-11-08T12:00:00.000Z";
-
       const { data: categories } = useNuxtData<CategoriesResponse>(
         "workspace-categories",
       );
@@ -37,8 +35,8 @@ const meta = {
             _count: { notes: 4, chats: 0 },
           },
         ],
-        totals: { notes: 4, chats: 0 },
-        uncategorized: { notes: 0, chats: 0 },
+        totals: { notes: 5, chats: 0 },
+        uncategorized: { notes: 1, chats: 0 },
       };
       const { state } = useWorkspace();
       watchEffect(() => {
@@ -54,7 +52,7 @@ const meta = {
       return { args };
     },
     template:
-      '<div style="display: flex; height: 760px"><WorkspaceList :items="args.items" :heading="args.heading" :loading="args.loading" :failed="args.failed" /></div>',
+      '<div style="display: flex; height: 760px"><WorkspaceList :items="args.items" :heading="args.heading" :loading="args.loading" :failed="args.failed" :reference-date="args.referenceDate" /></div>',
   }),
 } satisfies Meta<ListArgs>;
 
@@ -70,7 +68,7 @@ export const WithNotes: Story = {
         preview:
           "Capture reusable application logic and keep your components focused.",
         categoryId: "development",
-        updatedAt: "2026-11-08T06:00:00.000Z",
+        updatedAt: "2026-11-16T06:00:00",
       },
       {
         id: "note-week",
@@ -79,21 +77,28 @@ export const WithNotes: Story = {
         preview:
           "A long preview to exercise wrapping on narrow screens. ".repeat(3),
         categoryId: "development",
-        updatedAt: "2026-11-05T06:00:00.000Z",
+        updatedAt: "2026-11-13T06:00:00",
+      },
+      {
+        id: "note-this-month",
+        title: "Earlier this month",
+        preview: "Ideas to revisit from earlier in the current month.",
+        categoryId: "development",
+        updatedAt: "2026-11-08T06:00:00",
       },
       {
         id: "note-month",
         title: null,
         preview: "An untitled note without a category.",
         categoryId: null,
-        updatedAt: "2026-10-20T06:00:00.000Z",
+        updatedAt: "2026-10-20T06:00:00",
       },
       {
         id: "note-older",
         title: "Getting started",
         preview: "The first ideas in this workspace.",
         categoryId: "development",
-        updatedAt: "2026-08-01T06:00:00.000Z",
+        updatedAt: "2026-08-01T06:00:00",
       },
     ],
   },

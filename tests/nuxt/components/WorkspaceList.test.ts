@@ -1,5 +1,7 @@
-import { mountSuspended } from "@nuxt/test-utils/runtime";
-import { beforeEach, describe, expect, it } from "vitest";
+import { mockComponent, mountSuspended } from "@nuxt/test-utils/runtime";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createSSRApp, nextTick } from "vue";
+import { renderToString } from "vue/server-renderer";
 import {
   clearNuxtState,
   useNuxtApp,
@@ -7,6 +9,8 @@ import {
   useUserSession,
 } from "#imports";
 import WorkspaceList from "~/components/WorkspaceList.vue";
+
+mockComponent("UTooltip", { template: "<span><slot /></span>" });
 
 const item = {
   id: "item-1",
@@ -39,10 +43,14 @@ beforeEach(() => {
 
 const global = {
   stubs: {
-    UTooltip: { template: "<span><slot /></span>" },
     TypewriterText: { props: ["text"], template: "<span>{{ text }}</span>" },
   },
 };
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 function mountList(
   options: Parameters<typeof mountSuspended<typeof WorkspaceList>>[1],
@@ -51,6 +59,87 @@ function mountList(
 }
 
 describe("WorkspaceList", () => {
+  it("server-renders the list controls and loading fallback without date groups or items", async () => {
+    const nuxtApp = useNuxtApp();
+
+    const app = createSSRApp(WorkspaceList, {
+      ...baseProps,
+      referenceDate: "2026-11-16T12:00:00",
+      items: [{ ...item, updatedAt: "2026-11-16T06:00:00" }],
+    });
+
+    Object.assign(app._context.provides, nuxtApp.vueApp._context.provides);
+
+    const html = await nuxtApp.runWithContext(() => renderToString(app));
+    expect(html).toContain("All notes");
+    expect(html).toContain("Search notes");
+    expect(html).toContain('class="list-scroll"');
+    expect(html).toContain("Loading…");
+    expect(html).not.toContain("Today");
+    expect(html).not.toContain("content-list-item");
+    expect(html).not.toContain("Example");
+  });
+
+  it("updates calendar groups when returning after midnight without a reference date", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-16T23:59:00"));
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+
+    const wrapper = await mountList({
+      props: {
+        ...baseProps,
+        items: [
+          { ...item, updatedAt: "2026-11-16T20:00:00" },
+          { ...item, id: "earlier", updatedAt: "2026-11-08T12:00:00" },
+        ],
+      },
+      route: "/notes",
+    });
+
+    expect(wrapper.findAll("h2").map((heading) => heading.text())).toEqual([
+      "Today",
+      "This Month",
+    ]);
+
+    vi.setSystemTime(new Date("2026-11-17T00:01:00"));
+    document.dispatchEvent(new Event("visibilitychange"));
+    await nextTick();
+    expect(wrapper.findAll("h2").map((heading) => heading.text())).toEqual([
+      "Last 7 Days",
+      "This Month",
+    ]);
+  });
+
+  it("keeps the supplied reference date across mounts and visibility changes and reacts to prop updates", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2040-01-01T12:00:00"));
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+
+    const wrapper = await mountList({
+      props: {
+        ...baseProps,
+        referenceDate: "2026-11-16T12:00:00",
+        items: [{ ...item, updatedAt: "2026-11-16T06:00:00" }],
+      },
+      route: "/notes",
+    });
+
+    expect(wrapper.get("h2").text()).toBe("Today");
+    expect(wrapper.get(".content-list-item").text()).not.toContain("2026");
+
+    vi.setSystemTime(new Date("2041-01-01T12:00:00"));
+    document.dispatchEvent(new Event("visibilitychange"));
+    await nextTick();
+    expect(wrapper.get("h2").text()).toBe("Today");
+
+    await wrapper.setProps({ referenceDate: "2026-11-17T12:00:00" });
+    expect(wrapper.get("h2").text()).toBe("Last 7 Days");
+
+    await wrapper.setProps({ referenceDate: "2028-11-16T12:00:00" });
+    expect(wrapper.get("h2").text()).toBe("Older");
+    expect(wrapper.get(".content-list-item").text()).toContain("2026");
+  });
+
   it.each([
     ["chats", "notes"],
     ["notes", "chats"],

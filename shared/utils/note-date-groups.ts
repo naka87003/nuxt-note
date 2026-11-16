@@ -1,11 +1,11 @@
 export const NOTE_DATE_GROUPS = [
   "Today",
   "Last 7 Days",
+  "This Month",
   "Last Month",
   "Older",
 ] as const;
 export type NoteDateGroup = (typeof NOTE_DATE_GROUPS)[number];
-const DAY = 24 * 60 * 60 * 1000;
 
 export function getNoteDateGroup(
   updatedAt: string | Date,
@@ -17,10 +17,16 @@ export function getNoteDateGroup(
     throw new RangeError("A valid updatedAt and reference date are required.");
   }
 
-  const age = now.getTime() - timestamp;
-  if (age <= DAY) return "Today";
-  if (age <= 7 * DAY) return "Last 7 Days";
-  if (age <= 30 * DAY) return "Last Month";
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekAgo = new Date(today);
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+  if (timestamp >= today.getTime()) return "Today";
+  if (timestamp >= weekAgo.getTime()) return "Last 7 Days";
+  if (timestamp >= thisMonth.getTime()) return "This Month";
+  if (timestamp >= lastMonth.getTime()) return "Last Month";
 
   return "Older";
 }
@@ -31,6 +37,7 @@ export function groupNotesByUpdatedAt<
   const grouped: Record<NoteDateGroup, T[]> = {
     Today: [],
     "Last 7 Days": [],
+    "This Month": [],
     "Last Month": [],
     Older: [],
   };

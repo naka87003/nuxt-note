@@ -12,6 +12,7 @@ const props = defineProps<{
   heading: string;
   loading: boolean;
   failed: boolean;
+  referenceDate?: string;
 }>();
 
 const emit = defineEmits<{ retry: [] }>();
@@ -25,7 +26,11 @@ const { data: categories } = useNuxtData<CategoriesResponse>(
 const route = useRoute();
 const list = useTemplateRef("list");
 const searchInput = useTemplateRef("searchInput");
-const now = useState("workspace-list-now", () => new Date().toISOString());
+const now = ref(new Date().toISOString());
+
+const referenceDate = computed(
+  () => new Date(props.referenceDate ?? now.value),
+);
 
 const itemCountLabel = computed(() => `${props.items.length} ${mode.value}`);
 const searchLabel = computed(() => `Search ${mode.value}`);
@@ -57,7 +62,7 @@ const untitledLabel = computed(() =>
 const groups = computed(() =>
   current.value.search
     ? [{ label: "Search results", notes: props.items }]
-    : groupNotesByUpdatedAt(props.items, new Date(now.value)),
+    : groupNotesByUpdatedAt(props.items, referenceDate.value),
 );
 
 const selected = computed(() =>
@@ -68,15 +73,18 @@ const selected = computed(() =>
       : current.value.selected,
 );
 
-onMounted(() => {
+onMounted(async () => {
   now.value = new Date().toISOString();
-  if (list.value) list.value.scrollTop = current.value.scroll;
 
   useEventListener(document, "visibilitychange", () => {
     if (document.visibilityState === "visible") {
       now.value = new Date().toISOString();
     }
   });
+
+  // Restore scrolling after ClientOnly has rendered the list items.
+  await nextTick();
+  if (list.value) list.value.scrollTop = current.value.scroll;
 });
 
 watch(mode, async () => {
@@ -119,7 +127,7 @@ function clearSearch() {
 
 function date(value: string) {
   const updatedAt = new Date(value);
-  const oneYearAgo = new Date(now.value);
+  const oneYearAgo = new Date(referenceDate.value);
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
   return updatedAt.toLocaleDateString(undefined, {
@@ -215,7 +223,7 @@ function date(value: string) {
       <p v-else-if="!items.length" class="py-5 text-sm text-dimmed">
         {{ emptyMessage }}
       </p>
-      <template v-else>
+      <ClientOnly v-else>
         <section v-for="group in groups" :key="group.label" class="mb-4">
           <h2 class="mb-2 text-xs font-medium">{{ group.label }}</h2>
           <ul class="space-y-2">
@@ -243,17 +251,17 @@ function date(value: string) {
                   <span class="min-w-0 truncate">{{ itemCategory(item) }}</span>
                   <span aria-hidden="true">·</span>
                   <span class="shrink-0">
-                    <ClientOnly>
-                      {{ date(item.updatedAt) }}
-                      <template #fallback>Saved</template>
-                    </ClientOnly>
+                    {{ date(item.updatedAt) }}
                   </span>
                 </p>
               </NuxtLink>
             </li>
           </ul>
         </section>
-      </template>
+        <template #fallback>
+          <ContentLoading class="flex-none px-0" />
+        </template>
+      </ClientOnly>
     </div>
   </section>
 </template>
