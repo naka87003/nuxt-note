@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { waitUntil } from "@vercel/functions";
 import type { ChatStatus, ChatStreamEvent } from "#shared/types/chat";
 import { createError } from "nuxt/server";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -152,6 +153,8 @@ export default defineEventHandler(async (event) => {
   };
 
   event.node.res.once("close", disconnected);
+  // Vercel reports a cancelled Node.js request through its error event.
+  event.node.req.once("error", disconnected);
   stream.onClosed(() => {
     if (!finished) controller.abort();
   });
@@ -317,14 +320,18 @@ export default defineEventHandler(async (event) => {
       } finally {
         finished = true;
         event.node.res.off("close", disconnected);
+        event.node.req.off("error", disconnected);
         await stream.close();
       }
     }
   };
 
-  void run().catch(() => {
-    controller.abort();
-  });
+  // Vercel can reclaim a cancelled invocation before terminal persistence.
+  waitUntil(
+    run().catch(() => {
+      controller.abort();
+    }),
+  );
 
   return stream.send();
 });

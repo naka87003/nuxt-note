@@ -172,3 +172,22 @@ it("aborts on delivery failure and retains accumulated text for terminal persist
   expect(publish).toHaveBeenCalledTimes(1);
   await output.flush();
 });
+
+it("keeps a cancelled response stopped when an in-flight delivery fails", async () => {
+  const controller = new AbortController();
+  const { promise, reject } = Promise.withResolvers<unknown>();
+
+  const output = createChatOutput({
+    controller,
+    save: vi.fn().mockResolvedValue(true),
+    publish: vi.fn().mockReturnValue(promise),
+  });
+
+  const pending = output.append("Partial");
+  controller.abort();
+  reject(new Error("Request cancelled"));
+  await pending;
+  await output.flush();
+  expect(output.failed).toBe(false);
+  expect(output.content).toBe("Partial");
+});

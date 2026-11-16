@@ -27,6 +27,14 @@ Enter the build command as plain `pnpm build`, without Markdown backticks.
 Check streaming, disconnection, partial persistence, retry, and stale-generation
 recovery on Vercel itself. Local checks do not establish hosted behavior.
 
+Chat stopping depends on Vercel forwarding client cancellation. Keep
+`nitro.vercel.functions.supportsCancellation` enabled in `nuxt.config.ts` and
+verify `supportsCancellation: true` in the generated function's `.vc-config.json`.
+The Chat generation handler listens for the Node request's cancellation error
+and registers generation/final persistence with `@vercel/functions` `waitUntil`
+so partial answers can be saved after disconnect. See
+[Vercel request cancellation](https://vercel.com/docs/functions/functions-api-reference#cancel-requests).
+
 ## Database and environment variables
 
 Use the Nuxt Note Supabase database. Keep the original nuxt-chat database separate,

@@ -61,7 +61,7 @@ export function createChatOutput({
         // independently of any checkpoint currently in flight.
         await publish(text);
       } catch {
-        failed = true;
+        if (!controller.signal.aborted) failed = true;
         controller.abort();
       }
     },

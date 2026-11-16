@@ -4,6 +4,7 @@ storybook-static/
 chromatic-diagnostics.json
 chromatic-build-*.xml
 .output/
+.vercel/
 .nitro/
 .data/
 .cache/

@@ -2,6 +2,13 @@ export default defineNuxtConfig({
   compatibilityDate: "2026-11-03",
   devtools: { enabled: true },
   modules: ["@comark/vue", "@nuxt/ui", "@nuxt/eslint", "nuxt-auth-utils"],
+  nitro: {
+    vercel: {
+      functions: {
+        supportsCancellation: true,
+      },
+    },
+  },
   css: ["@fontsource-variable/inter/index.css", "~/assets/css/main.css"],
   ui: {
     prose: false,

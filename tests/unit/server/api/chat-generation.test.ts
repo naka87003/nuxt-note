@@ -36,8 +36,10 @@ const mocks = vi.hoisted(() => ({
   close: vi.fn(),
   send: vi.fn(),
   onClosed: vi.fn(),
+  waitUntil: vi.fn(),
 }));
 
+vi.mock("@vercel/functions", () => ({ waitUntil: mocks.waitUntil }));
 vi.mock("~~/server/utils/prisma", () => ({ getPrisma: () => mocks }));
 vi.mock("nuxt/server", () => ({
   createError: (details: object) => Object.assign(new Error(), details),
@@ -72,7 +74,10 @@ const questionId = "11111111-1111-4111-8111-111111111112";
 const attemptId = "11111111-1111-4111-8111-111111111113";
 
 const event = {
-  node: { res: { once: vi.fn(), off: vi.fn() } },
+  node: {
+    req: { once: vi.fn(), off: vi.fn() },
+    res: { once: vi.fn(), off: vi.fn() },
+  },
 } as unknown as Parameters<typeof generate>[0];
 
 let complete: () => void;
@@ -814,9 +819,19 @@ describe("Chat generation", () => {
     });
     const running = run();
     await started;
+    expect(mocks.waitUntil).toHaveBeenCalledOnce();
+    let persisted = false;
+
+    const persistence = mocks.waitUntil.mock.calls[0]![0].then(() => {
+      persisted = true;
+    });
+
+    await Promise.resolve();
+    expect(persisted).toBe(false);
     expect(mocks.message.updateMany).toHaveBeenCalledTimes(1);
     releaseCheckpoint();
     await running;
+    await persistence;
     expect(mocks.message.updateMany).toHaveBeenLastCalledWith(
       expect.objectContaining({
         data: { content: "Partial", status: "stopped" },
@@ -880,22 +895,35 @@ describe("Chat generation", () => {
       }),
     );
   });
-  it("forwards disconnection to the provider and saves a stopped response", async () => {
-    mocks.streamText.mockImplementation(({ abortSignal }) => ({
-      stream: (async function* () {
-        yield { type: "text-delta", text: "Partial" };
-        mocks.onClosed.mock.calls[0]![0]();
-        expect(abortSignal.aborted).toBe(true);
-        throw new Error("aborted");
-      })(),
-    }));
-    await run();
-    expect(mocks.message.updateMany).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        data: { content: "Partial", status: "stopped" },
-      }),
-    );
-  });
+  it.each(["stream", "response", "request"])(
+    "forwards %s cancellation to the provider and saves a stopped response",
+    async (source) => {
+      mocks.streamText.mockImplementation(({ abortSignal }) => ({
+        stream: (async function* () {
+          yield { type: "text-delta", text: "Partial" };
+
+          if (source === "stream") {
+            mocks.onClosed.mock.calls[0]![0]();
+          } else {
+            const node = source === "request" ? event.node.req : event.node.res;
+            const name = source === "request" ? "error" : "close";
+            vi.mocked(node.once).mock.calls.find(
+              ([type]) => type === name,
+            )![1]();
+          }
+
+          expect(abortSignal.aborted).toBe(true);
+          throw new Error("aborted");
+        })(),
+      }));
+      await run();
+      expect(mocks.message.updateMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          data: { content: "Partial", status: "stopped" },
+        }),
+      );
+    },
+  );
   it("retries in the same answer slot and excludes the prior partial answer", async () => {
     mocks.message.findMany.mockResolvedValue([
       question,
