@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useEventListener } from "@vueuse/core";
 import { INPUT_LIMITS } from "#shared/utils/input-limits";
 import { groupNotesByUpdatedAt } from "#shared/utils/note-date-groups";
 import type {
@@ -68,7 +69,14 @@ const selected = computed(() =>
 );
 
 onMounted(() => {
+  now.value = new Date().toISOString();
   if (list.value) list.value.scrollTop = current.value.scroll;
+
+  useEventListener(document, "visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      now.value = new Date().toISOString();
+    }
+  });
 });
 
 watch(mode, async () => {

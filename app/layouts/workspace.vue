@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { getErrorStatusMessage } from "~/utils/http-error";
 import { useEventListener, useMediaQuery } from "@vueuse/core";
-import { INPUT_LIMITS } from "#shared/utils/input-limits";
+import { assertNavigationSucceeded } from "~/utils/navigation";
 import type { WorkspaceItem } from "#shared/types/workspace";
 
 const route = useRoute();
@@ -11,12 +10,15 @@ const {
   mode,
   current,
   filter,
+  categoryId,
   selectedCategoryName,
   location,
   createLocation,
 } = useWorkspace();
 
 const workspaceRoot = useTemplateRef("workspaceRoot");
+
+useWorkspaceViewport(workspaceRoot);
 
 const drawer = ref(false);
 const sidebar = ref(true);
@@ -29,22 +31,6 @@ watch(desktop, (matches) => {
 const sidebarToggleIcon = computed(() =>
   sidebar.value ? "i-lucide-panel-left-close" : "i-lucide-panel-left-open",
 );
-
-onMounted(() => {
-  const viewport = window.visualViewport;
-
-  const fitKeyboard = () => {
-    // Let pinch zoom pan naturally instead of resizing the app around it.
-    if (!workspaceRoot.value || (viewport && viewport.scale !== 1)) return;
-    // iOS can pan the visual viewport after focusing an input, independently
-    // of resizing it. Keep both edges of the workspace inside the visible area.
-    workspaceRoot.value.style.top = `${viewport?.offsetTop ?? 0}px`;
-    workspaceRoot.value.style.height = `${viewport?.height ?? window.innerHeight}px`;
-  };
-
-  fitKeyboard();
-  if (viewport) useEventListener(viewport, ["resize", "scroll"], fitKeyboard);
-});
 
 const listQuery = useWorkspaceListQuery(
   mode,
@@ -68,6 +54,36 @@ const [
   }),
 ]);
 
+const loadedListContext = shallowRef<{
+  mode: typeof mode.value;
+  query: typeof listQuery.value;
+}>();
+
+watch(
+  listStatus,
+  (status) => {
+    if (status === "success") {
+      loadedListContext.value = { mode: mode.value, query: listQuery.value };
+    }
+  },
+  { immediate: true },
+);
+
+const listLoading = computed(
+  () =>
+    listStatus.value === "pending" &&
+    (loadedListContext.value?.mode !== mode.value ||
+      loadedListContext.value?.query !== listQuery.value),
+);
+
+onMounted(() => {
+  useEventListener(document, "visibilitychange", async () => {
+    if (document.visibilityState !== "visible") return;
+
+    await Promise.all([refreshList(), refreshCategories()]);
+  });
+});
+
 const heading = computed(() =>
   filter.value === "all"
     ? mode.value === "notes"
@@ -88,25 +104,42 @@ const isEditor = computed(
 
 const listHidden = computed(() => current.value.hidden || isEditor.value);
 
+const selectedCategoryMissing = computed(() =>
+  Boolean(
+    categoriesStatus.value === "success" &&
+    categories.value &&
+    categoryId.value &&
+    !categories.value.items.some((item) => item.id === categoryId.value),
+  ),
+);
+
+onMounted(() => {
+  watch(
+    [selectedCategoryMissing, isEditor],
+    async () => {
+      // Defer automatic navigation until editing ends, preserving the draft.
+      if (!selectedCategoryMissing.value || isEditor.value) return;
+
+      await navigateTo(
+        {
+          path: route.path,
+          query: { ...route.query, category: "uncategorized" },
+          hash: route.hash,
+        },
+        { replace: true },
+      );
+    },
+    { immediate: true },
+  );
+});
+
 const categoryDialog = ref(false);
 
-const operation = ref<"create" | "rename" | "delete">("create");
+const categoryOperation = ref<"create" | "rename" | "delete">("create");
 
-const categoryTarget = ref("");
+const categoryTargetId = ref("");
 
-const categoryLabel = ref("");
-
-const busy = ref(false);
-
-const failure = ref("");
-
-const dialogTitle = computed(() =>
-  operation.value === "create"
-    ? "New category"
-    : operation.value === "rename"
-      ? "Rename category"
-      : "Delete category",
-);
+const categoryName = ref("");
 
 watch(
   () => route.fullPath,
@@ -140,60 +173,25 @@ async function editCategory(
     if (route.path !== "/notes") return;
   }
 
-  operation.value = action;
-  categoryTarget.value = id;
-  categoryLabel.value = name;
-  failure.value = "";
+  categoryOperation.value = action;
+  categoryTargetId.value = id;
+  categoryName.value = name;
   categoryDialog.value = true;
 }
 
-async function saveCategory() {
-  if (busy.value) return;
-
-  if (
-    operation.value !== "delete" &&
-    categoryLabel.value.length > INPUT_LIMITS.categoryName
-  ) {
-    failure.value = `Use at most ${INPUT_LIMITS.categoryName} characters for the category name.`;
-
-    return;
+async function categorySaved(deletedCategoryId?: string) {
+  if (deletedCategoryId && filter.value === deletedCategoryId) {
+    assertNavigationSucceeded(
+      await navigateTo(location(route.path, "uncategorized"), {
+        replace: true,
+      }),
+    );
   }
 
-  busy.value = true;
-  failure.value = "";
+  await refreshNuxtData();
 
-  try {
-    if (operation.value === "create") {
-      await $fetch("/api/categories", {
-        method: "POST",
-        body: { name: categoryLabel.value },
-      });
-    } else if (operation.value === "rename") {
-      await $fetch(`/api/categories/${categoryTarget.value}`, {
-        method: "PATCH",
-        body: { name: categoryLabel.value },
-      });
-    } else {
-      await $fetch(`/api/categories/${categoryTarget.value}`, {
-        method: "DELETE",
-      });
-
-      if (filter.value === categoryTarget.value) {
-        state.value.filter = "uncategorized";
-        await navigateTo(location(route.path, "uncategorized"), {
-          replace: true,
-        });
-      }
-    }
-
-    categoryDialog.value = false;
-    await refreshNuxtData();
-  } catch (error) {
-    failure.value =
-      getErrorStatusMessage(error) ??
-      "Could not update the category. Please try again.";
-  } finally {
-    busy.value = false;
+  if (listError.value || categoriesError.value) {
+    throw new Error("Could not refresh the workspace");
   }
 }
 </script>
@@ -262,7 +260,7 @@ async function saveCategory() {
       <WorkspaceList
         :items="items ?? []"
         :heading="heading"
-        :loading="listStatus === 'pending'"
+        :loading="listLoading"
         :failed="!!listError"
         @retry="refreshList()"
       />
@@ -327,61 +325,13 @@ async function saveCategory() {
         />
       </template>
     </USlideover>
-    <UModal
+    <WorkspaceCategoryDialog
       v-model:open="categoryDialog"
-      :title="dialogTitle"
-      :dismissible="!busy"
-      :close="!busy"
-    >
-      <template #body>
-        <form
-          id="category-form"
-          class="space-y-4"
-          @submit.prevent="saveCategory"
-        >
-          <UAlert v-if="failure" color="error" :title="failure" role="alert" />
-          <p v-if="operation === 'delete'">
-            Delete “{{ categoryLabel }}”? Notes and conversations in this
-            category will become Uncategorized. No notes, conversations, or
-            messages will be deleted.
-          </p>
-          <UFormField
-            v-else
-            label="Name"
-            name="name"
-            required
-            :hint="`${categoryLabel.length} / ${INPUT_LIMITS.categoryName}`"
-          >
-            <UInput
-              v-model="categoryLabel"
-              autofocus
-              :maxlength="INPUT_LIMITS.categoryName"
-              :disabled="busy"
-              class="w-full"
-            />
-          </UFormField>
-        </form>
-      </template>
-      <template #footer>
-        <UButton
-          color="neutral"
-          variant="ghost"
-          :disabled="busy"
-          @click="categoryDialog = false"
-        >
-          Cancel
-        </UButton>
-        <UButton
-          type="submit"
-          form="category-form"
-          :color="operation === 'delete' ? 'error' : 'primary'"
-          :loading="busy"
-          :disabled="operation !== 'delete' && !categoryLabel.trim()"
-        >
-          {{ operation === "delete" ? "Delete category" : "Save" }}
-        </UButton>
-      </template>
-    </UModal>
+      :operation="categoryOperation"
+      :category-id="categoryTargetId"
+      :name="categoryName"
+      :on-saved="categorySaved"
+    />
   </div>
 </template>
 
