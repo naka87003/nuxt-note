@@ -6,7 +6,7 @@ const codexConfigMarkdown = computed(() => {
 url = ${JSON.stringify(props.endpoint)}
 
 [mcp_servers.nuxt-note.http_headers]
-Authorization = "Bearer YOUR_TOKEN"`;
+Authorization = "Bearer {YOUR_TOKEN}"`;
 
   return ["```toml", config, "```"].join("\n");
 });
@@ -26,15 +26,12 @@ Authorization = "Bearer YOUR_TOKEN"`;
             instead of adding a duplicate.
           </li>
           <li>
-            Replace <code>YOUR_TOKEN</code> with your token, keeping the
-            <code>Bearer </code> prefix and the space after it.
+            Replace <code>{YOUR_TOKEN}</code>, including the braces, with your
+            token. Keep the <code>Bearer</code> prefix and the space after it.
           </li>
           <li>Save the file, restart Codex, and try the prompt above.</li>
         </ol>
         <MarkdownContent :content="codexConfigMarkdown" />
-        <p class="text-muted">
-          The example uses this site's MCP URL and a placeholder token.
-        </p>
       </div>
     </details>
   </div>
