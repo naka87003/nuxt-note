@@ -217,6 +217,7 @@ describe("ChatSession", () => {
     await refreshing;
     expect(wrapper.get("textarea").element.value).toBe("Unsent question");
   });
+
   it("shows loading instead of the conversation and composer until the request completes", async () => {
     const { promise, resolve } = Promise.withResolvers<Conversation>();
     mocks.refresh.mockImplementation((chat) => async () => {
@@ -631,6 +632,7 @@ describe("Chat category deletion", () => {
     expect(wrapper.get("textarea").element.value).toBe("Next question draft");
     expect(request).not.toHaveBeenCalled();
   });
+
   it("does not reload history when the current category still exists", async () => {
     const { categories, load } = await categorySession();
     flow.sending.value = true;
@@ -643,6 +645,7 @@ describe("Chat category deletion", () => {
     expect(load).toHaveBeenCalledTimes(1);
     expect(useRouter().currentRoute.value.query.category).toBe("work");
   });
+
   it("does not assume a missing category is deleted if the server still assigns it", async () => {
     const { categories, load, chat } = await categorySession();
     load.mockResolvedValueOnce(conversation);
@@ -652,6 +655,7 @@ describe("Chat category deletion", () => {
     expect(chat.value?.categoryId).toBe("work");
     expect(useRouter().currentRoute.value.query.category).toBe("work");
   });
+
   it("keeps the conversation and shows reload guidance if category synchronization fails", async () => {
     const { wrapper, categories, load, chat } = await categorySession();
     load.mockRejectedValueOnce(new Error("offline"));

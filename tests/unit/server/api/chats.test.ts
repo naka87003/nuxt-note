@@ -125,6 +125,7 @@ describe("chat ownership and category assignment", () => {
       expect(mocks.chat.update).not.toHaveBeenCalled();
     },
   );
+
   it("returns a preview from the first user message without exposing messages", async () => {
     mocks.chat.findMany.mockResolvedValue([
       {
@@ -151,6 +152,7 @@ describe("chat ownership and category assignment", () => {
       }),
     );
   });
+
   it("does not return another owner's chat or messages", async () => {
     mocks.chat.findFirst.mockImplementation(({ where }) =>
       where.userId === other
@@ -162,12 +164,14 @@ describe("chat ownership and category assignment", () => {
       expect.objectContaining({ where: { id: "item", userId: owner } }),
     );
   });
+
   it("validates chat ownership before checking a category", async () => {
     mocks.chat.findFirst.mockResolvedValue(null);
     await expect(assignChat(event)).rejects.toMatchObject({ statusCode: 404 });
     expect(mocks.category.findFirst).not.toHaveBeenCalled();
     expect(mocks.chat.update).not.toHaveBeenCalled();
   });
+
   it("rejects reassignment to another owner's category", async () => {
     mocks.chat.findFirst.mockResolvedValue({ id: "item" });
     mocks.body.mockResolvedValue({ categoryId: "foreign" });
@@ -178,6 +182,7 @@ describe("chat ownership and category assignment", () => {
     );
     expect(mocks.chat.update).not.toHaveBeenCalled();
   });
+
   it.each([null, "owned"])(
     "changes only categoryId to %j",
     async (categoryId) => {
@@ -197,6 +202,7 @@ describe("chat ownership and category assignment", () => {
       });
     },
   );
+
   it("preserves browser deletion without a version or a request body", async () => {
     expect(await removeChat(event)).toBeUndefined();
     expect(mocks.status).toHaveBeenCalledWith(event, 204);
@@ -206,6 +212,7 @@ describe("chat ownership and category assignment", () => {
     expect(mocks.chat.findFirst).not.toHaveBeenCalled();
     expect(mocks.body).not.toHaveBeenCalled();
   });
+
   it("hides foreign chats on deletion", async () => {
     mocks.chat.deleteMany.mockResolvedValue({ count: 0 });
     await expect(removeChat(event)).rejects.toMatchObject({ statusCode: 404 });
@@ -213,6 +220,7 @@ describe("chat ownership and category assignment", () => {
       where: { id: "item", userId: owner },
     });
   });
+
   it("lists only the owner's filtered conversation history", async () => {
     mocks.query.mockReturnValue({ category: "owned", q: "50%_" });
     await chats(event);

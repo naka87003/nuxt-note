@@ -64,6 +64,7 @@ describe("notes API ownership and validation", () => {
       }),
     );
   });
+
   it("assigns ownership from the session and defaults a blank title", async () => {
     await expect(create(event)).resolves.toEqual({
       id: "note",
@@ -87,6 +88,7 @@ describe("notes API ownership and validation", () => {
     });
     expect(mocks.status).toHaveBeenCalledWith(event, 201);
   });
+
   it.each([
     null,
     [],
@@ -99,6 +101,7 @@ describe("notes API ownership and validation", () => {
     await expect(create(event)).rejects.toMatchObject({ statusCode: 400 });
     expect(mocks.create).not.toHaveBeenCalled();
   });
+
   it.each([
     [{ title: 42, markdown: "" }, "Title must be a string"],
     [{ title: "Title" }, "Markdown body is required"],
@@ -135,6 +138,7 @@ describe("notes API ownership and validation", () => {
       expect(mocks.create).not.toHaveBeenCalled();
     },
   );
+
   it.each([create, list, read, update, remove])(
     "requires authentication before touching data",
     async (handler) => {
@@ -147,6 +151,7 @@ describe("notes API ownership and validation", () => {
       expect(mocks.findFirst).not.toHaveBeenCalled();
     },
   );
+
   it("lists only the current user's notes with content for previews", async () => {
     await list(event);
     expect(mocks.findMany).toHaveBeenCalledWith({
@@ -161,6 +166,7 @@ describe("notes API ownership and validation", () => {
       orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
     });
   });
+
   it("returns a plain text preview without exposing the full note body", async () => {
     mocks.findMany.mockResolvedValue([
       { id: "note", title: "Note", markdown: "# Hello\n\nA **useful** note." },
@@ -171,6 +177,7 @@ describe("notes API ownership and validation", () => {
       { id: "empty", title: "Empty", preview: "" },
     ]);
   });
+
   it("returns 404 for another user's or missing note", async () => {
     mocks.findFirst.mockResolvedValue(null);
     await expect(read(event)).rejects.toMatchObject({ statusCode: 404 });
@@ -222,6 +229,7 @@ describe("note categories and search", () => {
     );
     expect(mocks.create).not.toHaveBeenCalled();
   });
+
   it("assigns an owned category", async () => {
     mocks.category.mockResolvedValue({ id: "owned" });
     mocks.body.mockResolvedValue({
@@ -241,6 +249,7 @@ describe("note categories and search", () => {
       }),
     );
   });
+
   it("keeps literal wildcard search and the selected category within the owner", async () => {
     mocks.query.mockReturnValue({ category: "uncategorized", q: "50%_" });
     await list(event);
@@ -299,6 +308,7 @@ describe("saved-note mutations", () => {
       new Date(version).getTime(),
     );
   });
+
   it("ignores caller ownership and ID fields in favor of the session and route", async () => {
     mocks.body.mockResolvedValue({ ...input, id: "foreign", userId: otherId });
     await update(event);
@@ -308,6 +318,7 @@ describe("saved-note mutations", () => {
       updatedAt: new Date(version),
     });
   });
+
   it("requires an explicit category on browser updates", async () => {
     mocks.body.mockResolvedValue({
       title: "Title",
@@ -320,6 +331,7 @@ describe("saved-note mutations", () => {
     });
     expect(mocks.update).not.toHaveBeenCalled();
   });
+
   it("allows manually edited bodies longer than the AI draft limit", async () => {
     const markdown = "# Edited note\n\n" + "あ".repeat(3001);
     mocks.body.mockResolvedValue({ ...input, markdown });
@@ -328,6 +340,7 @@ describe("saved-note mutations", () => {
       expect.objectContaining({ data: expect.objectContaining({ markdown }) }),
     );
   });
+
   it("validates reassignment ownership", async () => {
     mocks.body.mockResolvedValue({ ...input, categoryId: "owned" });
     mocks.category.mockResolvedValue({ id: "owned" });
@@ -338,12 +351,14 @@ describe("saved-note mutations", () => {
     });
     expect(mocks.update.mock.calls[0]![0].data.categoryId).toBe("owned");
   });
+
   it("rejects a foreign category without changing the note", async () => {
     mocks.body.mockResolvedValue({ ...input, categoryId: "foreign" });
     mocks.category.mockResolvedValue(null);
     await expect(update(event)).rejects.toMatchObject({ statusCode: 404 });
     expect(mocks.update).not.toHaveBeenCalled();
   });
+
   it.each([
     null,
     [],
@@ -356,6 +371,7 @@ describe("saved-note mutations", () => {
     await expect(update(event)).rejects.toMatchObject({ statusCode: 400 });
     expect(mocks.update).not.toHaveBeenCalled();
   });
+
   it.each([
     undefined,
     null,
@@ -373,6 +389,7 @@ describe("saved-note mutations", () => {
       expect(mocks.deleteMany).not.toHaveBeenCalled();
     },
   );
+
   it.each([404, 409])(
     "distinguishes missing/foreign notes from changed notes on update: %s",
     async (statusCode) => {
@@ -387,6 +404,7 @@ describe("saved-note mutations", () => {
       });
     },
   );
+
   it("allows only one concurrent update of the same version", async () => {
     let current = version;
     mocks.update.mockImplementation(async ({ where, data }) => {
@@ -403,6 +421,7 @@ describe("saved-note mutations", () => {
       results.find((result) => result.status === "rejected"),
     ).toMatchObject({ reason: { statusCode: 409 } });
   });
+
   it("deletes only the session-owned, exact version", async () => {
     mocks.body.mockResolvedValue({ updatedAt: version });
     await remove(event);
@@ -411,6 +430,7 @@ describe("saved-note mutations", () => {
     });
     expect(mocks.status).toHaveBeenCalledWith(event, 204);
   });
+
   it.each([404, 409])(
     "distinguishes missing/foreign notes from changed notes on deletion: %s",
     async (statusCode) => {

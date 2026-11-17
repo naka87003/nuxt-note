@@ -2,6 +2,12 @@ export default defineNuxtConfig({
   compatibilityDate: "2026-11-03",
   devtools: { enabled: true },
   modules: ["@comark/vue", "@nuxt/ui", "@nuxt/eslint", "nuxt-auth-utils"],
+  typescript: {
+    tsConfig: {
+      // Include Node-environment tests in type checking with Nuxt's source aliases.
+      include: ["../tests/**/*.ts"],
+    },
+  },
   nitro: {
     vercel: {
       functions: {

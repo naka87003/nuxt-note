@@ -70,6 +70,7 @@ describe("bearer authentication", () => {
       "private, no-store",
     );
   });
+
   it.each([undefined, "", "Basic abc", "Bearer bad", `Bearer ${token} extra`])(
     "rejects malformed credentials without using a session: %s",
     async (value) => {
@@ -82,6 +83,7 @@ describe("bearer authentication", () => {
       expect(mocks.session).not.toHaveBeenCalled();
     },
   );
+
   it("rejects unknown or deleted credentials", async () => {
     mocks.agentToken.findUnique.mockResolvedValue(null);
     await expect(getAgentUserId(event)).rejects.toMatchObject({
@@ -123,11 +125,13 @@ describe("owner-scoped Note reads", () => {
       }),
     );
   });
+
   it("returns a null nextOffset for the final page", async () => {
     await expect(
       searchOwnedNotes(owner, { limit: 20, offset: 0 }),
     ).resolves.toEqual({ notes: [], nextOffset: null });
   });
+
   it("hides another owner's Note with the same 404 as a missing Note", async () => {
     mocks.note.findFirst.mockImplementation(({ where }) =>
       where.userId === other ? { id: "note", markdown: "Private" } : null,
@@ -152,6 +156,7 @@ describe("session-only token management", () => {
     );
     expect(a).not.toHaveProperty("expiresAt");
   });
+
   it("stores only the hash and assigns the session owner", async () => {
     const result = await issue(event);
     expect(result.token).toMatch(/^nnr_/);
@@ -166,6 +171,7 @@ describe("session-only token management", () => {
     expect(data).not.toHaveProperty("expiresAt");
     expect(data).not.toHaveProperty("revokedAt");
   });
+
   it.each([
     null,
     {},
@@ -180,6 +186,7 @@ describe("session-only token management", () => {
     await expect(issue(event)).rejects.toMatchObject({ statusCode: 400 });
     expect(mocks.agentToken.create).not.toHaveBeenCalled();
   });
+
   it.each([issue, tokens, remove])(
     "does not accept a bearer token as a browser session",
     async (handler) => {
@@ -192,6 +199,7 @@ describe("session-only token management", () => {
       expect(mocks.agentToken.deleteMany).not.toHaveBeenCalled();
     },
   );
+
   it("lists only metadata for the session owner", async () => {
     await tokens(event);
     const args = mocks.agentToken.findMany.mock.calls[0]![0];
@@ -199,6 +207,7 @@ describe("session-only token management", () => {
     expect(args.select).not.toHaveProperty("tokenHash");
     expect(args.select).not.toHaveProperty("token");
   });
+
   it("permanently deletes only the session owner's token", async () => {
     await remove(event);
     expect(mocks.agentToken.deleteMany).toHaveBeenCalledWith({
@@ -206,6 +215,7 @@ describe("session-only token management", () => {
     });
     expect(mocks.status).toHaveBeenCalledWith(event, 204);
   });
+
   it("returns 404 for a missing or another owner's token", async () => {
     mocks.agentToken.deleteMany.mockResolvedValue({ count: 0 });
     await expect(remove(event)).rejects.toMatchObject({ statusCode: 404 });

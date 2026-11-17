@@ -13,6 +13,7 @@ describe("Notebook migration", () => {
     ]);
     expect(parseCsv('id,body\n1,""')).toEqual([{ id: "1", body: "" }]);
   });
+
   it("rejects corrupt CSV instead of importing partial content", () => {
     for (const csv of [
       'id,body\n1,"open',
@@ -23,6 +24,7 @@ describe("Notebook migration", () => {
       expect(() => parseCsv(csv)).toThrow();
     }
   });
+
   it("converts Tokyo timestamps to UTC across year boundaries", () => {
     expect(sourceDate("2026-01-01 00:30:00")).toBe("2025-12-31 15:30:00.000");
     expect(() => sourceDate("2026-02-30 00:00:00")).toThrow();
@@ -66,6 +68,7 @@ describe("Notebook migration", () => {
     expect(result[0]).not.toHaveProperty("image_path");
     expect(result[1].categoryKey).toBeNull();
   });
+
   it("rejects missing/foreign tags, duplicate IDs and unsupported status", () => {
     expect(() => prepareNotes([note], [], "12", "target")).toThrow();
     expect(() =>
@@ -76,6 +79,7 @@ describe("Notebook migration", () => {
       prepareNotes([{ ...note, status_id: "2" }], [tag], "12", "target"),
     ).toThrow();
   });
+
   it("keeps import identity stable and isolates different target owners", () => {
     expect(stableId("target", "note", "12:1")).toBe(
       stableId("target", "note", "12:1"),

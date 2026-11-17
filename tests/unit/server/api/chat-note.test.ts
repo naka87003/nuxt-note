@@ -134,6 +134,7 @@ describe("AI Note draft output", () => {
       ).toEqual({ ...goodDraft, categoryId: expected });
     },
   );
+
   it("never selects an ID when the owner has no categories", async () => {
     mocks.generate.mockResolvedValue(
       response({ ...goodDraft, suggestedCategoryId: "foreign" }),
@@ -145,6 +146,7 @@ describe("AI Note draft output", () => {
       }),
     ).toEqual({ ...goodDraft, categoryId: null });
   });
+
   it("preserves category selection while shortening the draft", async () => {
     mocks.generate
       .mockResolvedValueOnce(
@@ -164,6 +166,7 @@ describe("AI Note draft output", () => {
       }),
     ).toEqual({ ...goodDraft, categoryId: null });
   });
+
   it("returns complete Markdown and disables provider retries and storage", async () => {
     const signal = new AbortController().signal;
     await expect(
@@ -182,6 +185,7 @@ describe("AI Note draft output", () => {
       }),
     );
   });
+
   it("trims generated content before applying size limits", async () => {
     mocks.generate.mockResolvedValue(
       response({
@@ -199,6 +203,7 @@ describe("AI Note draft output", () => {
     ).resolves.toEqual({ ...goodDraft, categoryId: null });
     expect(mocks.generate).toHaveBeenCalledTimes(1);
   });
+
   it("shortens oversized content once instead of cutting Markdown", async () => {
     const long = { title: "Long", markdown: "# " + "あ".repeat(3000) };
     mocks.generate
@@ -220,6 +225,7 @@ describe("AI Note draft output", () => {
       "Shorten the supplied note draft",
     );
   });
+
   it("counts Unicode characters, including Markdown and newlines, within 3000", async () => {
     const draft = {
       title: "Title",
@@ -237,6 +243,7 @@ describe("AI Note draft output", () => {
     ).resolves.toEqual({ ...draft, categoryId: null });
     expect(mocks.generate).toHaveBeenCalledTimes(1);
   });
+
   it.each([
     { title: "x".repeat(51), markdown: "Body" },
     { title: "Title", markdown: "x".repeat(3001) },
@@ -256,6 +263,7 @@ describe("AI Note draft output", () => {
       expect(mocks.generate).toHaveBeenCalledTimes(2);
     },
   );
+
   it.each([
     response(goodDraft, "length"),
     response(goodDraft, "error"),
@@ -291,6 +299,7 @@ describe("Chat Note draft API", () => {
     expect(mocks.recover).not.toHaveBeenCalled();
     expect(mocks.generate).not.toHaveBeenCalled();
   });
+
   it("uses only owner-scoped server history and returns an unsaved draft with category", async () => {
     const e = event();
     await expect(handler(e)).resolves.toEqual({
@@ -302,11 +311,13 @@ describe("Chat Note draft API", () => {
     );
     expect(e.node.res.listenerCount("close")).toBe(0);
   });
+
   it("hides foreign and missing chats", async () => {
     mocks.findFirst.mockResolvedValue(null);
     await expect(handler(event())).rejects.toMatchObject({ statusCode: 404 });
     expect(mocks.generate).not.toHaveBeenCalled();
   });
+
   it("excludes failed, stopped and generating assistant messages", async () => {
     mocks.findFirst.mockResolvedValue({
       categoryId: null,
@@ -327,6 +338,7 @@ describe("Chat Note draft API", () => {
       chatCategoryId: null,
     });
   });
+
   it.each([
     [{ categoryId: null, generationId: "active", messages: [] }, 409],
     [{ categoryId: null, generationId: null, messages: [] }, 400],
@@ -351,10 +363,12 @@ describe("Chat Note draft API", () => {
       expect(mocks.generate).not.toHaveBeenCalled();
     },
   );
+
   it("reports missing AI configuration", async () => {
     mocks.config.mockReturnValue({ ...config, openaiApiKey: "" });
     await expect(handler(event())).rejects.toMatchObject({ statusCode: 503 });
   });
+
   it("sanitizes provider failures", async () => {
     mocks.generate.mockRejectedValue(new Error("secret provider detail"));
     await expect(handler(event())).rejects.toMatchObject({
@@ -362,6 +376,7 @@ describe("Chat Note draft API", () => {
       statusMessage: "Could not create the note draft. Please try again.",
     });
   });
+
   it("times out all generation attempts within a single budget and cleans up", async () => {
     vi.useFakeTimers();
 
@@ -389,6 +404,7 @@ describe("Chat Note draft API", () => {
       vi.useRealTimers();
     }
   });
+
   it("aborts abandoned requests without returning a background draft", async () => {
     const e = event();
     mocks.generate.mockImplementation(async ({ abortSignal }) => {
@@ -399,6 +415,7 @@ describe("Chat Note draft API", () => {
     });
     await expect(handler(e)).rejects.toMatchObject({ statusCode: 504 });
   });
+
   it("does not reset the timeout budget for the shortening request", async () => {
     vi.useFakeTimers();
 

@@ -4,7 +4,7 @@ import { readWebpage } from "~~/server/utils/web-page";
 
 vi.mock("~~/server/utils/web-page", () => ({ readWebpage: vi.fn() }));
 beforeEach(() => vi.resetAllMocks());
-const context = { toolCallId: "call", messages: [] };
+const context = { toolCallId: "call", messages: [], context: {} };
 
 it("checks generation ownership before reading a page", async () => {
   const assertActive = vi.fn().mockRejectedValue(new Error("inactive"));

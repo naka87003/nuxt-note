@@ -364,6 +364,7 @@ describe("NoteEditor conflicts", () => {
     });
     expect(wrapper.emitted("saved")).toHaveLength(1);
   });
+
   it("requires a new confirmation when another update races an overwrite", async () => {
     const wrapper = await conflictEditor();
     const newerVersion = "2026-11-13T00:00:03.000Z";
@@ -390,6 +391,7 @@ describe("NoteEditor conflicts", () => {
     await flushPromises();
     expect(request.mock.calls.at(-1)![1].body.updatedAt).toBe(newerVersion);
   });
+
   it("preserves the draft when preparing confirmation fails and offers a manual retry", async () => {
     const wrapper = await conflictEditor(new Error("offline"));
     expect(wrapper.text()).toContain("Could not prepare overwrite");
@@ -406,6 +408,7 @@ describe("NoteEditor conflicts", () => {
       request.mock.calls.filter(([, options]) => options.method === "PATCH"),
     ).toHaveLength(1);
   });
+
   it("keeps the confirmation and draft after a failed overwrite, and blocks duplicate submissions", async () => {
     const wrapper = await conflictEditor();
     const { promise, reject } = Promise.withResolvers<never>();
@@ -430,6 +433,7 @@ describe("NoteEditor conflicts", () => {
     );
     expect(wrapper.emitted("saved")).toBeUndefined();
   });
+
   it("preserves a deleted Note's draft and prevents further writes", async () => {
     const wrapper = await conflictEditor({ statusCode: 404 });
     expect(wrapper.text()).toContain("deleted or is no longer available");

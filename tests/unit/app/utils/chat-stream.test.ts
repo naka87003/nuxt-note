@@ -77,7 +77,7 @@ it.each([
   { type: "done", status: "completed", categoryId: 123 },
 ])("rejects an invalid event without yielding it: %j", async (event) => {
   const body = new Response(`data: ${JSON.stringify(event)}\n\n`).body!;
-  const received = [];
+  const received: ChatStreamEvent[] = [];
 
   const reading = async () => {
     for await (const value of readChatStream(body)) received.push(value);

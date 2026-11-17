@@ -297,6 +297,7 @@ it.each([
   );
   expect(request).toHaveBeenCalledTimes(1);
 });
+
 it.each([
   "navigation",
   "cancelled navigation",
@@ -343,6 +344,7 @@ it.each([
     expect(request).not.toHaveBeenCalled();
   },
 );
+
 it.each([
   "navigation",
   "cancelled navigation",
@@ -418,6 +420,7 @@ it("refreshes a saved Note without warning when its category URL is already curr
   expect(addToast).not.toHaveBeenCalled();
   expect(request).not.toHaveBeenCalled();
 });
+
 it("refreshes lists after a duplicate navigation when opening a newly saved Note", async () => {
   const wrapper = await mountSuspended(NewNotePage, {
     route: "/notes/new?category=work",
@@ -442,6 +445,7 @@ it("refreshes lists after a duplicate navigation when opening a newly saved Note
   expect(addToast).not.toHaveBeenCalled();
   expect(request).not.toHaveBeenCalled();
 });
+
 it("does not report a post-deletion view error for duplicate navigation", async () => {
   const { wrapper } = await deletionPage();
   navigate.mockResolvedValueOnce(await duplicatedNavigation());

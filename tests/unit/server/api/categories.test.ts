@@ -80,6 +80,7 @@ describe("shared categories", () => {
     });
     expect(mocks.status).toHaveBeenCalledWith(event, 201);
   });
+
   it.each([
     null,
     [],
@@ -94,6 +95,7 @@ describe("shared categories", () => {
     await expect(create(event)).rejects.toMatchObject({ statusCode: 400 });
     expect(mocks.category.create).not.toHaveBeenCalled();
   });
+
   it.each([create, rename])(
     "returns a recoverable conflict for duplicate names",
     async (handler) => {
@@ -102,6 +104,7 @@ describe("shared categories", () => {
       await expect(handler(event)).rejects.toMatchObject({ statusCode: 409 });
     },
   );
+
   it("uses the shared order and counts both workspaces only for the owner", async () => {
     mocks.category.findMany.mockResolvedValue([
       { id: "empty", name: "Empty", _count: { notes: 0, chats: 0 } },
@@ -133,6 +136,7 @@ describe("shared categories", () => {
       where: { userId: owner, categoryId: null },
     });
   });
+
   it.each([rename, remove])(
     "hides another owner's category on mutations",
     async (handler) => {
@@ -148,6 +152,7 @@ describe("shared categories", () => {
       expect(calls[0]?.[0].where).toEqual({ id: "item", userId: owner });
     },
   );
+
   it("deletes only the owned category, leaving SET NULL to the database", async () => {
     await remove(event);
     expect(mocks.category.deleteMany).toHaveBeenCalledWith({
