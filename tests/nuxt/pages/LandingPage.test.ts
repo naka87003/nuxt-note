@@ -83,3 +83,17 @@ it("preserves the normal sign-in link for signed-out visitors", async () => {
   expect(navigateTo).not.toHaveBeenCalled();
   expect(wrapper.get(".sign-in").find(".animate-spin").exists()).toBe(false);
 });
+
+it("updates prerendered sign-in links when the client session is restored", async () => {
+  const { session } = useUserSession();
+  const signedInSession = session.value;
+  session.value = {};
+  const wrapper = await mountLanding();
+  expect(wrapper.findAll('a[href="/login"]')).toHaveLength(3);
+
+  session.value = signedInSession;
+  await flushPromises();
+
+  expect(wrapper.findAll('a[href="/notes"]')).toHaveLength(3);
+  expect(wrapper.get(".sign-in").text()).toBe("Open notebook");
+});

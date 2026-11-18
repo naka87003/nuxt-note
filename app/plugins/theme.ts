@@ -1,6 +1,7 @@
 import colors from "tailwindcss/colors";
 import { nuxtSymbolPath } from "~/utils/brand";
 import { neutralColors, primaryColors, resolveThemeColor } from "~/utils/theme";
+import { themeInitScript } from "~/utils/theme-init";
 
 export default defineNuxtPlugin(() => {
   const appConfig = useAppConfig();
@@ -36,6 +37,14 @@ export default defineNuxtPlugin(() => {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 54 324 216"><path fill="${color}" d="${nuxtSymbolPath}"/></svg>`;
 
     return {
+      // Restore colors in the head before the prerendered body is painted.
+      script: [
+        {
+          key: "theme-init",
+          innerHTML: themeInitScript,
+          tagPriority: "high",
+        },
+      ],
       link: [
         {
           key: "favicon",

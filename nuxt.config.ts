@@ -1,6 +1,9 @@
 export default defineNuxtConfig({
   compatibilityDate: "2026-11-03",
   devtools: { enabled: true },
+  routeRules: {
+    "/": { prerender: true },
+  },
   modules: ["@comark/vue", "@nuxt/ui", "@nuxt/eslint", "nuxt-auth-utils"],
   typescript: {
     tsConfig: {
