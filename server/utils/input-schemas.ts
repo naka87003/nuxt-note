@@ -17,7 +17,10 @@ function limitedText(maximum: number, label: string) {
           : `${label} must be a string`,
     })
     .max(maximum, { error })
-    .refine((value) => value.length <= maximum, { error });
+    .refine((value) => value.length <= maximum, { error })
+    .describe(
+      `${label}: at most ${maximum} UTF-16 code units before trimming; emoji may count as two units.`,
+    );
 }
 
 // Keep transport schemas free of transforms so MCP can publish their JSON Schema.

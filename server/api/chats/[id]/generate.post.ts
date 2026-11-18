@@ -3,7 +3,7 @@ import { waitUntil } from "@vercel/functions";
 import type { ChatStatus, ChatStreamEvent } from "#shared/types/chat";
 import { createError } from "nuxt/server";
 import { createOpenAI } from "@ai-sdk/openai";
-import { stepCountIs, streamText } from "ai";
+import { InvalidToolInputError, stepCountIs, streamText } from "ai";
 import {
   CHAT_NOTES_INSTRUCTIONS,
   CHAT_TOOL_STEPS,
@@ -177,6 +177,7 @@ export default defineEventHandler(async (event) => {
     });
 
     const sources = new Map<string, string>();
+    const invalidInputCalls = new Set<string>();
     let progressLabel = "";
 
     const publishProgress = async (label: string) => {
@@ -263,6 +264,14 @@ export default defineEventHandler(async (event) => {
           part.type === "tool-input-start" ||
           part.type === "tool-call"
         ) {
+          if (
+            part.type === "tool-call" &&
+            part.invalid &&
+            InvalidToolInputError.isInstance(part.error)
+          ) {
+            invalidInputCalls.add(part.toolCallId);
+          }
+
           await publishProgress(chatToolProgress(part.toolName));
         } else if (part.type === "tool-result" && !part.preliminary) {
           await publishProgress("Preparing response…");
@@ -271,6 +280,14 @@ export default defineEventHandler(async (event) => {
         } else if (part.type === "error") {
           throw part.error;
         } else if (part.type === "tool-error") {
+          // This covers all input validation errors (length, missing fields, types).
+          // The SDK sends them back to the model for correction.
+          // No tool ran, so keep consuming its response instead of failing the chat.
+          if (invalidInputCalls.delete(part.toolCallId)) {
+            await publishProgress("Preparing response…");
+            continue;
+          }
+
           throw new Error("Could not execute a Chat tool.");
         } else if (part.type === "finish") {
           const references = webSourceLinks(sources);

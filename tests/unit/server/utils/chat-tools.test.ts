@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { simulateReadableStream, stepCountIs, streamText } from "ai";
+import {
+  InvalidToolInputError,
+  simulateReadableStream,
+  stepCountIs,
+  streamText,
+} from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { createWorkspaceTools } from "~~/server/utils/workspace-tools";
 import {
@@ -2001,6 +2006,56 @@ describe("in-app Note tools", () => {
   });
 });
 
+const usage = {
+  inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+  outputTokens: { total: 1, text: 1, reasoning: 0 },
+};
+
+function toolStep(toolName: string, args: object, index: number) {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        {
+          type: "tool-call" as const,
+          toolCallId: `call-${index}`,
+          toolName,
+          input: JSON.stringify(args),
+        },
+        {
+          type: "finish" as const,
+          finishReason: { unified: "tool-calls" as const, raw: undefined },
+          usage,
+        },
+      ],
+      initialDelayInMs: null,
+      chunkDelayInMs: null,
+    }),
+  };
+}
+
+function answerStep() {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: "text-start" as const, id: "answer" },
+        {
+          type: "text-delta" as const,
+          id: "answer",
+          delta: "Updated [Title](https://notes.example/notes/note).",
+        },
+        { type: "text-end" as const, id: "answer" },
+        {
+          type: "finish" as const,
+          finishReason: { unified: "stop" as const, raw: undefined },
+          usage,
+        },
+      ],
+      initialDelayInMs: null,
+      chunkDelayInMs: null,
+    }),
+  };
+}
+
 it.each([
   [false, false],
   [true, false],
@@ -2023,33 +2078,6 @@ it.each([
       nextOffset: null,
     });
 
-    const usage = {
-      inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
-      outputTokens: { total: 1, text: 1, reasoning: 0 },
-    };
-
-    function toolStep(toolName: string, args: object, index: number) {
-      return {
-        stream: simulateReadableStream({
-          chunks: [
-            {
-              type: "tool-call" as const,
-              toolCallId: `call-${index}`,
-              toolName,
-              input: JSON.stringify(args),
-            },
-            {
-              type: "finish" as const,
-              finishReason: { unified: "tool-calls" as const, raw: undefined },
-              usage,
-            },
-          ],
-          initialDelayInMs: null,
-          chunkDelayInMs: null,
-        }),
-      };
-    }
-
     const model = new MockLanguageModelV4({
       doStream: [
         ...(knownLink ? [] : [toolStep("list_notes", { q: "Title" }, 1)]),
@@ -2067,26 +2095,7 @@ it.each([
           categoryOnly ? { ...input, categoryId: null } : update,
           3,
         ),
-        {
-          stream: simulateReadableStream({
-            chunks: [
-              { type: "text-start", id: "answer" },
-              {
-                type: "text-delta",
-                id: "answer",
-                delta: "Updated [Title](https://notes.example/notes/note).",
-              },
-              { type: "text-end", id: "answer" },
-              {
-                type: "finish",
-                finishReason: { unified: "stop", raw: undefined },
-                usage,
-              },
-            ],
-            initialDelayInMs: null,
-            chunkDelayInMs: null,
-          }),
-        },
+        answerStep(),
       ],
     });
 
@@ -2121,11 +2130,9 @@ it.each([
     expect(parts.filter((part) => part.type === "tool-result")).toHaveLength(
       knownLink || categoryOnly ? 2 : 3,
     );
-    expect(
-      parts.filter(
-        (part) => part.type === "tool-error" || part.type === "error",
-      ),
-    ).toEqual([]);
+    expect(parts.filter((part) => part.type === "error")).toEqual([]);
+    expect(parts.filter((part) => part.type === "tool-error")).toEqual([]);
+
     expect(await result.text).toBe(
       "Updated [Title](https://notes.example/notes/note).",
     );
@@ -2151,3 +2158,53 @@ it.each([
     );
   },
 );
+
+it("recovers from an oversized Note update through the AI SDK loop without saving invalid input", async () => {
+  const { tools } = setup();
+
+  const model = new MockLanguageModelV4({
+    doStream: [
+      toolStep("get_note", { id: "note" }, 1),
+      toolStep("update_note", { ...update, markdown: "a".repeat(5001) }, 2),
+      toolStep("update_note", update, 3),
+      answerStep(),
+    ],
+  });
+
+  const result = streamText({
+    model,
+    tools,
+    system: CHAT_NOTES_INSTRUCTIONS,
+    messages: [{ role: "user", content: "Update the Note." }],
+    stopWhen: stepCountIs(8),
+    maxRetries: 0,
+  });
+
+  const parts = [];
+  for await (const part of result.stream) parts.push(part);
+
+  expect(parts.filter((part) => part.type === "error")).toEqual([]);
+  expect(parts.filter((part) => part.type === "tool-error")).toEqual([
+    expect.objectContaining({ type: "tool-error", toolCallId: "call-2" }),
+  ]);
+  expect(parts).toContainEqual(
+    expect.objectContaining({
+      type: "tool-call",
+      toolCallId: "call-2",
+      invalid: true,
+      error: expect.any(InvalidToolInputError),
+    }),
+  );
+  expect(parts.filter((part) => part.type === "tool-result")).toHaveLength(2);
+  expect(writes.updateOwnedNote).toHaveBeenCalledExactlyOnceWith(
+    "owner",
+    update,
+  );
+  expect(model.doStreamCalls).toHaveLength(4);
+  expect(JSON.stringify(model.doStreamCalls[2]!.prompt)).toContain(
+    "Markdown body must be at most 5000 characters",
+  );
+  expect(await result.text).toBe(
+    "Updated [Title](https://notes.example/notes/note).",
+  );
+});

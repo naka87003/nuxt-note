@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { InvalidToolInputError } from "ai";
 import generate from "~~/server/api/chats/[id]/generate.post";
 import sendMessage from "~~/server/api/chats/[id]/messages.post";
 import createChat from "~~/server/api/chats/index.post";
@@ -706,6 +707,81 @@ describe("Chat generation", () => {
       expect.objectContaining({ data: { content: "", status: "failed" } }),
     );
   });
+
+  it("continues after invalid tool input so the model can explain the Note limit", async () => {
+    const content =
+      "The Note exceeds the 5,000 character limit. May I summarize it?";
+
+    mocks.streamText.mockReturnValue({
+      stream: (async function* () {
+        yield {
+          type: "tool-call",
+          toolCallId: "invalid",
+          toolName: "update_note",
+          invalid: true,
+          error: new InvalidToolInputError({
+            toolName: "update_note",
+            toolInput: "private note content",
+            cause: new Error("Markdown body must be at most 5000 characters"),
+          }),
+        };
+        yield {
+          type: "tool-error",
+          toolCallId: "invalid",
+          error: "private validation details",
+        };
+        yield { type: "text-delta", text: content };
+        yield { type: "finish", finishReason: "stop" };
+      })(),
+    });
+    await run();
+    expect(mocks.message.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: { content, status: "completed" } }),
+    );
+    expect(JSON.stringify(mocks.push.mock.calls)).not.toContain("private");
+  });
+
+  it.each([false, true])(
+    "fails an unrelated tool error after invalid input (validation error received: %s)",
+    async (validationErrorReceived) => {
+      mocks.streamText.mockReturnValue({
+        stream: (async function* () {
+          yield {
+            type: "tool-call",
+            toolCallId: "call_001",
+            toolName: "update_note",
+            invalid: true,
+            error: new InvalidToolInputError({
+              toolName: "update_note",
+              toolInput: "private note content",
+              cause: new Error("Invalid input"),
+            }),
+          };
+
+          if (validationErrorReceived) {
+            yield {
+              type: "tool-error",
+              toolCallId: "call_001",
+              error: "private validation details",
+            };
+          }
+
+          yield {
+            type: "tool-error",
+            toolCallId: "call_002",
+            error: new Error("private execution details"),
+          };
+          yield { type: "text-delta", text: "Done" };
+          yield { type: "finish", finishReason: "stop" };
+        })(),
+      });
+      await run();
+      expect(mocks.message.updateMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({ data: { content: "", status: "failed" } }),
+      );
+      expect(JSON.stringify(mocks.push.mock.calls)).not.toContain("private");
+    },
+  );
 
   it("fails tool execution errors without leaking details", async () => {
     mocks.streamText.mockReturnValue({

@@ -52,7 +52,7 @@ export const CHAT_NOTES_INSTRUCTIONS =
   "On update conflict, read again and reconcile changes; never blindly retry with a new timestamp. " +
   "On deletion conflict, read again and ask the user to confirm deletion of the changed Note in a new message. " +
   "Present successfully created or updated Notes as clickable Markdown links using the returned title and url. " +
-  "If a tool fails, explain that it failed without claiming success. Do not automatically repeat a create call. ";
+  "If a tool fails, explain that it failed without claiming success. A create call may be retried with corrected arguments only when input validation explicitly rejected it before execution and the requested content can be preserved. If creation succeeded or its outcome is uncertain, do not automatically repeat the create call, as this may create duplicates. ";
 
 // Resolve app links locally; never fetch a model-supplied URL.
 function noteIdFromReference(
