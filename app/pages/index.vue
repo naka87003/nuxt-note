@@ -4,34 +4,10 @@ import { siteDescription, siteTitle } from "~/utils/seo";
 definePageMeta({ layout: false });
 const { loggedIn } = useUserSession();
 const startTo = computed(() => (loggedIn.value ? "/notes" : "/login"));
-const opening = ref<"header" | "hero" | "closing" | null>(null);
+const { opening, pending, navigate } = useLinkNavigation(startTo);
 
-async function openNotebook(event: MouseEvent, source: typeof opening.value) {
-  if (!loggedIn.value) return;
-
-  if (
-    event.button !== 0 ||
-    event.metaKey ||
-    event.ctrlKey ||
-    event.shiftKey ||
-    event.altKey
-  ) {
-    return;
-  }
-
-  event.preventDefault();
-  if (opening.value) return;
-  opening.value = source;
-
-  try {
-    const failure = await navigateTo(startTo.value);
-    // Successful routing can finish before the destination's async setup.
-    // Keep loading until this page is unmounted; reset only on failure.
-    if (failure !== undefined) opening.value = null;
-  } catch (error) {
-    opening.value = null;
-    throw error;
-  }
+function openNotebook(event: MouseEvent, source: string) {
+  if (loggedIn.value) return navigate(event, source);
 }
 
 const features = [
@@ -96,7 +72,7 @@ useSeoMeta({
           <UButton
             :to="startTo"
             :loading="opening === 'header'"
-            :disabled="opening !== null"
+            :disabled="pending"
             color="neutral"
             variant="outline"
             class="sign-in"
@@ -121,7 +97,7 @@ useSeoMeta({
               <UButton
                 :to="startTo"
                 :loading="opening === 'hero'"
-                :disabled="opening !== null"
+                :disabled="pending"
                 size="xl"
                 @click="openNotebook($event, 'hero')"
               >
@@ -243,7 +219,7 @@ useSeoMeta({
           <UButton
             :to="startTo"
             :loading="opening === 'closing'"
-            :disabled="opening !== null"
+            :disabled="pending"
             size="xl"
             @click="openNotebook($event, 'closing')"
           >

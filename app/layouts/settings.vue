@@ -1,14 +1,22 @@
+<script setup lang="ts">
+const { pending: returningToNotes, navigate: backToNotes } =
+  useLinkNavigation("/notes");
+</script>
+
 <template>
   <div class="min-h-dvh">
     <header class="settings-header sticky top-0 z-20">
       <div class="header-side">
         <UButton
           to="/notes"
+          :loading="returningToNotes"
           icon="i-lucide-arrow-left"
           variant="ghost"
           color="neutral"
           class="min-h-11"
           aria-label="Back to Notes"
+          :aria-busy="returningToNotes"
+          @click="backToNotes"
         />
       </div>
       <NuxtLink to="/" aria-label="Nuxt Note home">

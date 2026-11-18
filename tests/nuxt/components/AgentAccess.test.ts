@@ -5,17 +5,22 @@ import { defineComponent, ref } from "vue";
 import { useError } from "#imports";
 import AgentAccess from "~/pages/settings/agent-access.vue";
 
-const { request, refresh, tokens } = vi.hoisted(() => {
+const { request, refresh, tokens, loadState } = vi.hoisted(() => {
   const tokens: { id: string; name: string; createdAt: string }[] = [];
 
   // The auth plugin fetches the session before beforeEach configures API results.
-  return { request: vi.fn().mockResolvedValue(null), refresh: vi.fn(), tokens };
+  return {
+    request: vi.fn().mockResolvedValue(null),
+    refresh: vi.fn(),
+    tokens,
+    loadState: { status: "success" },
+  };
 });
 
 mockNuxtImport("$fetch", () => request);
 mockNuxtImport("useFetch", () => () => ({
   data: ref(tokens),
-  status: ref("success"),
+  status: ref(loadState.status),
   error: ref(null),
   refresh,
 }));
@@ -24,11 +29,30 @@ const token = `nnr_${"a".repeat(43)}`;
 beforeEach(() => {
   expect(useError().value).toBeUndefined();
   tokens.length = 0;
+  loadState.status = "success";
   request.mockReset().mockResolvedValue({ id: "token-id", token });
   refresh.mockReset().mockResolvedValue(undefined);
 });
 
 describe("Agent access token display", () => {
+  it.each(["idle", "pending"])(
+    "shows the same loading markup while token fetching is %s",
+    async (status) => {
+      loadState.status = status;
+      const wrapper = await mountSuspended(AgentAccess);
+
+      expect(wrapper.get('p[role="status"]').text()).toBe("Loading tokens…");
+      expect(wrapper.text()).not.toContain("No agent tokens yet.");
+    },
+  );
+
+  it("shows the empty state only after token fetching succeeds", async () => {
+    const wrapper = await mountSuspended(AgentAccess);
+
+    expect(wrapper.text()).toContain("No agent tokens yet.");
+    expect(wrapper.find('p[role="status"]').exists()).toBe(false);
+  });
+
   it("shows deletion errors inside the dialog and clears them when reopened", async () => {
     tokens.push({
       id: "token-id",

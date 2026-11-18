@@ -207,7 +207,9 @@ async function deleteToken() {
 
     <section class="space-y-4" aria-labelledby="tokens-heading">
       <h2 id="tokens-heading" class="text-lg font-semibold">Your tokens</h2>
-      <p v-if="status === 'pending'" role="status">Loading tokens…</p>
+      <p v-if="status === 'idle' || status === 'pending'" role="status">
+        Loading tokens…
+      </p>
       <div v-else-if="loadError" role="alert">
         <p>Could not load tokens.</p>
         <UButton variant="outline" @click="refresh()">Retry</UButton>
